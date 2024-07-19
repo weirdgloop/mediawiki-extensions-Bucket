@@ -1,5 +1,7 @@
 <?php
 
+namespace MediaWiki\Extension\Bucket;
+
 class Bucket {
 
     private static $dataTypes = [
@@ -37,7 +39,7 @@ class Bucket {
             // TODO: this misses deleting things that are no longer in the output
             // TODO: not safe
             $dbTableName = 'bucket__' . $tableName;
-            $res = $dbw->select( 
+            $res = $dbw->select(
                 $dbTableName,
                 '*',
                 [ '_page_id' => $pageId ]
@@ -77,7 +79,7 @@ class Bucket {
             $dbw->delete( $dbTableName, [ '_page_id' => $pageId ] );
             // TODO: maybe chunk?
             $dbw->insert($dbTableName, $tablePuts);
-            
+
             // $dbw->commit();
 
         }
@@ -161,7 +163,7 @@ class Bucket {
         // only support is for ADD COLUMN, ADD INDEX, DROP INDEX
         $alterTableFragments = [];
 
-        foreach ($newSchema as $fieldName => $fieldData) {    
+        foreach ($newSchema as $fieldName => $fieldData) {
             if (!isset($oldSchema[$fieldName])) {
                 $alterTableFragments[] = "ADD `$fieldName` TEXT";
                 if ($fieldData['index']) {
@@ -262,13 +264,13 @@ class Bucket {
     }
 
     public function isNot($condition) {
-        return is_array($condition) 
+        return is_array($condition)
         && $condition['op'] == "NOT"
         && isset($condition['operand']);
     }
 
     public function isOrAnd($condition) {
-        return is_array($condition) 
+        return is_array($condition)
         && ($condition['op'] === "OR" || $condition['op'] === "AND")
         && is_array($condition['operands']);
     }
@@ -329,7 +331,7 @@ class Bucket {
                 $condition = [$condition[0], '=', $condition[1]];
             }
             $columnName = self::sanitizeColumnName($condition[0], $fieldNamesToTables, $schemas);
-            if (!isset(self::$WHERE_OPS[$condition[1]])) { 
+            if (!isset(self::$WHERE_OPS[$condition[1]])) {
                 throw new QueryException("Invalid op for WHERE: " . $condition[1]);
             }
             $op = $condition[1];

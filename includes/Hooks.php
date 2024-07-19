@@ -1,9 +1,12 @@
 <?php
+
+namespace MediaWiki\Extension\Bucket;
+
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Revision\RenderedRevision;
 use MediaWiki\Revision\SlotRecord;
 use MediaWiki\User\UserIdentity;
-class BucketHooks {
+class Hooks {
 
 	public static function registerExtension() {
 		define( 'BUCKET_VERSION', '0.1' );

@@ -1,8 +1,10 @@
 <?php
 
+namespace MediaWiki\Extension\Bucket;
+
 use MediaWiki\MediaWikiServices;
 
-class BucketLuaLibrary extends Scribunto_LuaLibraryBase {
+class LuaLibrary extends Scribunto_LuaLibraryBase {
 	public function register() {
 		$lib = [
 			'put' => [ $this, 'bucketPut' ],
