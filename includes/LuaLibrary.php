@@ -16,12 +16,12 @@ class LuaLibrary extends LibraryBase {
 
 	public function bucketPut( $table_name, $data ): void {
 		$parserOutput = $this->getParser()->getOutput();
-		$bucketPuts = $parserOutput->getExtensionData( 'bucket:puts' ) ?? [];
+		$bucketPuts = $parserOutput->getExtensionData( Bucket::EXTENSION_DATA_KEY ) ?? [];
 		if ( !array_key_exists( $table_name, $bucketPuts ) ) {
 			$bucketPuts[ $table_name ] = [];
 		}
 		$bucketPuts[ $table_name ][] = $data;
-		$parserOutput->setExtensionData( 'bucket:puts', $bucketPuts );
+		$parserOutput->setExtensionData( Bucket::EXTENSION_DATA_KEY, $bucketPuts );
 	}
 
 	public function bucketRun( $data ): array {

@@ -5,6 +5,8 @@ namespace MediaWiki\Extension\Bucket;
 use MediaWiki\MediaWikiServices;
 
 class Bucket {
+	public const EXTENSION_DATA_KEY = 'bucket:puts';
+
 	private static $dataTypes = [
 		'BOOLEAN' => true,
 		'DOUBLE' => true,
