@@ -33,8 +33,8 @@ class Hooks implements
 	 * @return bool|void
 	 */
 	public function onLinksUpdateComplete( $linksUpdate, $ticket ) {
-		$bucketPuts = $linksUpdate->getParserOutput()->bucketPuts;
-		if ( isset( $bucketPuts ) ) {
+		$bucketPuts = $linksUpdate->getParserOutput()->getExtensionData( 'bucket:puts' );
+		if ( $bucketPuts !== null ) {
 			$pageId = $linksUpdate->getTitle()->getArticleID();
 			$titleText = $linksUpdate->getParserOutput()->getTitleText();
 			Bucket::writePuts( $pageId, $titleText, $bucketPuts );
