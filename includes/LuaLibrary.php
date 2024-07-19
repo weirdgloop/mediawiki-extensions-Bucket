@@ -2,37 +2,37 @@
 
 namespace MediaWiki\Extension\Bucket;
 
-use MediaWiki\MediaWikiServices;
+use MediaWiki\Extension\Scribunto\Engines\LuaCommon\LibraryBase;
 
-class LuaLibrary extends Scribunto_LuaLibraryBase {
+class LuaLibrary extends LibraryBase {
 	public function register() {
 		$lib = [
 			'put' => [ $this, 'bucketPut' ],
 			'get' => [ $this, 'bucketGet' ],
 			'run' => [ $this, 'bucketRun' ]
 		];
-		return $this->getEngine()->registerInterface( __DIR__ . '/../lua/bucket.lua', $lib, [] );
+		return $this->getEngine()->registerInterface( __DIR__ . '/mw.ext.bucket.lua', $lib, [] );
 	}
 
-	public function bucketPut($table_name, $data): void {
+	public function bucketPut( $table_name, $data ): void {
 		$parserOutput = $this->getParser()->getOutput();
-		if (!isset($parserOutput->bucketPuts)) {
+		if ( !isset( $parserOutput->bucketPuts ) ) {
 			$parserOutput->bucketPuts = [];
 		}
-		if (!array_key_exists($table_name, $parserOutput->bucketPuts)) {
+		if ( !array_key_exists( $table_name, $parserOutput->bucketPuts ) ) {
 			$parserOutput->bucketPuts[ $table_name ] = [];
 		}
 		$parserOutput->bucketPuts[ $table_name ][] = $data;
 	}
 
-	public function bucketRun($data): array {
-		$data = self::convertFromLuaTable($data);
-		$rows = Bucket::runSelect($data);
-		return [ self::convertToLuaTable($rows) ];
+	public function bucketRun( $data ): array {
+		$data = self::convertFromLuaTable( $data );
+		$rows = Bucket::runSelect( $data );
+		return [ self::convertToLuaTable( $rows ) ];
 	}
 
 	// Go from 0-index to 1-index.
-	public function convertToLuaTable($arr) {
+	public function convertToLuaTable( $arr ) {
 		if ( is_array( $arr ) ) {
 			$luaTable = [];
 			foreach ( $arr as $key => $value ) {
@@ -47,7 +47,7 @@ class LuaLibrary extends Scribunto_LuaLibraryBase {
 	}
 
 	// Go from 1-index to 0-index.
-	public function convertFromLuaTable($arr) {
+	public function convertFromLuaTable( $arr ) {
 		if ( is_array( $arr ) ) {
 			$luaTable = [];
 			foreach ( $arr as $key => $value ) {

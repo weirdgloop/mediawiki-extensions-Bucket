@@ -92,7 +92,7 @@ end
 
 setmetatable(bucket, {
     __call = function(tbl, tableName)
-        return QueryBuilder:new(tableName)  
+        return QueryBuilder:new(tableName)
     end
 })
 

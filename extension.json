@@ -1,32 +1,18 @@
 {
 	"name": "Bucket",
 	"version": "0.1",
-	"author": "Jonathan Lee",
+	"author": [
+		"Jonathan Lee",
+		"TehKittyCat"
+	],
 	"url": "https://www.mediawiki.org/wiki/Extension:Bucket",
 	"license-name": "GPL-2.0-or-later",
-	"type": "parserhook",
+	"type": "other",
 	"requires": {
-		"MediaWiki": ">= 1.34"
+		"MediaWiki": ">= 1.41"
 	},
-	"callback": "BucketHooks::registerExtension",
-	"ExtensionFunctions": [
-		"BucketHooks::initialize"
-	],
-	"AvailableRights": [],
-	"GroupPermissions": {},
-	"SpecialPages": {},
-	"JobClasses": {},
-	"APIModules": {},
-	"LogTypes": [],
-	"LogNames": {},
-	"LogHeaders": {},
-	"LogActions": {},
-	"MessagesDirs": {},
-	"ExtensionMessagesFiles": {},
-	"AutoloadClasses": {
-		"Bucket": "Bucket.php",
-		"BucketHooks": "BucketHooks.php",
-		"BucketLuaLibrary": "includes/BucketLuaLibrary.php"
+	"AutoloadNamespaces": {
+		"MediaWiki\\Extension\\Bucket\\": "includes/"
 	},
 	"namespaces": [
 			{
@@ -41,17 +27,16 @@
 				"name": "Bucket_talk"
 			}
 	],
-	"ResourceModules": {},
-	"ResourceFileModulePaths": {},
-	"Actions": {},
 	"Hooks": {
-		"ScribuntoExternalLibraries": "BucketHooks::addLuaLibrary",
-		"LinksUpdateComplete": "BucketHooks::onLinksUpdateComplete",
-		"MultiContentSave": "BucketHooks::onMultiContentSave",
-		"LoadExtensionSchemaUpdates": [
-			"BucketHooks::createTables"
-		]
+		"LinksUpdateComplete": "BucketHookHandler",
+		"LoadExtensionSchemaUpdates": "BucketHookHandler",
+		"MultiContentSave": "BucketHookHandler",
+		"ScribuntoExternalLibraries": "BucketHookHandler"
 	},
-	"config": {},
-	"manifest_version": 1
+	"HookHandlers": {
+		"BucketHookHandler": {
+			"class": "MediaWiki\\Extension\\Bucket\\Hooks"
+		}
+	},
+	"manifest_version": 2
 }

@@ -2,59 +2,81 @@
 
 namespace MediaWiki\Extension\Bucket;
 
-use MediaWiki\MediaWikiServices;
-use MediaWiki\Revision\RenderedRevision;
+use MediaWiki\Content\JsonContent;
+use MediaWiki\Extension\Scribunto\Hooks\ScribuntoExternalLibrariesHook;
+use MediaWiki\Hook\LinksUpdateCompleteHook;
+use MediaWiki\Hook\LoadExtensionSchemaUpdatesHook;
+use MediaWiki\Hook\MultiContentSaveHook;
 use MediaWiki\Revision\SlotRecord;
-use MediaWiki\User\UserIdentity;
-class Hooks {
 
-	public static function registerExtension() {
-		define( 'BUCKET_VERSION', '0.1' );
+class Hooks implements
+	LinksUpdateCompleteHook,
+	LoadExtensionSchemaUpdatesHook,
+	MultiContentSaveHook,
+	ScribuntoExternalLibrariesHook
+{
+	/**
+	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/LoadExtensionSchemaUpdates
+	 *
+	 * @param DatabaseUpdater $updater
+	 * @return bool|void
+	 */
+	public function onLoadExtensionSchemaUpdates( $updater ) {
+		$updater->addExtensionTable( 'bucket__drops', __DIR__ . '/../sql/create_tables.sql' );
 	}
 
-	public static function initialize() {
-
-	}
-
-	public static function log($val) {
-		$dbw = wfGetDB( DB_MASTER );
-		$dbw->insert("logs", ["text" => $val]);
-	}
-
-	public static function createTables( DatabaseUpdater $updater ) {
-		$updater->addExtensionTable( 'bucket__drops', __DIR__ . "/sql/create_tables.sql" );
-		return true;
-	}
-
-	public static function addLuaLibrary( $engine, &$extraLibraries ) {
-		$extraLibraries['mw.ext.bucket'] = 'BucketLuaLibrary';
-		return true;
-	}
-
-	public static function onLinksUpdateComplete( &$linksUpdate ) {
+	/**
+	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/LinksUpdateComplete
+	 *
+	 * @param LinksUpdate $linksUpdate
+	 * @param mixed $ticket
+	 * @return bool|void
+	 */
+	public function onLinksUpdateComplete( $linksUpdate, $ticket ) {
 		$bucketPuts = $linksUpdate->getParserOutput()->bucketPuts;
-		if (isset($bucketPuts)) {
+		if ( isset( $bucketPuts ) ) {
 			$pageId = $linksUpdate->getTitle()->getArticleID();
 			$titleText = $linksUpdate->getParserOutput()->getTitleText();
-			Bucket::writePuts($pageId, $titleText, $bucketPuts);
+			Bucket::writePuts( $pageId, $titleText, $bucketPuts );
 		}
 	}
 
-	public static function onMultiContentSave( RenderedRevision $renderedRevision, UserIdentity $user, CommentStoreComment $summary, $flags, Status $hookStatus ) {
-		$ns = $renderedRevision->getRevision()->getPage()->getNamespace();
-		if ($ns !== NS_BUCKET) {
+	/**
+	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/MultiContentSave
+	 *
+	 * @param RenderedRevision $renderedRevision
+	 * @param UserIdentity $user
+	 * @param CommentStoreComment $summary
+	 * @param int $flags
+	 * @param Status $status
+	 * @return bool|void
+	 */
+	public function onMultiContentSave( $renderedRevision, $user, $summary, $flags, $status ) {
+		$revRecord = $renderedRevision->getRevision();
+		$page = $revRecord->getPage();
+		if ( $page->getNamespace() !== NS_BUCKET ) {
 			return;
 		}
-		$jsonContent = $renderedRevision->getRevision()->getContent("main");
-		if (!$jsonContent->isValid()) {
-			// TODO: check if different type.
+		$content = $revRecord->getContent( SlotRecord::MAIN );
+		if ( !$content instanceof JsonContent || !$content->isValid() ) {
 			// This will fail anyway before saving.
 			return;
 		}
-		$jsonSchema = $jsonContent->getData()->value;
-		$title = $renderedRevision->getRevision()->getPage()->getDBkey();
-		self::log($title);
-		// self::log(get_class($jsonSchema));
-		Bucket::createOrModifyTable($title, $jsonSchema);
+		$jsonSchema = $content->getData()->value;
+		$title = $page->getDBkey();
+		Bucket::createOrModifyTable( $title, $jsonSchema );
+	}
+
+	/**
+	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/ScribuntoExternalLibraries
+	 *
+	 * @param string $engine
+	 * @param array &$extraLibraries
+	 * @return bool|void
+	 */
+	public function onScribuntoExternalLibraries( $engine, &$extraLibraries ) {
+		if ( $engine === 'lua' ) {
+			$extraLibraries['mw.ext.bucket'] = LuaLibrary::class;
+		}
 	}
 }

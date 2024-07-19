@@ -1,7 +1,7 @@
 CREATE TABLE bucket__drops (
 	_page_id INT NOT NULL,
 	monster_name VARCHAR(255),
-	item_name varchar(255),
+	item_name VARCHAR(255),
 	quantity INT,
 	rarity INT
 );
