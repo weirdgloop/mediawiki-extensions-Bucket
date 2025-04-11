@@ -5,8 +5,8 @@ namespace MediaWiki\Extension\Bucket;
 use MediaWiki\Content\JsonContent;
 use MediaWiki\Extension\Scribunto\Hooks\ScribuntoExternalLibrariesHook;
 use MediaWiki\Hook\LinksUpdateCompleteHook;
-use MediaWiki\Hook\LoadExtensionSchemaUpdatesHook;
-use MediaWiki\Hook\MultiContentSaveHook;
+use MediaWiki\Installer\Hook\LoadExtensionSchemaUpdatesHook;
+use MediaWiki\Storage\Hook\MultiContentSaveHook;
 use MediaWiki\Revision\SlotRecord;
 
 class Hooks implements
