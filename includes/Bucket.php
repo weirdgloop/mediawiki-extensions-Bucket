@@ -3,6 +3,7 @@
 namespace MediaWiki\Extension\Bucket;
 
 use MediaWiki\MediaWikiServices;
+use Exception;
 
 class Bucket {
 	public const EXTENSION_DATA_KEY = 'bucket:puts';
@@ -13,13 +14,14 @@ class Bucket {
 		'INTEGER' => true,
 		'JSON' => true,
 		'TEXT' => true,
+		'PAGE' => true
 	];
 
 	private static $requiredColumns = [
 			'_page_id' => [ 'type' => 'INTEGER', 'index' => false ],
 			'_index' => [ 'type' => 'INTEGER', 'index' => false ],
-			'page_name' => [ 'type' => 'TEXT', 'index' => true ],
-			'page_name_version' => [ 'type' => 'TEXT', 'index' => true ]
+			'page_name' => [ 'type' => 'TEXT', 'index' => false ], #TODO these 2 were index true but the create statement said 
+			'page_name_version' => [ 'type' => 'TEXT', 'index' => false ] # Error 1170: BLOB/TEXT column 'page_name_version' used in key specification without a key length
 	];
 
 	private static $allSchemas = [];
@@ -36,7 +38,10 @@ class Bucket {
 	private static $DEFAULT_LIMIT = 500;
 
 	// TODO: getting called multiple times
-	public function writePuts( int $pageId, string $titleText, array $puts ) {
+	/*
+	Called when a page is saved containing a bucket.put
+	*/
+	public static function writePuts( int $pageId, string $titleText, array $puts ) {
 		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
 		foreach ( $puts as $tableName => $tablePuts ) {
 			// TODO: this misses deleting things that are no longer in the output
@@ -74,16 +79,16 @@ class Bucket {
 			$existingRows = [];
 			foreach ( $res as $row ) {
 				$existingRows[] = $row;
-			}
+			} 
 
 			// TODO: does behavior here depend on DBO_TRX?
-			// $dbw->begin();
+			$dbw->begin();
 			// TODO: do this via a diff instead of deleting all
 			$dbw->delete( $dbTableName, [ '_page_id' => $pageId ] );
 			// TODO: maybe chunk?
 			$dbw->insert( $dbTableName, $tablePuts );
 
-			// $dbw->commit();
+			$dbw->commit();
 
 		}
 	}
@@ -95,7 +100,7 @@ class Bucket {
 		return false;
 	}
 
-	public function createOrModifyTable( string $bucketName, object $jsonSchema ) {
+	public static function createOrModifyTable( string $bucketName, object $jsonSchema ) {
 		$newSchema = array_merge( [], self::$requiredColumns );
 
 		if ( empty( (array)$jsonSchema ) ) {
@@ -126,7 +131,7 @@ class Bucket {
 				throw new SchemaException( 'Invalid data type for field ' . $fieldName . ': ' . $fieldData->type );
 			}
 
-			$index = true;
+			$index = false; #TODO this was true, but it was throwing errors
 			if ( isset( $fieldData->index ) ) {
 				$index = boolval( $fieldData->index );
 			}
@@ -155,7 +160,7 @@ class Bucket {
 		);
 	}
 
-	private function getAlterTableStatement( $dbTableName, $newSchema, $oldSchema ) {
+	private static function getAlterTableStatement( $dbTableName, $newSchema, $oldSchema ) {
 		// Note that we do not support actually removing a column from the DB,
 		// or changing the type (all user-defined columns are TEXT)
 		// only support is for ADD COLUMN, ADD INDEX, DROP INDEX
@@ -184,10 +189,10 @@ class Bucket {
 			}
 		}
 
-		return "ALTER TABLE $dbTableName " . implode( $alterTableFragments, ', ' ) . ';';
+		return "ALTER TABLE $dbTableName " . implode( ', ', $alterTableFragments ) . ';';
 	}
 
-	private function getCreateTableStatement( $dbTableName, $newSchema ) {
+	private static function getCreateTableStatement( $dbTableName, $newSchema ) {
 		$createTableFragments = [];
 
 		foreach ( $newSchema as $fieldName => $fieldData ) {
@@ -201,10 +206,10 @@ class Bucket {
 			}
 		}
 		$createTableFragments[] = 'PRIMARY KEY (`_page_id`, `_index`)';
-		return "CREATE TABLE $dbTableName (" . implode( $createTableFragments, ', ' ) . ');';
+		return "CREATE TABLE $dbTableName (" . implode( ', ', $createTableFragments ) . ');';
 	}
 
-	public function cast( $value, $type ) {
+	public static function cast( $value, $type ) {
 		if ( $type === 'TEXT' || $type === 'PAGE' ) {
 			return $value;
 		} elseif ( $type === 'DOUBLE' ) {
@@ -218,7 +223,7 @@ class Bucket {
 		}
 	}
 
-	public function sanitizeColumnName( $column, $fieldNamesToTables, $schemas, $tableName = null ) {
+	public static function sanitizeColumnName( $column, $fieldNamesToTables, $schemas, $tableName = null ) {
 		if ( !is_string( $column ) ) {
 			throw new QueryException( "Can't interpret column: $column" );
 		}
@@ -261,19 +266,19 @@ class Bucket {
 		return "`bucket__$tableName`.`$columnName`";
 	}
 
-	public function isNot( $condition ) {
+	public static function isNot( $condition ) {
 		return is_array( $condition )
 		&& $condition['op'] == 'NOT'
 		&& isset( $condition['operand'] );
 	}
 
-	public function isOrAnd( $condition ) {
+	public static function isOrAnd( $condition ) {
 		return is_array( $condition )
 		&& ( $condition['op'] === 'OR' || $condition['op'] === 'AND' )
 		&& is_array( $condition['operands'] );
 	}
 
-	public function getCategoriesCondition( $condition, &$categoryMap ) {
+	public static function getCategoriesCondition( $condition, &$categoryMap ) {
 		if ( self::isOrAnd( $condition ) ) {
 			if ( empty( $condition['operands'] ) ) {
 				throw new QueryException( 'Missing condition: ' . json_encode( $condition ) );
@@ -282,7 +287,7 @@ class Bucket {
 			foreach ( $condition['operands'] as $operand ) {
 				$children[] = self::getCategoriesCondition( $operand, $categoryMap );
 			}
-			$children = implode( $children, " {$condition['op']} " );
+			$children = implode( " {$condition['op']} ", $children );
 			return "($children)";
 		} elseif ( self::isNot( $condition ) ) {
 			$child = self::getCategoriesCondition( $condition['operand'], $categoryMap );
@@ -300,7 +305,7 @@ class Bucket {
 		throw new QueryException( 'Did not understand category condition: ' . json_encode( $condition ) );
 	}
 
-	public function getWhereCondition( $condition, $fieldNamesToTables, $schemas, $dbw ) {
+	public static function getWhereCondition( $condition, $fieldNamesToTables, $schemas, $dbw ) {
 		if ( self::isOrAnd( $condition ) ) {
 			if ( empty( $condition['operands'] ) ) {
 				throw new QueryException( 'Missing condition: ' . json_encode( $condition ) );
@@ -309,7 +314,7 @@ class Bucket {
 			foreach ( $condition['operands'] as $operand ) {
 				$children[] = self::getWhereCondition( $operand, $fieldNamesToTables, $schemas, $dbw );
 			}
-			$children = implode( $children, " {$condition['op']} " );
+			$children = implode( " {$condition['op']} ", $children );
 			return "($children)";
 		} elseif ( self::isNot( $condition ) ) {
 			$child = self::getWhereCondition( $condition['operand'], $fieldNamesToTables, $schemas, $dbw );
@@ -345,7 +350,7 @@ class Bucket {
 		throw new QueryException( 'Did not understand where condition: ' . json_encode( $condition ) );
 	}
 
-	public function runSelect( $data ) {
+	public static function runSelect( $data ) {
 		$SELECTS = [];
 		$JOINS = [];
 		$TABLES = [];
@@ -455,7 +460,7 @@ class Bucket {
 
 			}
 
-			$jsonObject = 'JSON_ARRAYAGG(JSON_OBJECT(' . implode( $jsonObjectFragments, ', ' ) . '))';
+			$jsonObject = 'JSON_ARRAYAGG(JSON_OBJECT(' . implode( ', ', $jsonObjectFragments ) . '))';
 			$SELECTS[$join['tableName']] = $jsonObject;
 			$JOINS['bucket__' . $join['tableName']] = [ 'LEFT JOIN', [
 				"`bucket__{$join['tableName']}`.page_name = $fieldName"

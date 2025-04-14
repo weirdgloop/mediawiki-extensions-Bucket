@@ -60,7 +60,8 @@ class Hooks implements
 		$content = $revRecord->getContent( SlotRecord::MAIN );
 		if ( !$content instanceof JsonContent || !$content->isValid() ) {
 			// This will fail anyway before saving.
-			return;
+			//TODO why are we getting into here?
+			// return;
 		}
 		$jsonSchema = $content->getData()->value;
 		$title = $page->getDBkey();
