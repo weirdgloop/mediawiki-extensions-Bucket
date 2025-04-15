@@ -7,6 +7,7 @@ use Exception;
 
 class Bucket {
 	public const EXTENSION_DATA_KEY = 'bucket:puts';
+	public const EXTENSION_PROPERTY_KEY = 'bucketputs';
 
 	private static $dataTypes = [
 		'BOOLEAN' => true,
@@ -20,8 +21,8 @@ class Bucket {
 	private static $requiredColumns = [
 			'_page_id' => [ 'type' => 'INTEGER', 'index' => false ],
 			'_index' => [ 'type' => 'INTEGER', 'index' => false ],
-			'page_name' => [ 'type' => 'TEXT', 'index' => false ], #TODO these 2 were index true but the create statement said 
-			'page_name_version' => [ 'type' => 'TEXT', 'index' => false ] # Error 1170: BLOB/TEXT column 'page_name_version' used in key specification without a key length
+			'page_name' => [ 'type' => 'TEXT', 'index' => true ],
+			'page_name_version' => [ 'type' => 'TEXT', 'index' => true ]
 	];
 
 	private static $allSchemas = [];
@@ -37,11 +38,11 @@ class Bucket {
 	private static $MAX_LIMIT = 5000;
 	private static $DEFAULT_LIMIT = 500;
 
-	// TODO: getting called multiple times
 	/*
 	Called when a page is saved containing a bucket.put
 	*/
 	public static function writePuts( int $pageId, string $titleText, array $puts ) {
+		file_put_contents( MW_INSTALL_PATH . '/cook.txt', "writePuts start " . print_r($puts, true) . "\n" , FILE_APPEND);
 		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
 		foreach ( $puts as $tableName => $tablePuts ) {
 			// TODO: this misses deleting things that are no longer in the output
@@ -52,6 +53,8 @@ class Bucket {
 				'*',
 				[ '_page_id' => $pageId ]
 			);
+			
+			file_put_contents( MW_INSTALL_PATH . '/cook.txt', "writePuts A " . print_r($dbTableName, true) . "\n" , FILE_APPEND);
 
 			$fields = [];
 			$fieldNames = $res->getFieldNames();
@@ -70,6 +73,7 @@ class Bucket {
 				foreach ( $singlePut as $key => $value ) {
 					if ( !$fields[$key] ) {
 						// TODO: warning somewhere?
+						file_put_contents( MW_INSTALL_PATH . '/cook.txt', "writePuts KEY UNSET " . print_r($key, true) . "\n" , FILE_APPEND);
 						unset( $singlePut[$key] );
 					}
 				}
@@ -80,7 +84,9 @@ class Bucket {
 			foreach ( $res as $row ) {
 				$existingRows[] = $row;
 			} 
+			
 
+			file_put_contents( MW_INSTALL_PATH . '/cook.txt', "writePuts database " . print_r($dbTableName, true) . "\n" , FILE_APPEND);
 			// TODO: does behavior here depend on DBO_TRX?
 			$dbw->begin();
 			// TODO: do this via a diff instead of deleting all
@@ -131,7 +137,7 @@ class Bucket {
 				throw new SchemaException( 'Invalid data type for field ' . $fieldName . ': ' . $fieldData->type );
 			}
 
-			$index = false; #TODO this was true, but it was throwing errors
+			$index = true;
 			if ( isset( $fieldData->index ) ) {
 				$index = boolval( $fieldData->index );
 			}
@@ -144,10 +150,12 @@ class Bucket {
 		$oldSchema = $dbw->selectField( 'bucket_schemas', [ 'schema_json' ], [ 'table_name' => $bucketName ] );
 		if ( !$oldSchema ) {
 			$statement = self::getCreateTableStatement( $dbTableName, $newSchema );
+			file_put_contents(MW_INSTALL_PATH . '/cook.txt', "CREATE TABLE STATEMENT $statement \n", FILE_APPEND);
 			$dbw->query( $statement );
 		} else {
 			$oldSchema = json_decode( $oldSchema, true );
 			$statement = self::getAlterTableStatement( $dbTableName, $newSchema, $oldSchema );
+			file_put_contents(MW_INSTALL_PATH . '/cook.txt', "ALTER TABLE STATEMENT $statement \n", FILE_APPEND);
 			$dbw->query( $statement );
 
 		}
@@ -177,7 +185,7 @@ class Bucket {
 				$alterTableFragments[] = "DROP INDEX `$fieldName`";
 			} elseif ( $oldSchema[$fieldName]['index'] === false
 				&& $fieldData['index'] === true ) {
-				$alterTableFragments[] = "ADD INDEX (`$fieldName`)";
+				$alterTableFragments[] = "ADD INDEX (`$fieldName`(255))"; #TODO: Find the right number for index length
 			}
 			unset( $oldSchema[$fieldName] );
 		}
@@ -202,7 +210,7 @@ class Bucket {
 			}
 			$createTableFragments[] = "`$fieldName` {$dbType}";
 			if ( $fieldData['index'] ) {
-				$createTableFragments[] = "INDEX (`$fieldName`)";
+				$createTableFragments[] = "INDEX (`$fieldName`(255))"; #TODO: Find the right number for index length
 			}
 		}
 		$createTableFragments[] = 'PRIMARY KEY (`_page_id`, `_index`)';
@@ -506,7 +514,17 @@ class Bucket {
 }
 
 class SchemaException extends Exception {
+	function __construct($msg)
+	{
+		file_put_contents( MW_INSTALL_PATH . '/cook.txt', "SCHEMA EXCEPTION " . print_r($msg, true) . "\n" , FILE_APPEND);
+		parent::__construct($msg);
+	}
 }
 
 class QueryException extends Exception {
+	function __construct($msg)
+	{
+		file_put_contents( MW_INSTALL_PATH . '/cook.txt', "QUERY EXCEPTION " . print_r($msg, true) . "\n" , FILE_APPEND);
+		parent::__construct($msg);
+	}
 }
