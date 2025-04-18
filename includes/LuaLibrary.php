@@ -46,7 +46,7 @@ class LuaLibrary extends LibraryBase {
 	}
 
 	// Go from 1-index to 0-index.
-	public function convertFromLuaTable( $arr ) {
+	public static function convertFromLuaTable( $arr ) {
 		if ( is_array( $arr ) ) {
 			$luaTable = [];
 			foreach ( $arr as $key => $value ) {

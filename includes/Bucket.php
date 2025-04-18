@@ -19,10 +19,10 @@ class Bucket {
 	];
 
 	private static $requiredColumns = [
-			'_page_id' => [ 'type' => 'INTEGER', 'index' => false ],
-			'_index' => [ 'type' => 'INTEGER', 'index' => false ],
-			'page_name' => [ 'type' => 'TEXT', 'index' => true ],
-			'page_name_version' => [ 'type' => 'TEXT', 'index' => true ]
+			'_page_id' => [ 'type' => 'INTEGER', 'index' => false , 'repeated' => false ],
+			'_index' => [ 'type' => 'INTEGER', 'index' => false , 'repeated' => false ],
+			'page_name' => [ 'type' => 'TEXT', 'index' => true,  'repeated' => false ],
+			'page_name_version' => [ 'type' => 'TEXT', 'index' => true , 'repeated' => false ]
 	];
 
 	private static $allSchemas = [];
@@ -70,7 +70,7 @@ class Bucket {
 			}
 			foreach ( $tablePuts as $idx => $singlePut ) {
 				$singlePut['_page_id'] = $pageId;
-			 $singlePut['_index'] = $idx;
+				$singlePut['_index'] = $idx;
 				$singlePut['page_name'] = $titleText;
 				$singlePut['page_name_version'] = $titleText;
 				if ( isset( $singlePut['_version'] ) ) {
@@ -81,9 +81,9 @@ class Bucket {
 						// TODO: warning somewhere?
 						file_put_contents( MW_INSTALL_PATH . '/cook.txt', "writePuts KEY UNSET " . print_r($key, true) . "\n" , FILE_APPEND);
 						unset( $singlePut[$key] );
-					} elseif ( isset( $schemas[$tableName][$key]["repeated"] ) && $schemas[$tableName][$key]["repeated"] ) {
-						$singlePut[$key] = json_encode($value);
-						file_put_contents(MW_INSTALL_PATH . '/cook.txt', "JSON encoded " . print_r($singlePut[$key], true) . "\n", FILE_APPEND);
+					} else {
+						#TODO JSON relies on forcing utf8 transmission in DatabaseMySQL.php line 829
+						$singlePut[$key] = self::castToDbType( $value, self::getDbType( $fieldName, $schemas[$tableName][$key] ) );
 					}
 				}
 				$tablePuts[$idx] = $singlePut;
@@ -181,6 +181,27 @@ class Bucket {
 		);
 	}
 
+	private static function getDbType( $fieldName, $fieldData ) {
+		if (isset(self::$requiredColumns[$fieldName])) {
+			return self::$requiredColumns[$fieldName]['type'];
+		} else {
+			if ( $fieldData['repeated'] ) {
+				return 'JSON';
+			} else {
+				return self::$dataTypes[$fieldData['type']];
+			}
+		}
+		return 'TEXT';
+	}
+
+	private static function getIndexStatement( $fieldName, $fieldData ) {
+		if ( self::getDbType( $fieldName, $fieldData ) == 'JSON') {
+			return "INDEX `$fieldName`((CAST(`$fieldName` AS CHAR(255) ARRAY)))"; #TODO actually cast this to the right underlying type
+		} else {
+			return "INDEX `$fieldName`(`$fieldName`(255))";
+		}
+	}
+
 	private static function getAlterTableStatement( $dbTableName, $newSchema, $oldSchema ) {
 		#TODO handle repeated
 		// Note that we do not support actually removing a column from the DB,
@@ -188,18 +209,31 @@ class Bucket {
 		// only support is for ADD COLUMN, ADD INDEX, DROP INDEX
 		$alterTableFragments = [];
 
+		#TODO index everything?
 		foreach ( $newSchema as $fieldName => $fieldData ) {
+
+			#Handle new columns
 			if ( !isset( $oldSchema[$fieldName] ) ) {
-				$alterTableFragments[] = "ADD `$fieldName` TEXT";
+				$alterTableFragments[] = "ADD `$fieldName` " . self::getDbType( $fieldName, $fieldData );
 				if ( $fieldData['index'] ) {
-					$alterTableFragments[] = "ADD INDEX (`$fieldName`)";
+					$alterTableFragments[] = "ADD " . self::getIndexStatement($fieldName, $fieldData);
 				}
-			} elseif ( $oldSchema[$fieldName]['index'] === true
-				&& $fieldData['index'] === false ) {
+			#Handle deletedcolumns
+			} elseif ( $oldSchema[$fieldName]['index'] === true && $fieldData['index'] === false ) {
 				$alterTableFragments[] = "DROP INDEX `$fieldName`";
-			} elseif ( $oldSchema[$fieldName]['index'] === false
-				&& $fieldData['index'] === true ) {
-				$alterTableFragments[] = "ADD INDEX (`$fieldName`(255))"; #TODO: Find the right number for index length
+			} else {
+				#Handle type changes
+				if ( self::getDbType($fieldName, $oldSchema[$fieldName]) !== self::getDbType($fieldName, $fieldData) ) {
+					$alterTableFragments[] = "DROP INDEX `$fieldName`"; #We have to drop the index of at least the JSON type columns.
+					$alterTableFragments[] = "MODIFY `$fieldName` " . self::getDbType($fieldName, $fieldData);
+					if ( $fieldData['index'] ) {
+						$alterTableFragments[] = "ADD " . self::getIndexStatement($fieldName, $fieldData);
+					}
+				}
+				#Handle index changes
+				if ( ( $oldSchema[$fieldName]['index'] === false && $fieldData['index'] === true ) ) {
+					$alterTableFragments[] = "ADD " . self::getIndexStatement($fieldName, $fieldData);
+				}
 			}
 			unset( $oldSchema[$fieldName] );
 		}
@@ -218,23 +252,28 @@ class Bucket {
 		$createTableFragments = [];
 
 		foreach ( $newSchema as $fieldName => $fieldData ) {
-			$dbType = 'TEXT';
-			if ( self::$requiredColumns[$fieldName] ) {
-				$dbType = self::$requiredColumns[$fieldName]['type'];
-			} else {
-				if ( $fieldData['repeated'] ) {
-					$dbType = 'JSON';
-				} else {
-					$dbType = self::$dataTypes[$fieldData['type']];
-				}
-			}
+			$dbType = self::getDbType($fieldName, $fieldData);
 			$createTableFragments[] = "`$fieldName` {$dbType}";
-			if ( $fieldData['index'] && !$dbType == 'JSON' ) { #TODO Don't hardcode in the json exception
-				$createTableFragments[] = "INDEX (`$fieldName`(255))"; #TODO: Find the right number for index length
+			if ( $fieldData['index'] ) {
+				$createTableFragments[] = self::getIndexStatement($fieldName, $fieldData);
 			}
 		}
 		$createTableFragments[] = 'PRIMARY KEY (`_page_id`, `_index`)';
 		return "CREATE TABLE $dbTableName (" . implode( ', ', $createTableFragments ) . ');';
+	}
+
+	public static function castToDbType( $value, $type) {
+		if ( $type === 'TEXT' || $type === 'PAGE' ) {
+			return $value;
+		} elseif ( $type === 'DOUBLE' ) {
+			return floatval( $value );
+		} elseif ( $type === 'INTEGER' ) {
+			return intval( $value );
+		} elseif ( $type === 'BOOLEAN' ) {
+			return boolval( $value );
+		} elseif ( $type === 'JSON' ) {
+			return json_encode( LuaLibrary::convertFromLuaTable($value) );
+		}
 	}
 
 	public static function cast( $value, $type ) {
