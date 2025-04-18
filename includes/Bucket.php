@@ -38,11 +38,33 @@ class Bucket {
 	private static $MAX_LIMIT = 5000;
 	private static $DEFAULT_LIMIT = 500;
 
+	#Compare equality of two arrays
+	private static function areEqual( $array1, $array2 ) {
+		if (count($array1) != count($array2)) {
+			return false;
+		}
+		foreach ( $array1 as $key => $value ) {
+			if ( !array_key_exists( $key, $array2) ) {
+				return false;
+			}
+			if ( $value != $array2[$key] ) {
+				#We are comparing a value from the database with a value from PHP.
+				#The database text json has a space after a comma in the array, PHP doesn't.
+				#So decode the mismatched values and check for equality in the data they represent.
+				if ( json_decode($value) == json_decode($array2[$key])) {
+					continue;
+				}
+				return false;
+			}
+		}
+		return true;
+	}
+
 	/*
 	Called when a page is saved containing a bucket.put
 	*/
 	public static function writePuts( int $pageId, string $titleText, array $puts ) {
-		file_put_contents( MW_INSTALL_PATH . '/cook.txt', "writePuts start " . print_r($puts, true) . "\n" , FILE_APPEND);
+		// file_put_contents( MW_INSTALL_PATH . '/cook.txt', "writePuts start " . print_r($puts, true) . "\n" , FILE_APPEND);
 		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
 
 		$res = $dbw->select( 'bucket_schemas', [ 'table_name', 'schema_json' ], [ 'table_name' => array_keys( $puts ) ] );
@@ -61,7 +83,7 @@ class Bucket {
 				'*',
 				[ '_page_id' => $pageId ]
 			);
-			
+
 			$fields = [];
 			$fieldNames = $res->getFieldNames();
 			foreach ( $fieldNames as $fieldName ) {
@@ -91,19 +113,41 @@ class Bucket {
 
 			$existingRows = [];
 			foreach ( $res as $row ) {
-				$existingRows[] = $row;
+				$existingRows[$row->_index] = (array) $row;
 			} 
+
+			$newPuts = [];
+			foreach ( $tablePuts as $put ) {
+				$idx = $put[ '_index' ];
+				if ( !key_exists($idx, $existingRows) || !self::areEqual( $put, $existingRows[ $idx ] )) {
+					$newPuts[] = $put;
+				}
+			}
+
+			$newDeletes = [];
+			foreach ( $existingRows as $existing ) {
+				$idx = $existing[ '_index' ];
+				if ( !key_exists($idx, $tablePuts) || !self::areEqual( $existing, $tablePuts[ $idx ] ) ) {
+					$newDeletes[] = $existing['_index'];
+				}
+			}
 			
 
-			file_put_contents( MW_INSTALL_PATH . '/cook.txt', "writePuts database " . print_r($tablePuts, true) . "\n" , FILE_APPEND);
+			file_put_contents( MW_INSTALL_PATH . '/cook.txt', "writePuts puts " . print_r($newPuts, true) . "\n" , FILE_APPEND);
+			file_put_contents( MW_INSTALL_PATH . '/cook.txt', "writePuts deletes " . print_r($newDeletes, true) . "\n" , FILE_APPEND);
 			// TODO: does behavior here depend on DBO_TRX?
 			$dbw->begin();
-			// TODO: do this via a diff instead of deleting all
-			$dbw->delete( $dbTableName, [ '_page_id' => $pageId ] );
-			// TODO: maybe chunk?
-			$dbw->insert( $dbTableName, $tablePuts );
+			if ( !empty($newDeletes) ) {
+				$dbw->newDeleteQueryBuilder()
+					->deleteFrom( $dbTableName )
+					->where( [ '_page_id' => $pageId, '_index' => $newDeletes ] )
+					->execute();
+				// TODO: maybe chunk?
+			}
+			$dbw->insert( $dbTableName, $newPuts );
 
 			$dbw->commit();
+			file_put_contents( MW_INSTALL_PATH . '/cook.txt', "commited\n", FILE_APPEND );
 		}
 	}
 
