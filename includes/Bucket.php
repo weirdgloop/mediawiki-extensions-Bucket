@@ -10,12 +10,12 @@ class Bucket {
 	public const EXTENSION_PROPERTY_KEY = 'bucketputs';
 
 	private static $dataTypes = [
-		'BOOLEAN' => true,
-		'DOUBLE' => true,
-		'INTEGER' => true,
-		'JSON' => true,
-		'TEXT' => true,
-		'PAGE' => true
+		'BOOLEAN' => 'BOOLEAN',
+		'DOUBLE' => 'DOUBLE',
+		'INTEGER' => 'INTEGER',
+		'JSON' => 'JSON',
+		'TEXT' => 'TEXT',
+		'PAGE' => 'TEXT'
 	];
 
 	private static $requiredColumns = [
@@ -44,6 +44,14 @@ class Bucket {
 	public static function writePuts( int $pageId, string $titleText, array $puts ) {
 		file_put_contents( MW_INSTALL_PATH . '/cook.txt', "writePuts start " . print_r($puts, true) . "\n" , FILE_APPEND);
 		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
+
+		$res = $dbw->select( 'bucket_schemas', [ 'table_name', 'schema_json' ], [ 'table_name' => array_keys( $puts ) ] );
+
+		$schemas = [];
+		foreach ( $res as $row ) {
+			$schemas[$row->table_name] = json_decode( $row->schema_json, true );
+		}
+
 		foreach ( $puts as $tableName => $tablePuts ) {
 			// TODO: this misses deleting things that are no longer in the output
 			// TODO: not safe
@@ -54,8 +62,6 @@ class Bucket {
 				[ '_page_id' => $pageId ]
 			);
 			
-			file_put_contents( MW_INSTALL_PATH . '/cook.txt', "writePuts A " . print_r($dbTableName, true) . "\n" , FILE_APPEND);
-
 			$fields = [];
 			$fieldNames = $res->getFieldNames();
 			foreach ( $fieldNames as $fieldName ) {
@@ -64,7 +70,7 @@ class Bucket {
 			}
 			foreach ( $tablePuts as $idx => $singlePut ) {
 				$singlePut['_page_id'] = $pageId;
-				$singlePut['_index'] = $idx;
+			 $singlePut['_index'] = $idx;
 				$singlePut['page_name'] = $titleText;
 				$singlePut['page_name_version'] = $titleText;
 				if ( isset( $singlePut['_version'] ) ) {
@@ -75,6 +81,9 @@ class Bucket {
 						// TODO: warning somewhere?
 						file_put_contents( MW_INSTALL_PATH . '/cook.txt', "writePuts KEY UNSET " . print_r($key, true) . "\n" , FILE_APPEND);
 						unset( $singlePut[$key] );
+					} elseif ( isset( $schemas[$tableName][$key]["repeated"] ) && $schemas[$tableName][$key]["repeated"] ) {
+						$singlePut[$key] = json_encode($value);
+						file_put_contents(MW_INSTALL_PATH . '/cook.txt', "JSON encoded " . print_r($singlePut[$key], true) . "\n", FILE_APPEND);
 					}
 				}
 				$tablePuts[$idx] = $singlePut;
@@ -86,7 +95,7 @@ class Bucket {
 			} 
 			
 
-			file_put_contents( MW_INSTALL_PATH . '/cook.txt', "writePuts database " . print_r($dbTableName, true) . "\n" , FILE_APPEND);
+			file_put_contents( MW_INSTALL_PATH . '/cook.txt', "writePuts database " . print_r($tablePuts, true) . "\n" , FILE_APPEND);
 			// TODO: does behavior here depend on DBO_TRX?
 			$dbw->begin();
 			// TODO: do this via a diff instead of deleting all
@@ -95,7 +104,6 @@ class Bucket {
 			$dbw->insert( $dbTableName, $tablePuts );
 
 			$dbw->commit();
-
 		}
 	}
 
@@ -133,7 +141,7 @@ class Bucket {
 				throw new SchemaException( 'Duplicate field name: ' . $fieldName );
 			}
 
-			if ( self::$dataTypes[$fieldData->type] !== true ) {
+			if ( !isset( self::$dataTypes[$fieldData->type] ) ) {
 				throw new SchemaException( 'Invalid data type for field ' . $fieldName . ': ' . $fieldData->type );
 			}
 
@@ -142,7 +150,12 @@ class Bucket {
 				$index = boolval( $fieldData->index );
 			}
 
-			$newSchema[$lcFieldName] = [ 'type' => $fieldData->type, 'index' => $index ];
+			$repeated = false;
+			if ( isset( $fieldData->repeated ) ) {
+				$repeated = boolval( $fieldData-> repeated );
+			}
+
+			$newSchema[$lcFieldName] = [ 'type' => $fieldData->type, 'index' => $index, 'repeated' => $repeated ];
 		}
 		$dbTableName = 'bucket__' . $bucketName;
 		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
@@ -169,8 +182,9 @@ class Bucket {
 	}
 
 	private static function getAlterTableStatement( $dbTableName, $newSchema, $oldSchema ) {
+		#TODO handle repeated
 		// Note that we do not support actually removing a column from the DB,
-		// or changing the type (all user-defined columns are TEXT)
+		// or changing the type (all user-defined columns are TEXT) #TODO this is not true
 		// only support is for ADD COLUMN, ADD INDEX, DROP INDEX
 		$alterTableFragments = [];
 
@@ -207,9 +221,15 @@ class Bucket {
 			$dbType = 'TEXT';
 			if ( self::$requiredColumns[$fieldName] ) {
 				$dbType = self::$requiredColumns[$fieldName]['type'];
+			} else {
+				if ( $fieldData['repeated'] ) {
+					$dbType = 'JSON';
+				} else {
+					$dbType = self::$dataTypes[$fieldData['type']];
+				}
 			}
 			$createTableFragments[] = "`$fieldName` {$dbType}";
-			if ( $fieldData['index'] ) {
+			if ( $fieldData['index'] && !$dbType == 'JSON' ) { #TODO Don't hardcode in the json exception
 				$createTableFragments[] = "INDEX (`$fieldName`(255))"; #TODO: Find the right number for index length
 			}
 		}

@@ -36,9 +36,18 @@ class Hooks implements
 		$bucketPuts = $linksUpdate->getParserOutput()->getExtensionData( Bucket::EXTENSION_DATA_KEY );
 		if ( $bucketPuts !== null ) {
 			$pageId = $linksUpdate->getTitle()->getArticleID();
-			$titleText = $linksUpdate->getParserOutput()->getTitleText();
-			Bucket::writePuts( $pageId, $titleText, $bucketPuts );
-		}
+			$titleText = $linksUpdate->getTitle()->getTitleValue();
+			file_put_contents( MW_INSTALL_PATH . '/parserOutput.txt', print_r($linksUpdate->getTitle(), true) , FILE_APPEND);
+			// $existingPuts = $linksUpdate->getParserOutput()->getPageProperty( Bucket::EXTENSION_PROPERTY_KEY );
+			// file_put_contents( MW_INSTALL_PATH . '/cook.txt', "EXISTING " . print_r($existingPuts, true) . "\n" , FILE_APPEND);
+			file_put_contents( MW_INSTALL_PATH . '/cook.txt', "NEW " . print_r($bucketPuts, true) . "\n" , FILE_APPEND);
+			// if ( print_r($bucketPuts, true) !== $existingPuts ) {
+			Bucket::writePuts($pageId, $titleText, $bucketPuts);
+				// file_put_contents( MW_INSTALL_PATH . '/cook.txt', "SAVING PAGE PROPERTY \n" , FILE_APPEND);
+			// } else {
+				// file_put_contents( MW_INSTALL_PATH . '/cook.txt', "SKIPPING SAVING IDENTICAL DATA \n" , FILE_APPEND);
+			// }
+		} #TODO clear page property if bucket puts is null
 	}
 
 	/**

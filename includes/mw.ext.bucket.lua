@@ -30,7 +30,7 @@ local QueryBuilder = {}
 function QueryBuilder:new(tableName)
     -- set everything up here...
     local queryBuilder = {
-        tableName = tableName,
+        tableName = tableName, --TODO Force lower case and replace spaces with underscores
         selects = {},
         wheres = {op = "AND", operands = {}},
         categories = {op = "AND", operands = {}},
