@@ -74,6 +74,13 @@ class Bucket {
 			$schemas[$row->table_name] = json_decode( $row->schema_json, true );
 		}
 
+		$bucket_hash = [];
+		#TODO is specifying more constraints better or worse?
+		$res = $dbw->select( 'bucket_pages', '*', [ 'page_id' => $pageId ]);
+		foreach ( $res as $row ) {
+			$bucket_hash[$row->table_name] = $row->put_hash;
+		}
+
 		foreach ( $puts as $tableName => $tablePuts ) {
 			// TODO: this misses deleting things that are no longer in the output
 			// TODO: not safe
@@ -99,7 +106,7 @@ class Bucket {
 					$singlePut['page_name_version'] = $titleText . '#' . $singlePut['_version'];
 				}
 				foreach ( $singlePut as $key => $value ) {
-					if ( !$fields[$key] ) {
+					if ( !isset($fields[$key]) || !$fields[$key] ) {
 						// TODO: warning somewhere?
 						file_put_contents( MW_INSTALL_PATH . '/cook.txt', "writePuts KEY UNSET " . print_r($key, true) . "\n" , FILE_APPEND);
 						unset( $singlePut[$key] );
@@ -111,6 +118,14 @@ class Bucket {
 				$tablePuts[$idx] = $singlePut;
 			}
 
+			#Check these puts against the hash of the last time we did puts.
+			$newHash = hash( 'sha256', json_encode( $tablePuts ) );
+			if ( isset($bucket_hash[ $tableName ]) && $bucket_hash[ $tableName ] == $newHash ) {
+				file_put_contents(MW_INSTALL_PATH . '/cook.txt', "HASH MATCH SKIPPING WRITING =====================\n", FILE_APPEND);
+				continue;
+			}
+
+			#TODO is it better to not read existing data and just write it all?
 			$existingRows = [];
 			foreach ( $res as $row ) {
 				$existingRows[$row->_index] = (array) $row;
@@ -119,17 +134,17 @@ class Bucket {
 			$newPuts = [];
 			foreach ( $tablePuts as $put ) {
 				$idx = $put[ '_index' ];
-				if ( !key_exists($idx, $existingRows) || !self::areEqual( $put, $existingRows[ $idx ] )) {
+				// if ( !key_exists($idx, $existingRows) || !self::areEqual( $put, $existingRows[ $idx ] )) {
 					$newPuts[] = $put;
-				}
+				// }
 			}
 
 			$newDeletes = [];
 			foreach ( $existingRows as $existing ) {
 				$idx = $existing[ '_index' ];
-				if ( !key_exists($idx, $tablePuts) || !self::areEqual( $existing, $tablePuts[ $idx ] ) ) {
+				// if ( !key_exists($idx, $tablePuts) || !self::areEqual( $existing, $tablePuts[ $idx ] ) ) {
 					$newDeletes[] = $existing['_index'];
-				}
+				// }
 			}
 			
 
@@ -145,6 +160,10 @@ class Bucket {
 				// TODO: maybe chunk?
 			}
 			$dbw->insert( $dbTableName, $newPuts );
+			#TODO we need to delete entries from bucket_pages if a bucket is removed from a page
+			#We can put used buckets in a list and then compare with all buckets assigned to this page and then delete the difference at the end.
+			$dbw->delete( 'bucket_pages', ['page_id' => $pageId, 'table_name' => $tableName ] );
+			$dbw->insert( 'bucket_pages', ['page_id' => $pageId, 'table_name' => $tableName, 'put_hash' => $newHash ] );
 
 			$dbw->commit();
 			file_put_contents( MW_INSTALL_PATH . '/cook.txt', "commited\n", FILE_APPEND );
@@ -379,12 +398,14 @@ class Bucket {
 
 	public static function isNot( $condition ) {
 		return is_array( $condition )
+		&& isset($condition['op'])
 		&& $condition['op'] == 'NOT'
 		&& isset( $condition['operand'] );
 	}
 
 	public static function isOrAnd( $condition ) {
 		return is_array( $condition )
+		&& isset($condition['op'])
 		&& ( $condition['op'] === 'OR' || $condition['op'] === 'AND' )
 		&& is_array( $condition['operands'] );
 	}
@@ -492,7 +513,7 @@ class Bucket {
 
 		$tableNamesList = array_keys( $tableNames );
 		foreach ( $tableNames as $tableName => $val ) {
-			if ( self::$allSchemas[$tableName] ) {
+			if ( isset(self::$allSchemas[$tableName]) && self::$allSchemas[$tableName] ) {
 				unset( $tableNames[$tableName] );
 			}
 		}
@@ -581,7 +602,7 @@ class Bucket {
 		$OPTIONS['GROUP BY'] = array_keys( $ungroupedColumns );
 
 		$OPTIONS['LIMIT'] = self::$DEFAULT_LIMIT;
-		if ( is_int( $data['limit'] ) && $data['limit'] >= 0 ) {
+		if ( isset($data['limit']) && is_int( $data['limit'] ) && $data['limit'] >= 0 ) {
 			$OPTIONS['LIMIT'] = min( $data['limit'], self::$MAX_LIMIT );
 		}
 

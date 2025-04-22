@@ -3,7 +3,8 @@
 	"version": "0.1",
 	"author": [
 		"Jonathan Lee",
-		"TehKittyCat"
+		"TehKittyCat",
+		"Mudscape"
 	],
 	"url": "https://www.mediawiki.org/wiki/Extension:Bucket",
 	"license-name": "GPL-2.0-or-later",

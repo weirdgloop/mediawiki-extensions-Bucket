@@ -22,7 +22,8 @@ class Hooks implements
 	 * @return bool|void
 	 */
 	public function onLoadExtensionSchemaUpdates( $updater ) {
-		$updater->addExtensionTable( 'bucket__drops', __DIR__ . '/../sql/create_tables.sql' );
+		$updater->addExtensionTable( 'bucket_schemas', __DIR__ . '/../sql/create_bucket_schemas.sql' );
+		$updater->addExtensionTable( 'bucket_pages', __DIR__ . '/../sql/create_bucket_pages.sql' );
 	}
 
 	/**
@@ -35,19 +36,11 @@ class Hooks implements
 	public function onLinksUpdateComplete( $linksUpdate, $ticket ) {
 		$bucketPuts = $linksUpdate->getParserOutput()->getExtensionData( Bucket::EXTENSION_DATA_KEY );
 		if ( $bucketPuts !== null ) {
+			// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "HOOK " . print_r($bucketPuts, true) . "\n", FILE_APPEND);
 			$pageId = $linksUpdate->getTitle()->getArticleID();
 			$titleText = $linksUpdate->getTitle()->getTitleValue();
-			file_put_contents( MW_INSTALL_PATH . '/parserOutput.txt', print_r($linksUpdate->getTitle(), true) , FILE_APPEND);
-			// $existingPuts = $linksUpdate->getParserOutput()->getPageProperty( Bucket::EXTENSION_PROPERTY_KEY );
-			// file_put_contents( MW_INSTALL_PATH . '/cook.txt', "EXISTING " . print_r($existingPuts, true) . "\n" , FILE_APPEND);
-			file_put_contents( MW_INSTALL_PATH . '/cook.txt', "NEW " . print_r($bucketPuts, true) . "\n" , FILE_APPEND);
-			// if ( print_r($bucketPuts, true) !== $existingPuts ) {
 			Bucket::writePuts($pageId, $titleText, $bucketPuts);
-				// file_put_contents( MW_INSTALL_PATH . '/cook.txt', "SAVING PAGE PROPERTY \n" , FILE_APPEND);
-			// } else {
-				// file_put_contents( MW_INSTALL_PATH . '/cook.txt', "SKIPPING SAVING IDENTICAL DATA \n" , FILE_APPEND);
-			// }
-		} #TODO clear page property if bucket puts is null
+		}
 	}
 
 	/**
