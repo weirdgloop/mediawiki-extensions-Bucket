@@ -258,10 +258,14 @@ class Bucket {
 	}
 
 	private static function getIndexStatement( $fieldName, $fieldData ) {
-		if ( self::getDbType( $fieldName, $fieldData ) == 'JSON') {
-			return "INDEX `$fieldName`((CAST(`$fieldName` AS CHAR(255) ARRAY)))"; #TODO actually cast this to the right underlying type
-		} else {
-			return "INDEX `$fieldName`(`$fieldName`(255))";
+		switch ( self::getDbType( $fieldName, $fieldData ) ) {
+			case 'JSON':
+				return "INDEX `$fieldName`((CAST(`$fieldName` AS CHAR(255) ARRAY)))"; #TODO actually cast this to the right underlying type
+			case 'TEXT':
+			case 'PAGE':
+				return "INDEX `$fieldName`(`$fieldName`(255))";
+			default:
+				return "INDEX `$fieldName` (`$fieldName`)";
 		}
 	}
 
@@ -286,12 +290,20 @@ class Bucket {
 				$alterTableFragments[] = "DROP INDEX `$fieldName`";
 			} else {
 				#Handle type changes
-				if ( self::getDbType($fieldName, $oldSchema[$fieldName]) !== self::getDbType($fieldName, $fieldData) ) {
-					$alterTableFragments[] = "DROP INDEX `$fieldName`"; #We have to drop the index of at least the JSON type columns.
-					$alterTableFragments[] = "MODIFY `$fieldName` " . self::getDbType($fieldName, $fieldData);
-					if ( $fieldData['index'] ) {
-						$alterTableFragments[] = "ADD " . self::getIndexStatement($fieldName, $fieldData);
+				$newDbType = self::getDbType($fieldName, $fieldData);
+				if ( self::getDbType($fieldName, $oldSchema[$fieldName]) !== $newDbType ) {
+					// Do data type conversions
+					#TODO make this all one transaction
+					$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef(DB_PRIMARY);
+					$columnNameTemp = $fieldName . '__tmp';
+					$query = "ALTER TABLE `$dbTableName` ADD `$columnNameTemp` $newDbType ";
+					if ($fieldData['index'] == true) {
+						$query = $query . ", ADD INDEX `$columnNameTemp` (`$columnNameTemp`)";// . self::getIndexStatement($fieldName, $fieldData);
 					}
+					file_put_contents(MW_INSTALL_PATH . '/cook.txt', "ALTER TYPE $query \n", FILE_APPEND);
+					$dbw->query($query . ";"); //Make new temp column
+					$dbw->query("UPDATE IGNORE `$dbTableName` SET `$columnNameTemp` = $fieldName WHERE `_page_id` >= 0;");
+					$dbw->query("ALTER TABLE `$dbTableName` DROP COLUMN `$fieldName`, RENAME COLUMN `$columnNameTemp` TO `$fieldName`;");
 				}
 				#Handle index changes
 				if ( ( $oldSchema[$fieldName]['index'] === false && $fieldData['index'] === true ) ) {
