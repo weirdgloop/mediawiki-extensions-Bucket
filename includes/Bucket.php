@@ -120,48 +120,22 @@ class Bucket {
 			}
 
 			#Check these puts against the hash of the last time we did puts.
-			#TODO also check a schema hash
-			$newHash = hash( 'sha256', json_encode( $tablePuts ) );
+			sort($tablePuts);
+			sort($schemas[$tableName]);
+			$newHash = hash( 'sha256', json_encode( $tablePuts ) . json_encode($schemas[$tableName]));
 			if ( isset($bucket_hash[ $tableName ]) && $bucket_hash[ $tableName ] == $newHash ) {
-				file_put_contents(MW_INSTALL_PATH . '/cook.txt', "TEMP DISABLED HASH MATCH SKIPPING WRITING =====================\n", FILE_APPEND);
-				// continue;
+				file_put_contents(MW_INSTALL_PATH . '/cook.txt', "HASH MATCH SKIPPING WRITING =====================\n", FILE_APPEND);
+				continue;
 			}
 
-			#TODO is it better to not read existing data and just write it all?
-			$existingRows = [];
-			foreach ( $res as $row ) {
-				$existingRows[$row->_index] = (array) $row;
-			} 
-
-			$newPuts = [];
-			foreach ( $tablePuts as $put ) {
-				$idx = $put[ '_index' ];
-				// if ( !key_exists($idx, $existingRows) || !self::areEqual( $put, $existingRows[ $idx ] )) {
-					$newPuts[] = $put;
-				// }
-			}
-
-			$newDeletes = [];
-			foreach ( $existingRows as $existing ) {
-				$idx = $existing[ '_index' ];
-				// if ( !key_exists($idx, $tablePuts) || !self::areEqual( $existing, $tablePuts[ $idx ] ) ) {
-					$newDeletes[] = $existing['_index'];
-				// }
-			}
-			
-
-			file_put_contents( MW_INSTALL_PATH . '/cook.txt', "writePuts puts " . print_r($newPuts, true) . "\n" , FILE_APPEND);
-			file_put_contents( MW_INSTALL_PATH . '/cook.txt', "writePuts deletes " . print_r($newDeletes, true) . "\n" , FILE_APPEND);
+			file_put_contents( MW_INSTALL_PATH . '/cook.txt', "writePuts puts " . print_r($tablePuts, true) . "\n" , FILE_APPEND);
 			// TODO: does behavior here depend on DBO_TRX?
 			$dbw->begin();
-			if ( !empty($newDeletes) ) {
-				$dbw->newDeleteQueryBuilder()
-					->deleteFrom( $dbTableName )
-					->where( [ '_page_id' => $pageId, '_index' => $newDeletes ] )
-					->execute();
-				// TODO: maybe chunk?
-			}
-			$dbw->insert( $dbTableName, $newPuts );
+			$dbw->newDeleteQueryBuilder()
+				->deleteFrom($dbTableName)
+				->where(['_page_id' => $pageId])
+				->execute();
+			$dbw->insert( $dbTableName, $tablePuts);
 			#TODO we need to delete entries from bucket_pages if a bucket is removed from a page
 			#We can put used buckets in a list and then compare with all buckets assigned to this page and then delete the difference at the end.
 			$dbw->delete( 'bucket_pages', ['page_id' => $pageId, 'table_name' => $tableName ] );
@@ -293,7 +267,6 @@ class Bucket {
 		// only support is for ADD COLUMN, ADD INDEX, DROP INDEX
 		$alterTableFragments = [];
 
-		#TODO index everything?
 		foreach ( $newSchema as $fieldName => $fieldData ) {
 
 			#Handle new columns
@@ -302,7 +275,7 @@ class Bucket {
 				if ( $fieldData['index'] ) {
 					$alterTableFragments[] = "ADD " . self::getIndexStatement($fieldName, $fieldData);
 				}
-			#Handle deletedcolumns
+			#Handle deleted columns
 			} elseif ( $oldSchema[$fieldName]['index'] === true && $fieldData['index'] === false ) {
 				$alterTableFragments[] = "DROP INDEX `$fieldName`";
 			} else {
@@ -316,6 +289,7 @@ class Bucket {
 						$needNewIndex = true;
 					}
 					if ( $oldDbType == "TEXT" && $newDbType == "JSON" ) { #Update string types to be valid JSON
+						#TODO: Maybe this isn't kosher, but we need to run UPDATE before we can do ALTER
 						$dbw->query("UPDATE $dbTableName SET `$fieldName` = JSON_ARRAY(`$fieldName`) WHERE NOT JSON_VALID(`$fieldName`) AND _page_id >= 0;");
 					}
 					$alterTableFragments[] = "MODIFY `$fieldName` " . self::getDbType($fieldName, $fieldData);
@@ -329,13 +303,6 @@ class Bucket {
 				}
 			}
 			unset( $oldSchema[$fieldName] );
-		}
-
-		// For any removed columns, we can at least drop indexes
-		foreach ( $oldSchema as $fieldName => $fieldData ) {
-			if ( $fieldData['index'] ) {
-				$alterTableFragments[] = "DROP INDEX `$fieldName`";
-			}
 		}
 
 		return "ALTER TABLE $dbTableName " . implode( ', ', $alterTableFragments ) . ';';
