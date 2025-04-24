@@ -112,17 +112,19 @@ class Bucket {
 						unset( $singlePut[$key] );
 					} else {
 						#TODO JSON relies on forcing utf8 transmission in DatabaseMySQL.php line 829
-						$singlePut[$key] = self::castToDbType( $value, self::getDbType( $fieldName, $schemas[$tableName][$key] ) );
+						unset( $singlePut[$key] );
+						$singlePut['`' . $key . '`'] = self::castToDbType( $value, self::getDbType( $fieldName, $schemas[$tableName][$key] ) );
 					}
 				}
 				$tablePuts[$idx] = $singlePut;
 			}
 
 			#Check these puts against the hash of the last time we did puts.
+			#TODO also check a schema hash
 			$newHash = hash( 'sha256', json_encode( $tablePuts ) );
 			if ( isset($bucket_hash[ $tableName ]) && $bucket_hash[ $tableName ] == $newHash ) {
-				file_put_contents(MW_INSTALL_PATH . '/cook.txt', "HASH MATCH SKIPPING WRITING =====================\n", FILE_APPEND);
-				continue;
+				file_put_contents(MW_INSTALL_PATH . '/cook.txt', "TEMP DISABLED HASH MATCH SKIPPING WRITING =====================\n", FILE_APPEND);
+				// continue;
 			}
 
 			#TODO is it better to not read existing data and just write it all?
@@ -230,7 +232,7 @@ class Bucket {
 			$dbw->query( $statement );
 		} else {
 			$oldSchema = json_decode( $oldSchema, true );
-			$statement = self::getAlterTableStatement( $dbTableName, $newSchema, $oldSchema );
+			$statement = self::getAlterTableStatement( $dbTableName, $newSchema, $oldSchema, $dbw );
 			file_put_contents(MW_INSTALL_PATH . '/cook.txt', "ALTER TABLE STATEMENT $statement \n", FILE_APPEND);
 			$dbw->query( $statement );
 
@@ -260,7 +262,23 @@ class Bucket {
 	private static function getIndexStatement( $fieldName, $fieldData ) {
 		switch ( self::getDbType( $fieldName, $fieldData ) ) {
 			case 'JSON':
-				return "INDEX `$fieldName`((CAST(`$fieldName` AS CHAR(255) ARRAY)))"; #TODO actually cast this to the right underlying type
+				$fieldData['repeated'] = false;
+				$subType = self::getDbType($fieldName, $fieldData);
+				switch($subType) {
+					case "TEXT":
+						$subType = "CHAR(255)";
+						break;
+					case "INTEGER":
+						$subType = "DECIMAL";
+						break;
+					case "DOUBLE": //CAST doesn't support double 
+						$subType = "CHAR(255)";
+						break;
+					case "BOOLEAN":
+						$subType = "CHAR(5)"; //CAST doesn't have a boolean option
+						break;
+				}
+				return "INDEX `$fieldName`((CAST(`$fieldName` AS $subType ARRAY)))";
 			case 'TEXT':
 			case 'PAGE':
 				return "INDEX `$fieldName`(`$fieldName`(255))";
@@ -269,8 +287,7 @@ class Bucket {
 		}
 	}
 
-	private static function getAlterTableStatement( $dbTableName, $newSchema, $oldSchema ) {
-		#TODO handle repeated
+	private static function getAlterTableStatement( $dbTableName, $newSchema, $oldSchema, $dbw ) {
 		// Note that we do not support actually removing a column from the DB,
 		// or changing the type (all user-defined columns are TEXT) #TODO this is not true
 		// only support is for ADD COLUMN, ADD INDEX, DROP INDEX
@@ -290,20 +307,21 @@ class Bucket {
 				$alterTableFragments[] = "DROP INDEX `$fieldName`";
 			} else {
 				#Handle type changes
+				$oldDbType = self::getDbType($fieldName, $oldSchema[$fieldName]);
 				$newDbType = self::getDbType($fieldName, $fieldData);
-				if ( self::getDbType($fieldName, $oldSchema[$fieldName]) !== $newDbType ) {
-					// Do data type conversions
-					#TODO make this all one transaction
-					$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef(DB_PRIMARY);
-					$columnNameTemp = $fieldName . '__tmp';
-					$query = "ALTER TABLE `$dbTableName` ADD `$columnNameTemp` $newDbType ";
-					if ($fieldData['index'] == true) {
-						$query = $query . ", ADD INDEX `$columnNameTemp` (`$columnNameTemp`)";// . self::getIndexStatement($fieldName, $fieldData);
+				if ( $oldDbType !== $newDbType ) {
+					$needNewIndex = false;
+					if ( $oldSchema[$fieldName]['repeated'] != $fieldData['repeated'] ) {
+						$alterTableFragments[] = "DROP INDEX `$fieldName`"; #Repeated types cannot reuse the index of a non repeated type
+						$needNewIndex = true;
 					}
-					file_put_contents(MW_INSTALL_PATH . '/cook.txt', "ALTER TYPE $query \n", FILE_APPEND);
-					$dbw->query($query . ";"); //Make new temp column
-					$dbw->query("UPDATE IGNORE `$dbTableName` SET `$columnNameTemp` = $fieldName WHERE `_page_id` >= 0;");
-					$dbw->query("ALTER TABLE `$dbTableName` DROP COLUMN `$fieldName`, RENAME COLUMN `$columnNameTemp` TO `$fieldName`;");
+					if ( $oldDbType == "TEXT" && $newDbType == "JSON" ) { #Update string types to be valid JSON
+						$dbw->query("UPDATE $dbTableName SET `$fieldName` = JSON_ARRAY(`$fieldName`) WHERE NOT JSON_VALID(`$fieldName`) AND _page_id >= 0;");
+					}
+					$alterTableFragments[] = "MODIFY `$fieldName` " . self::getDbType($fieldName, $fieldData);
+					if ( $fieldData['index'] && $needNewIndex ) {
+						$alterTableFragments[] = "ADD " . self::getIndexStatement($fieldName, $fieldData);
+					}
 				}
 				#Handle index changes
 				if ( ( $oldSchema[$fieldName]['index'] === false && $fieldData['index'] === true ) ) {
