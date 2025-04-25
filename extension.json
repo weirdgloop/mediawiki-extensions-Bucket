@@ -15,6 +15,9 @@
 	"AutoloadNamespaces": {
 		"MediaWiki\\Extension\\Bucket\\": "includes/"
 	},
+	"AutoloadClasses": {
+		"BucketAction": "includes/BucketAction.php"
+	},
 	"namespaces": [
 			{
 				"id": 9592,
@@ -38,6 +41,9 @@
 		"BucketHookHandler": {
 			"class": "MediaWiki\\Extension\\Bucket\\Hooks"
 		}
+	},
+	"Actions": {
+		"bucket": "BucketAction"
 	},
 	"manifest_version": 2
 }
