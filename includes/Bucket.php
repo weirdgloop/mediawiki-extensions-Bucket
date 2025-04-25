@@ -38,28 +38,6 @@ class Bucket {
 	private static $MAX_LIMIT = 5000;
 	private static $DEFAULT_LIMIT = 500;
 
-	#Compare equality of two arrays
-	private static function areEqual( $array1, $array2 ) {
-		if (count($array1) != count($array2)) {
-			return false;
-		}
-		foreach ( $array1 as $key => $value ) {
-			if ( !array_key_exists( $key, $array2) ) {
-				return false;
-			}
-			if ( $value != $array2[$key] ) {
-				#We are comparing a value from the database with a value from PHP.
-				#The database text json has a space after a comma in the array, PHP doesn't.
-				#So decode the mismatched values and check for equality in the data they represent.
-				if ( json_decode($value) == json_decode($array2[$key])) {
-					continue;
-				}
-				return false;
-			}
-		}
-		return true;
-	}
-
 	/*
 	Called when a page is saved containing a bucket.put
 	*/
@@ -128,7 +106,7 @@ class Bucket {
 				continue;
 			}
 
-			file_put_contents( MW_INSTALL_PATH . '/cook.txt', "writePuts puts " . print_r($tablePuts, true) . "\n" , FILE_APPEND);
+			// file_put_contents( MW_INSTALL_PATH . '/cook.txt', "writePuts puts " . print_r($tablePuts, true) . "\n" , FILE_APPEND);
 			// TODO: does behavior here depend on DBO_TRX?
 			$dbw->begin();
 			$dbw->newDeleteQueryBuilder()
@@ -142,7 +120,7 @@ class Bucket {
 			$dbw->insert( 'bucket_pages', ['page_id' => $pageId, 'table_name' => $tableName, 'put_hash' => $newHash ] );
 
 			$dbw->commit();
-			file_put_contents( MW_INSTALL_PATH . '/cook.txt', "commited\n", FILE_APPEND );
+			// file_put_contents( MW_INSTALL_PATH . '/cook.txt', "commited\n", FILE_APPEND );
 		}
 	}
 
@@ -268,7 +246,6 @@ class Bucket {
 		$alterTableFragments = [];
 
 		foreach ( $newSchema as $fieldName => $fieldData ) {
-
 			#Handle new columns
 			if ( !isset( $oldSchema[$fieldName] ) ) {
 				$alterTableFragments[] = "ADD `$fieldName` " . self::getDbType( $fieldName, $fieldData );
@@ -282,9 +259,13 @@ class Bucket {
 				#Handle type changes
 				$oldDbType = self::getDbType($fieldName, $oldSchema[$fieldName]);
 				$newDbType = self::getDbType($fieldName, $fieldData);
+				file_put_contents(MW_INSTALL_PATH . '/cook.txt', "OLD: $oldDbType, NEW: $newDbType \n", FILE_APPEND);
 				if ( $oldDbType !== $newDbType ) {
 					$needNewIndex = false;
-					if ( $oldSchema[$fieldName]['repeated'] != $fieldData['repeated'] ) {
+					if ( $oldSchema[$fieldName]['repeated'] != $fieldData['repeated'] 
+						|| self::getIndexStatement($fieldName, $fieldData).contains("(") != self::getIndexStatement($fieldName, $oldSchema[$fieldName]).containsString("(")) {
+						file_put_contents(MW_INSTALL_PATH . '/cook.txt', "DROPPING INDEX $fieldName \n", FILE_APPEND);
+							#We cannot MODIFY from a column that doesn't need key length to a column that does need key length
 						$alterTableFragments[] = "DROP INDEX `$fieldName`"; #Repeated types cannot reuse the index of a non repeated type
 						$needNewIndex = true;
 					}
@@ -303,6 +284,10 @@ class Bucket {
 				}
 			}
 			unset( $oldSchema[$fieldName] );
+		}
+		//Drop unused columns
+		foreach ($oldSchema as $deletedColumn) {
+			$alterTableFragments[] = "DROP `$deletedColumn`";
 		}
 
 		return "ALTER TABLE $dbTableName " . implode( ', ', $alterTableFragments ) . ';';
@@ -468,12 +453,20 @@ class Bucket {
 			}
 			$op = $condition[1];
 			$value = $condition[2];
-			if ( is_numeric( $value ) ) {
-				return "($columnName $op $value)";
-			} elseif ( is_string( $value ) ) {
-				// TODO: really don't like this
-				$value = $dbw->strencode( $value );
-				return "($columnName $op \"$value\")";
+
+			// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "asdf " . print_r($schemas, true) . "\n", FILE_APPEND);
+			// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "asdf " . print_r($fieldNamesToTables, true) . "\n", FILE_APPEND);
+			// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "aaasdf " . print_r($fieldNamesToTables[$condition[0]], true) . "\n", FILE_APPEND);
+			if ( reset($fieldNamesToTables[$condition[0]]) == "1" ) {
+				return "\"$value\" MEMBER OF($columnName)";
+			} else {
+				if (is_numeric($value)) {
+					return "($columnName $op $value)";
+				} elseif (is_string($value)) {
+					// TODO: really don't like this
+					$value = $dbw->strencode($value);
+					return "($columnName $op \"$value\")";
+				}
 			}
 		}
 		throw new QueryException( 'Did not understand where condition: ' . json_encode( $condition ) );
@@ -543,7 +536,7 @@ class Bucket {
 					if ( !isset( $fieldNamesToTables[$fieldName] ) ) {
 						$fieldNamesToTables[$fieldName] = [];
 					}
-					$fieldNamesToTables[$fieldName][$tableName] = $fieldData['type'];
+					$fieldNamesToTables[$fieldName][$tableName] = $fieldData['repeated'];
 				}
 			}
 		}
@@ -604,6 +597,11 @@ class Bucket {
 		}
 
 		$rows = [];
+		// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "TABLES " . print_r($TABLES, true) . "\n", FILE_APPEND);
+		// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "SELECTS " . print_r($SELECTS, true) . "\n", FILE_APPEND);
+		// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "WHERES " . print_r($WHERES, true) . "\n", FILE_APPEND);
+		// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "OPTIONS " . print_r($OPTIONS, true) . "\n", FILE_APPEND);
+		// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "JOINS " . print_r($JOINS, true) . "\n", FILE_APPEND);
 		$res = $dbw->select( $TABLES, $SELECTS, $WHERES, '', $OPTIONS, $JOINS );
 		foreach ( $res as $row ) {
 			$row = (array)$row;
