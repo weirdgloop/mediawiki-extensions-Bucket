@@ -1,6 +1,7 @@
 <?php
 
 use MediaWiki\MediaWikiServices;
+use MediaWiki\Extension\Bucket\Bucket;
 
 class BucketAction extends Action {
 
@@ -26,14 +27,54 @@ class BucketAction extends Action {
         return $value;
     }
 
-    public function show() {
+    private function showBucketNamespace() {
         $out = $this->getOutput();
-        $request = $this->getRequest();
-
         $title = $this->getArticle()->getTitle();
-
         $out->setPageTitle( "Bucket View: $title" );
 
+		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
+
+        $table_name = Bucket::getValidFieldName($title->getBaseText());
+
+        $res = $dbw->select( 'bucket_schemas', [ 'table_name', 'schema_json' ], [ 'table_name' => $table_name ] );
+		$schemas = [];
+		foreach ( $res as $row ) {
+			$schemas[$row->table_name] = json_decode( $row->schema_json, true );
+		}
+
+        $dissallowColumns = ['_page_id', 'page_name_version'];
+
+        $output = [];
+        #TODO allow pagination
+        $res = $dbw->select('bucket__' . $table_name, ["*"], [], '', ['LIMIT' => 50]);
+        $fieldNames = $res->getFieldNames();
+        $output[] = "<table class=\"wikitable\"><tr>";
+        foreach ($fieldNames as $name) {
+            if (!in_array($name, $dissallowColumns)) {
+                $output[] = "<th>$name</th>";
+            }
+        }
+        foreach ($res as $row) {
+            $output[] = "<tr>";
+            foreach ($row as $key => $value) {
+                if (!in_array($key, $dissallowColumns)) {
+                    $output[] = "<td>" . $this->formatValue($value, $schemas[$table_name][$key]['type'], $schemas[$table_name][$key]['repeated']) . "</td>";
+                }
+            }
+            $output[] = "</tr>";
+        }
+        $output[] = "</table>";
+
+        $out->addWikiTextAsContent( implode('', $output ) );
+    }
+
+    public function show() {
+        if ($this->getArticle()->getTitle()->inNamespaces(9592, 9593)) {
+            return $this->showBucketNamespace();
+        }
+
+        $out = $this->getOutput();
+        $title = $this->getArticle()->getTitle();
         $pageId = $this->getArticle()->getPage()->getId();
 
 		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
@@ -52,9 +93,11 @@ class BucketAction extends Action {
 
         $dissallowColumns = ['_page_id', 'page_name', 'page_name_version'];
 
+        $out->setPageTitle( "Bucket View: $title" );
         $output = [];
         foreach ( $tables as $table_name ) {
-            $output[] = "<h2>[[Bucket:$table_name]]</h2>";
+            $bucket_page_name = str_replace("_", " ", $table_name);
+            $output[] = "<h2>[[Bucket:$bucket_page_name]]</h2>";
             $res = $dbw->select('bucket__' . $table_name, ["*"], ["_page_id" => $pageId]);
             $fieldNames = $res->getFieldNames();
             $output[] = "<table class=\"wikitable\"><tr>";
