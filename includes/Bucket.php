@@ -262,8 +262,7 @@ class Bucket {
 				file_put_contents(MW_INSTALL_PATH . '/cook.txt', "OLD: $oldDbType, NEW: $newDbType \n", FILE_APPEND);
 				if ( $oldDbType !== $newDbType ) {
 					$needNewIndex = false;
-					if ( $oldSchema[$fieldName]['repeated'] != $fieldData['repeated'] 
-						|| self::getIndexStatement($fieldName, $fieldData).contains("(") != self::getIndexStatement($fieldName, $oldSchema[$fieldName]).containsString("(")) {
+					if ( $oldSchema[$fieldName]['repeated'] || $fieldData['repeated'] ) {
 						file_put_contents(MW_INSTALL_PATH . '/cook.txt', "DROPPING INDEX $fieldName \n", FILE_APPEND);
 							#We cannot MODIFY from a column that doesn't need key length to a column that does need key length
 						$alterTableFragments[] = "DROP INDEX `$fieldName`"; #Repeated types cannot reuse the index of a non repeated type
