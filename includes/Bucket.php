@@ -45,29 +45,38 @@ class Bucket {
 		// file_put_contents( MW_INSTALL_PATH . '/cook.txt', "writePuts start " . print_r($puts, true) . "\n" , FILE_APPEND);
 		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
 
-		$res = $dbw->select( 'bucket_schemas', [ 'table_name', 'schema_json' ], [ 'table_name' => array_keys( $puts ) ] );
-
+		//TODO: not safe?
+		$res = $dbw->newSelectQueryBuilder()
+				->from( 'bucket_schemas' )
+				->select( [ 'table_name', 'schema_json' ] )
+				->where( ['table_name' => array_keys( $puts ) ] )
+				->caller( __METHOD__ )
+				->fetchResultSet();
 		$schemas = [];
 		foreach ( $res as $row ) {
 			$schemas[$row->table_name] = json_decode( $row->schema_json, true );
 		}
 
+		$res =  $dbw->newSelectQueryBuilder()
+				->from( 'bucket_pages' )
+				->select( [ '_page_id', 'table_name', 'put_hash' ] )
+				->where( [ '_page_id' => $pageId ] )
+				->caller( __METHOD__ )
+				->fetchResultSet();
 		$bucket_hash = [];
-		#TODO is specifying more constraints better or worse?
-		$res = $dbw->select( 'bucket_pages', '*', [ 'page_id' => $pageId ]);
 		foreach ( $res as $row ) {
-			$bucket_hash[$row->table_name] = $row->put_hash;
+			$bucket_hash[ $row->table_name ] = $row->put_hash;
 		}
 
 		foreach ( $puts as $tableName => $tablePuts ) {
 			// TODO: this misses deleting things that are no longer in the output
-			// TODO: not safe
 			$dbTableName = 'bucket__' . $tableName;
-			$res = $dbw->select(
-				$dbTableName,
-				'*',
-				[ '_page_id' => $pageId ]
-			);
+			$res = $dbw->newSelectQueryBuilder()
+				->from( $dbw->addIdentifierQuotes( $dbTableName ) )
+				->select( "*" )
+				->where( [ '_page_id' => $pageId ] )
+				->caller( __METHOD__ )
+				->fetchResultSet();
 
 			$fields = [];
 			$fieldNames = $res->getFieldNames();
@@ -106,18 +115,31 @@ class Bucket {
 				continue;
 			}
 
-			// file_put_contents( MW_INSTALL_PATH . '/cook.txt', "writePuts puts " . print_r($tablePuts, true) . "\n" , FILE_APPEND);
+			file_put_contents( MW_INSTALL_PATH . '/cook.txt', "writePuts puts " . print_r($tablePuts, true) . "\n" , FILE_APPEND);
 			// TODO: does behavior here depend on DBO_TRX?
 			$dbw->begin();
 			$dbw->newDeleteQueryBuilder()
-				->deleteFrom($dbTableName)
-				->where(['_page_id' => $pageId])
+				->deleteFrom( $dbw->addIdentifierQuotes($dbTableName) )
+				->where( [ '_page_id' => $pageId ] )
+				->caller( __METHOD__ )
 				->execute();
-			$dbw->insert( $dbTableName, $tablePuts);
+			$dbw->newInsertQueryBuilder()
+				->insert( $dbw->addIdentifierQuotes($dbTableName) )
+				->rows( $tablePuts )
+				->caller( __METHOD__ )
+				->execute();
 			#TODO we need to delete entries from bucket_pages if a bucket is removed from a page
 			#We can put used buckets in a list and then compare with all buckets assigned to this page and then delete the difference at the end.
-			$dbw->delete( 'bucket_pages', ['page_id' => $pageId, 'table_name' => $tableName ] );
-			$dbw->insert( 'bucket_pages', ['page_id' => $pageId, 'table_name' => $tableName, 'put_hash' => $newHash ] );
+			$dbw->newDeleteQueryBuilder()
+				->deleteFrom( 'bucket_pages' )
+				->where( [ '_page_id' => $pageId, 'table_name' => $dbw->addQuotes( $tableName ) ] )
+				->caller( __METHOD__ )
+				->execute();
+			$dbw->newInsertQueryBuilder()
+				->insert( 'bucket_pages' )
+				->rows( [ '_page_id' => $pageId, 'table_name' => $dbw->addQuotes($tableName), 'put_hash' => $newHash ] )
+				->caller( __METHOD__ )
+				->execute();
 
 			$dbw->commit();
 			// file_put_contents( MW_INSTALL_PATH . '/cook.txt', "commited\n", FILE_APPEND );
@@ -187,7 +209,6 @@ class Bucket {
 			$statement = self::getAlterTableStatement( $dbTableName, $newSchema, $oldSchema, $dbw );
 			file_put_contents(MW_INSTALL_PATH . '/cook.txt', "ALTER TABLE STATEMENT $statement \n", FILE_APPEND);
 			$dbw->query( $statement );
-
 		}
 		$schemaJson = json_encode( $newSchema );
 		$dbw->upsert(
@@ -227,7 +248,7 @@ class Bucket {
 						$subType = "CHAR(255)";
 						break;
 					case "BOOLEAN":
-						$subType = "CHAR(5)"; //CAST doesn't have a boolean option
+						$subType = "CHAR(255)"; //CAST doesn't have a boolean option
 						break;
 				}
 				return "INDEX `$fieldName`((CAST(`$fieldName` AS $subType ARRAY)))";
@@ -240,9 +261,6 @@ class Bucket {
 	}
 
 	private static function getAlterTableStatement( $dbTableName, $newSchema, $oldSchema, $dbw ) {
-		// Note that we do not support actually removing a column from the DB,
-		// or changing the type (all user-defined columns are TEXT) #TODO this is not true
-		// only support is for ADD COLUMN, ADD INDEX, DROP INDEX
 		$alterTableFragments = [];
 
 		foreach ( $newSchema as $fieldName => $fieldData ) {
@@ -264,8 +282,8 @@ class Bucket {
 					$needNewIndex = false;
 					if ( $oldSchema[$fieldName]['repeated'] || $fieldData['repeated'] ) {
 						file_put_contents(MW_INSTALL_PATH . '/cook.txt', "DROPPING INDEX $fieldName \n", FILE_APPEND);
-							#We cannot MODIFY from a column that doesn't need key length to a column that does need key length
-						$alterTableFragments[] = "DROP INDEX `$fieldName`"; #Repeated types cannot reuse the index of a non repeated type
+						#We cannot MODIFY from a column that doesn't need key length to a column that does need key length
+						$alterTableFragments[] = "DROP INDEX `$fieldName`"; #Repeated types cannot reuse the existing index
 						$needNewIndex = true;
 					}
 					if ( $oldDbType == "TEXT" && $newDbType == "JSON" ) { #Update string types to be valid JSON
@@ -286,6 +304,7 @@ class Bucket {
 		}
 		//Drop unused columns
 		foreach ($oldSchema as $deletedColumn) {
+			#TODO performance test this
 			$alterTableFragments[] = "DROP `$deletedColumn`";
 		}
 
@@ -596,11 +615,11 @@ class Bucket {
 		}
 
 		$rows = [];
-		file_put_contents(MW_INSTALL_PATH . '/cook.txt', "TABLES " . print_r($TABLES, true) . "\n", FILE_APPEND);
-		file_put_contents(MW_INSTALL_PATH . '/cook.txt', "SELECTS " . print_r($SELECTS, true) . "\n", FILE_APPEND);
-		file_put_contents(MW_INSTALL_PATH . '/cook.txt', "WHERES " . print_r($WHERES, true) . "\n", FILE_APPEND);
-		file_put_contents(MW_INSTALL_PATH . '/cook.txt', "OPTIONS " . print_r($OPTIONS, true) . "\n", FILE_APPEND);
-		file_put_contents(MW_INSTALL_PATH . '/cook.txt', "JOINS " . print_r($JOINS, true) . "\n", FILE_APPEND);
+		// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "TABLES " . print_r($TABLES, true) . "\n", FILE_APPEND);
+		// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "SELECTS " . print_r($SELECTS, true) . "\n", FILE_APPEND);
+		// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "WHERES " . print_r($WHERES, true) . "\n", FILE_APPEND);
+		// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "OPTIONS " . print_r($OPTIONS, true) . "\n", FILE_APPEND);
+		// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "JOINS " . print_r($JOINS, true) . "\n", FILE_APPEND);
 		$res = $dbw->select( $TABLES, $SELECTS, $WHERES, '', $OPTIONS, $JOINS );
 		foreach ( $res as $row ) {
 			$row = (array)$row;
