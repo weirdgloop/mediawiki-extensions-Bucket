@@ -110,6 +110,7 @@ class Bucket {
 			sort($tablePuts);
 			sort($schemas[$tableName]);
 			$newHash = hash( 'sha256', json_encode( $tablePuts ) . json_encode($schemas[$tableName]));
+			// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "$bucket_hash[$tableName]\n$newHash\n", FILE_APPEND);
 			if ( isset($bucket_hash[ $tableName ]) && $bucket_hash[ $tableName ] == $newHash ) {
 				file_put_contents(MW_INSTALL_PATH . '/cook.txt', "HASH MATCH SKIPPING WRITING =====================\n", FILE_APPEND);
 				continue;
@@ -132,12 +133,12 @@ class Bucket {
 			#We can put used buckets in a list and then compare with all buckets assigned to this page and then delete the difference at the end.
 			$dbw->newDeleteQueryBuilder()
 				->deleteFrom( 'bucket_pages' )
-				->where( [ '_page_id' => $pageId, 'table_name' => $dbw->addQuotes( $tableName ) ] )
+				->where( [ '_page_id' => $pageId, 'table_name' => $tableName ] )
 				->caller( __METHOD__ )
 				->execute();
 			$dbw->newInsertQueryBuilder()
 				->insert( 'bucket_pages' )
-				->rows( [ '_page_id' => $pageId, 'table_name' => $dbw->addQuotes($tableName), 'put_hash' => $newHash ] )
+				->rows( [ '_page_id' => $pageId, 'table_name' => $tableName, 'put_hash' => $newHash ] )
 				->caller( __METHOD__ )
 				->execute();
 
@@ -407,6 +408,7 @@ class Bucket {
 		return is_array( $condition )
 		&& isset($condition['op'])
 		&& ( $condition['op'] === 'OR' || $condition['op'] === 'AND' )
+		&& isset( $condition['operands'])
 		&& is_array( $condition['operands'] );
 	}
 
@@ -437,29 +439,46 @@ class Bucket {
 		throw new QueryException( 'Did not understand category condition: ' . json_encode( $condition ) );
 	}
 
+	/**
+	 *  $condition is an array of members:
+	 * 		operands -> Array of $conditions
+	 * 		(optional)op -> AND | OR | NOT
+	 * 		unnamed -> scalar value or array of scalar values
+	 */
 	public static function getWhereCondition( $condition, $fieldNamesToTables, $schemas, $dbw ) {
+		// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "Condition: " . print_r($condition, true) . "\n", FILE_APPEND);
 		if ( self::isOrAnd( $condition ) ) {
 			if ( empty( $condition['operands'] ) ) {
 				throw new QueryException( 'Missing condition: ' . json_encode( $condition ) );
 			}
 			$children = [];
-			foreach ( $condition['operands'] as $operand ) {
-				$children[] = self::getWhereCondition( $operand, $fieldNamesToTables, $schemas, $dbw );
+			foreach ( $condition['operands'] as $key => $operand ) {
+				if ($key != 'op') { //the key 'op' will never be a valid condition on its own.
+					if (!isset($operand['op']) && isset($condition['op']) && isset($operand[0]) && is_array($operand[0]) && count($operand[0]) > 0) {
+						$operand['op'] = $condition['op']; //Set child op to parent
+					}
+					// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "Calling getWhereCondition 1: " . print_r($operand, true) . "\n", FILE_APPEND);
+					$children[] = self::getWhereCondition($operand, $fieldNamesToTables, $schemas, $dbw);
+				}
 			}
 			$children = implode( " {$condition['op']} ", $children );
 			return "($children)";
 		} elseif ( self::isNot( $condition ) ) {
+			//TODO I think NOT should support multiple operands
+			// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "Calling getWhereCondition for NOT: " . print_r($condition, true) . "\n", FILE_APPEND);
 			$child = self::getWhereCondition( $condition['operand'], $fieldNamesToTables, $schemas, $dbw );
 			return "(NOT $child)";
 		} elseif ( is_array( $condition ) && is_array( $condition[0] ) ) {
 			// .where{{"a", ">", 0}, {"b", "=", "5"}})
-			return self::getWhereCondition( [ 'op' => 'AND', 'operands' => $condition ], $fieldNamesToTables, $schemas, $dbw );
+			// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "Calling getWhereCondition 2 with overriding op: " . print_r($condition, true) . "\n", FILE_APPEND);
+			return self::getWhereCondition( [ 'op' => isset($condition[ 'op' ]) ? $condition[ 'op' ] : 'AND', 'operands' => $condition ], $fieldNamesToTables, $schemas, $dbw );
 		} elseif ( is_array( $condition ) && !empty( $condition ) && !isset( $condition[0] ) ) {
 			// .where({a = 1, b = 2})
 			$operands = [];
 			foreach ( $condition as $key => $value ) {
 				$operands[] = [ $key, '=', $value ];
 			}
+			// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "Calling getWhereCondition 3 with overriding op = AND: " . print_r($operands, true) . "\n", FILE_APPEND);
 			return self::getWhereCondition( [ 'op' => 'AND', 'operands' => $operands ], $fieldNamesToTables, $schemas, $dbw );
 		} elseif ( is_array( $condition ) && isset( $condition[0] ) && isset( $condition[1] ) ) {
 			if ( count( $condition ) === 2 ) {
@@ -472,10 +491,7 @@ class Bucket {
 			$op = $condition[1];
 			$value = $condition[2];
 
-			// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "asdf " . print_r($schemas, true) . "\n", FILE_APPEND);
-			// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "asdf " . print_r($fieldNamesToTables, true) . "\n", FILE_APPEND);
-			// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "aaasdf " . print_r($fieldNamesToTables[$condition[0]], true) . "\n", FILE_APPEND);
-			if ( reset($fieldNamesToTables[$condition[0]]) == "1" ) {
+			if ( reset($fieldNamesToTables[$condition[0]]) == "1" ) {//$fieldNamesToTables[table_name] == "1" if the field is repeated
 				return "\"$value\" MEMBER OF($columnName)";
 			} else {
 				if (is_numeric($value)) {
@@ -620,7 +636,7 @@ class Bucket {
 		// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "WHERES " . print_r($WHERES, true) . "\n", FILE_APPEND);
 		// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "OPTIONS " . print_r($OPTIONS, true) . "\n", FILE_APPEND);
 		// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "JOINS " . print_r($JOINS, true) . "\n", FILE_APPEND);
-		$res = $dbw->select( $TABLES, $SELECTS, $WHERES, '', $OPTIONS, $JOINS );
+		$res = $dbw->select( $TABLES, $SELECTS, $WHERES, __METHOD__, $OPTIONS, $JOINS );
 		foreach ( $res as $row ) {
 			$row = (array)$row;
 			foreach ( $row as $columnName => $value ) {

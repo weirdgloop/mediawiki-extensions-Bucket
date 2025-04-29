@@ -79,7 +79,7 @@ class BucketAction extends Action {
 
 		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
 
-        $res = $dbw->select('bucket_pages', ['table_name'], ["page_id" => $pageId]);
+        $res = $dbw->select('bucket_pages', ['table_name'], ["_page_id" => $pageId]);
         $tables = [];
         foreach ( $res as $row ) {
             $tables[] = $row->table_name;
