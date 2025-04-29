@@ -21,7 +21,7 @@ class Bucket {
 	private static $requiredColumns = [
 			'_page_id' => [ 'type' => 'INTEGER', 'index' => false , 'repeated' => false ],
 			'_index' => [ 'type' => 'INTEGER', 'index' => false , 'repeated' => false ],
-			'page_name' => [ 'type' => 'TEXT', 'index' => true,  'repeated' => false ],
+			'page_name' => [ 'type' => 'PAGE', 'index' => true,  'repeated' => false ],
 	];
 
 	private static $allSchemas = [];
