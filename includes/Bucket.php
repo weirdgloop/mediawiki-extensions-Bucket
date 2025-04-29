@@ -22,7 +22,6 @@ class Bucket {
 			'_page_id' => [ 'type' => 'INTEGER', 'index' => false , 'repeated' => false ],
 			'_index' => [ 'type' => 'INTEGER', 'index' => false , 'repeated' => false ],
 			'page_name' => [ 'type' => 'TEXT', 'index' => true,  'repeated' => false ],
-			'page_name_version' => [ 'type' => 'TEXT', 'index' => true , 'repeated' => false ]
 	];
 
 	private static $allSchemas = [];
@@ -88,10 +87,6 @@ class Bucket {
 				$singlePut['_page_id'] = $pageId;
 				$singlePut['_index'] = $idx;
 				$singlePut['page_name'] = $titleText;
-				$singlePut['page_name_version'] = $titleText;
-				if ( isset( $singlePut['_version'] ) ) {
-					$singlePut['page_name_version'] = $titleText . '#' . $singlePut['_version'];
-				}
 				foreach ( $singlePut as $key => $value ) {
 					if ( !isset($fields[$key]) || !$fields[$key] ) {
 						// TODO: warning somewhere?

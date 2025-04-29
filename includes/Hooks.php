@@ -40,7 +40,7 @@ class Hooks implements
 		$pageId = $linksUpdate->getTitle()->getArticleID();
 		if ( $bucketPuts !== null ) {
 			// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "HOOK " . print_r($bucketPuts, true) . "\n", FILE_APPEND);
-			$titleText = $linksUpdate->getTitle()->getTitleValue();
+			$titleText = $linksUpdate->getTitle()->getPrefixedText();
 			Bucket::writePuts($pageId, $titleText, $bucketPuts);
 		} else {
 			Bucket::clearOrphanedData($pageId);
