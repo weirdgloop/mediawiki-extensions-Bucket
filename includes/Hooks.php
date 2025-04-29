@@ -5,6 +5,7 @@ namespace MediaWiki\Extension\Bucket;
 use MediaWiki\Content\JsonContent;
 use MediaWiki\Extension\Scribunto\Hooks\ScribuntoExternalLibrariesHook;
 use MediaWiki\Hook\LinksUpdateCompleteHook;
+use MediaWiki\Hook\SkinBuildSidebarHook;
 use MediaWiki\Installer\Hook\LoadExtensionSchemaUpdatesHook;
 use MediaWiki\Storage\Hook\MultiContentSaveHook;
 use MediaWiki\Revision\SlotRecord;
@@ -13,7 +14,8 @@ class Hooks implements
 	LinksUpdateCompleteHook,
 	LoadExtensionSchemaUpdatesHook,
 	MultiContentSaveHook,
-	ScribuntoExternalLibrariesHook
+	ScribuntoExternalLibrariesHook,
+	SkinBuildSidebarHook
 {
 	/**
 	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/LoadExtensionSchemaUpdates
@@ -81,5 +83,23 @@ class Hooks implements
 		if ( $engine === 'lua' ) {
 			$extraLibraries['mw.ext.bucket'] = LuaLibrary::class;
 		}
+	}
+
+	/**
+	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/SidebarBeforeOutput
+	 * 
+	 * @param Skin $skin
+	 * @param array $bar
+	 * @return void
+	 */
+	public function onSkinBuildSidebar( $skin, &$bar ) {
+		//TODO check namespace
+		//TODO this should be TOOLBOX but that makes the entry not show up
+		$bar['toolbox'][] = [
+			'text' => 'View Bucket',
+			'href' => '?action=bucket',
+			'title' => 'Bucket',
+			'id' => 'n-bucket'
+		];
 	}
 }

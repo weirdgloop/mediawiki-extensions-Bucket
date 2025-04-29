@@ -35,7 +35,8 @@
 		"LinksUpdateComplete": "BucketHookHandler",
 		"LoadExtensionSchemaUpdates": "BucketHookHandler",
 		"MultiContentSave": "BucketHookHandler",
-		"ScribuntoExternalLibraries": "BucketHookHandler"
+		"ScribuntoExternalLibraries": "BucketHookHandler",
+		"SkinBuildSidebar": "BucketHookHandler"
 	},
 	"HookHandlers": {
 		"BucketHookHandler": {

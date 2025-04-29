@@ -9,12 +9,49 @@ class BucketAction extends Action {
         return "bucket";
     }
 
+    private function getPageLinks($limit, $offset) {
+        //TODO localized language
+        $links = [];
+
+        $previousOffset = max(0, $offset-$limit);
+        $links[] = new OOUI\ButtonWidget( [
+            'href' => $this->getTitle()->getLocalURL( [ 'action' => 'bucket', 'limit' => $limit, 'offset' => max(0, $previousOffset) ] ),
+            'title' => "Previous $limit results.",
+            'label' => "Previous $limit"
+        ]);
+        if ( $offset-$limit < 0 ) {
+            end($links)->setDisabled(true);
+        }
+
+        foreach ( [20, 50, 100, 250, 500 ] as $num ) {
+            $query = [ 'action' => 'bucket', 'limit' => $num, 'offset' => $offset ];
+            $tooltip = "Show $num results per page.";
+            $links[] = new OOUI\ButtonWidget( [
+                'href' => $this->getTitle()->getLocalURL($query),
+                'title' => $tooltip,
+                'label' => $num,
+                'active' => ($num == $limit)
+            ]);
+        }
+
+        $links[] = new OOUI\ButtonWidget( [
+            'href' => $this->getTitle()->getLocalURL( [ 'action' => 'bucket', 'limit' => $limit, 'offset' => $offset+$limit ] ),
+            'title' => "Next $limit results.",
+            'label' => "Next $limit"
+        ]);
+
+        return new OOUI\ButtonGroupWidget( [ 'items' => $links ] );
+    }
+
     private function formatValue($value, $dataType, $repeated) {
         if ($repeated) {
             $json = json_decode($value);
             $returns = [];
             foreach ($json as $val) {
-                $returns[] = $this->formatValue($val, $dataType, false);
+                $formatted_val = $this->formatValue( $val, $dataType, false);
+                if ( $formatted_val != '' ) {
+                    $returns[] = '<li>' . $formatted_val;
+                }
             }
             return implode('', $returns);
         }
@@ -32,6 +69,9 @@ class BucketAction extends Action {
         $title = $this->getArticle()->getTitle();
         $out->setPageTitle( "Bucket View: $title" );
 
+        $limit = $this->getRequest()->getVal( "limit", 50 );
+        $offset = $this->getRequest()->getVal( "offset", 0 );
+
 		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
 
         $table_name = Bucket::getValidFieldName($title->getBaseText());
@@ -42,13 +82,20 @@ class BucketAction extends Action {
 			$schemas[$row->table_name] = json_decode( $row->schema_json, true );
 		}
 
-        $dissallowColumns = ['_page_id', 'page_name_version'];
+        $out->addHTML($this->getPageLinks($limit, $offset));
 
         $output = [];
-        #TODO allow pagination
-        $res = $dbw->select('bucket__' . $table_name, ["*"], [], '', ['LIMIT' => 50]);
+        $res = $dbw->newSelectQueryBuilder()
+            ->from( $dbw->addIdentifierQuotes( 'bucket__' . $table_name ) )
+            ->select( '*' )
+            ->caller( __METHOD__ )
+            ->limit($limit)
+            ->offset($offset)
+            ->fetchResultSet();
+
         $fieldNames = $res->getFieldNames();
         $output[] = "<table class=\"wikitable\"><tr>";
+        $dissallowColumns = ['_page_id', 'page_name_version'];
         foreach ($fieldNames as $name) {
             if (!in_array($name, $dissallowColumns)) {
                 $output[] = "<th>$name</th>";
@@ -69,6 +116,7 @@ class BucketAction extends Action {
     }
 
     public function show() {
+        $this->getOutput()->enableOOUI(); //We want to use OOUI for consistent styling
         if ($this->getArticle()->getTitle()->inNamespaces(9592, 9593)) {
             return $this->showBucketNamespace();
         }
@@ -76,6 +124,7 @@ class BucketAction extends Action {
         $out = $this->getOutput();
         $title = $this->getArticle()->getTitle();
         $pageId = $this->getArticle()->getPage()->getId();
+        $out->setPageTitle( "Bucket View: $title" );
 
 		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
 
@@ -83,6 +132,11 @@ class BucketAction extends Action {
         $tables = [];
         foreach ( $res as $row ) {
             $tables[] = $row->table_name;
+        }
+
+        if (count($tables) == 0) {
+            $out->addWikiTextAsContent("No Buckets are written to from this page.");
+            return;
         }
 
         $res = $dbw->select( 'bucket_schemas', [ 'table_name', 'schema_json' ], [ 'table_name' => $tables ] );
@@ -93,7 +147,6 @@ class BucketAction extends Action {
 
         $dissallowColumns = ['_page_id', 'page_name', 'page_name_version'];
 
-        $out->setPageTitle( "Bucket View: $title" );
         $output = [];
         foreach ( $tables as $table_name ) {
             $bucket_page_name = str_replace("_", " ", $table_name);
