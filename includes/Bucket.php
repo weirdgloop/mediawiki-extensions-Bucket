@@ -110,11 +110,14 @@ class Bucket {
 			sort($tablePuts);
 			sort($schemas[$tableName]);
 			$newHash = hash( 'sha256', json_encode( $tablePuts ) . json_encode($schemas[$tableName]));
-			// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "$bucket_hash[$tableName]\n$newHash\n", FILE_APPEND);
 			if ( isset($bucket_hash[ $tableName ]) && $bucket_hash[ $tableName ] == $newHash ) {
 				file_put_contents(MW_INSTALL_PATH . '/cook.txt', "HASH MATCH SKIPPING WRITING =====================\n", FILE_APPEND);
+				unset( $bucket_hash[ $tableName ] );
 				continue;
 			}
+
+			//Remove the bucket_hash entry so we can it as a list of removed buckets at the end.
+			unset( $bucket_hash[ $tableName ] );
 
 			file_put_contents( MW_INSTALL_PATH . '/cook.txt', "writePuts puts " . print_r($tablePuts, true) . "\n" , FILE_APPEND);
 			// TODO: does behavior here depend on DBO_TRX?
@@ -129,8 +132,6 @@ class Bucket {
 				->rows( $tablePuts )
 				->caller( __METHOD__ )
 				->execute();
-			#TODO we need to delete entries from bucket_pages if a bucket is removed from a page
-			#We can put used buckets in a list and then compare with all buckets assigned to this page and then delete the difference at the end.
 			$dbw->newDeleteQueryBuilder()
 				->deleteFrom( 'bucket_pages' )
 				->where( [ '_page_id' => $pageId, 'table_name' => $tableName ] )
@@ -144,6 +145,63 @@ class Bucket {
 
 			$dbw->commit();
 			// file_put_contents( MW_INSTALL_PATH . '/cook.txt', "commited\n", FILE_APPEND );
+		}
+
+		//Clean up bucket_pages entries for buckets that are no longer written to on this page.
+		file_put_contents(MW_INSTALL_PATH . '/cook.txt', "GOING TO DELETE " . print_r(array_keys( array_filter( $bucket_hash ) ), true) . "\n", FILE_APPEND);
+		$dbw->begin( __METHOD__ );
+		$tablesToDelete = array_keys( array_filter( $bucket_hash ) );
+		$dbw->newDeleteQueryBuilder()
+			->deleteFrom( 'bucket_pages' )
+			->where( [ '_page_id' => $pageId, 'table_name' => $tablesToDelete ])
+			->caller( __METHOD__ )
+			->execute();
+		$table = [];
+		foreach ($tablesToDelete as $name) {
+			$dbw->newDeleteQueryBuilder()
+				->deleteFrom($dbw->addIdentifierQuotes('bucket__' . $name))
+				->where(['_page_id' => $pageId])
+				->caller(__METHOD__)
+				->execute();
+		}
+		$dbw->commit( __METHOD__ );
+	}
+
+	/**
+	 * Called for any page save that doesn't have bucket puts
+	 */
+	public static function clearOrphanedData( int $pageId) {
+		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
+
+		//Check if any buckets are storing data for this page
+		$res =  $dbw->newSelectQueryBuilder()
+				->from( 'bucket_pages' )
+				->select( [ 'table_name' ] )
+				->where( [ '_page_id' => $pageId ] )
+				->groupBy( 'table_name' )
+				->caller( __METHOD__ )
+				->fetchResultSet();
+
+		//If there is data associated with this page, delete it.
+		if( $res->count() > 0 ) {
+			$dbw->begin( __METHOD__ );
+			$dbw->newDeleteQueryBuilder()
+				->deleteFrom('bucket_pages')
+				->where(['_page_id' => $pageId])
+				->caller(__METHOD__)
+				->execute();
+			$table = [];
+			foreach ( $res as $row ) {
+				$table[] = $row->table_name;
+			}
+			foreach ( $table as $name ) {
+				$dbw->newDeleteQueryBuilder()
+					->deleteFrom($dbw->addIdentifierQuotes('bucket__' . $name ))
+					->where(['_page_id' => $pageId])
+					->caller(__METHOD__)
+					->execute();
+			}
+			$dbw->commit( __METHOD__ );
 		}
 	}
 

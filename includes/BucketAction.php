@@ -65,6 +65,7 @@ class BucketAction extends Action {
     }
 
     private function showBucketNamespace() {
+        //TODO: If we actually just run a pre-populated lua .where query here then we can offer filtering/etc easily
         $out = $this->getOutput();
         $title = $this->getArticle()->getTitle();
         $out->setPageTitle( "Bucket View: $title" );
@@ -128,7 +129,13 @@ class BucketAction extends Action {
 
 		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
 
-        $res = $dbw->select('bucket_pages', ['table_name'], ["_page_id" => $pageId]);
+        $res =  $dbw->newSelectQueryBuilder()
+            ->from('bucket_pages')
+            ->select(['table_name'])
+            ->where(['_page_id' => $pageId])
+            ->groupBy('table_name')
+            ->caller(__METHOD__)
+            ->fetchResultSet();
         $tables = [];
         foreach ( $res as $row ) {
             $tables[] = $row->table_name;
@@ -139,7 +146,12 @@ class BucketAction extends Action {
             return;
         }
 
-        $res = $dbw->select( 'bucket_schemas', [ 'table_name', 'schema_json' ], [ 'table_name' => $tables ] );
+        $res = $dbw->newSelectQueryBuilder()
+            ->from('bucket_schemas')
+            ->select(['table_name', 'schema_json'])
+            ->where(['table_name' => $tables])
+            ->caller(__METHOD__)
+            ->fetchResultSet();
 		$schemas = [];
 		foreach ( $res as $row ) {
 			$schemas[$row->table_name] = json_decode( $row->schema_json, true );

@@ -37,11 +37,13 @@ class Hooks implements
 	 */
 	public function onLinksUpdateComplete( $linksUpdate, $ticket ) {
 		$bucketPuts = $linksUpdate->getParserOutput()->getExtensionData( Bucket::EXTENSION_DATA_KEY );
+		$pageId = $linksUpdate->getTitle()->getArticleID();
 		if ( $bucketPuts !== null ) {
 			// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "HOOK " . print_r($bucketPuts, true) . "\n", FILE_APPEND);
-			$pageId = $linksUpdate->getTitle()->getArticleID();
 			$titleText = $linksUpdate->getTitle()->getTitleValue();
 			Bucket::writePuts($pageId, $titleText, $bucketPuts);
+		} else {
+			Bucket::clearOrphanedData($pageId);
 		}
 	}
 
