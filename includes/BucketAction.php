@@ -2,6 +2,8 @@
 
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Extension\Bucket\Bucket;
+use MediaWiki\Extension\Scribunto\Scribunto;
+use MediaWiki\Extension\Scribunto\ScribuntoException;
 
 class BucketAction extends Action {
 
@@ -9,13 +11,13 @@ class BucketAction extends Action {
         return "bucket";
     }
 
-    private function getPageLinks($limit, $offset) {
+    private function getPageLinks($limit, $offset, $query) {
         //TODO localized language
         $links = [];
 
         $previousOffset = max(0, $offset-$limit);
         $links[] = new OOUI\ButtonWidget( [
-            'href' => $this->getTitle()->getLocalURL( [ 'action' => 'bucket', 'limit' => $limit, 'offset' => max(0, $previousOffset) ] ),
+            'href' => $this->getTitle()->getLocalURL( [ 'action' => 'bucket', 'limit' => $limit, 'offset' => max(0, $previousOffset) ] + $query ),
             'title' => "Previous $limit results.",
             'label' => "Previous $limit"
         ]);
@@ -24,7 +26,7 @@ class BucketAction extends Action {
         }
 
         foreach ( [20, 50, 100, 250, 500 ] as $num ) {
-            $query = [ 'action' => 'bucket', 'limit' => $num, 'offset' => $offset ];
+            $query = [ 'action' => 'bucket', 'limit' => $num, 'offset' => $offset ] + $query;
             $tooltip = "Show $num results per page.";
             $links[] = new OOUI\ButtonWidget( [
                 'href' => $this->getTitle()->getLocalURL($query),
@@ -35,12 +37,54 @@ class BucketAction extends Action {
         }
 
         $links[] = new OOUI\ButtonWidget( [
-            'href' => $this->getTitle()->getLocalURL( [ 'action' => 'bucket', 'limit' => $limit, 'offset' => $offset+$limit ] ),
+            'href' => $this->getTitle()->getLocalURL( [ 'action' => 'bucket', 'limit' => $limit, 'offset' => $offset+$limit ] + $query ),
             'title' => "Next $limit results.",
             'label' => "Next $limit"
         ]);
 
         return new OOUI\ButtonGroupWidget( [ 'items' => $links ] );
+    }
+
+    private function runQuery($bucket, $select, $where, $limit, $offset) {
+        $title = $this->getArticle()->getTitle();
+
+        // $questionString = "= bucket($bucket).select($select).limit($limit).offset($offset).runJson()";
+        $questionString = [];
+        $questionString[] = "= bucket('$bucket')";
+        $questionString[] = ".select($select)";
+        if ( strlen($where) > 0 ) {
+            $questionString[] = ".where($where)";
+        }
+        $questionString[] = ".limit($limit).offset($offset).runJson()";
+        $questionString = implode('', $questionString);
+		file_put_contents(MW_INSTALL_PATH . '/cook.txt', "$questionString\n", FILE_APPEND);
+
+        // $oouiGroup = new OOUI\FormLayout();
+        // $oouiInputs = [];
+        // $oouiInputs[] = new OOUI\NumberInputWidget(['min' => 0]);
+        // $oouiInputs[] = new OOUI\NumberInputWidget(['min' => 1, 'max' => 500]);
+
+        // $oouiGroup->addItems($oouiInputs);
+        // $oouiInput = new OOUI\MultilineTextInputWidget();
+        // $oouiInput->setValue("= bucket($bucket).select($select).where($where).limit($limit).offset($offset).runJson()");
+        // $oouiGroup->appendContent($oouiInput);
+
+        $parser = MediaWikiServices::getInstance()->getParser();
+        $options = new ParserOptions($this->getUser());
+        $parser->startExternalParse($title, $options, Parser::OT_HTML, true);
+        $engine = Scribunto::getParserEngine($parser);
+        try {
+            $result = $engine->runConsole([
+                'title' => $title,
+                'content' => '',
+                'prevQuestions' => [],
+                'question' => $questionString
+            ]);
+
+        } catch (ScribuntoException $e) {
+            return $e;
+        }
+        return json_decode($result["return"]);
     }
 
     private function formatValue($value, $dataType, $repeated) {
@@ -65,17 +109,13 @@ class BucketAction extends Action {
     }
 
     private function showBucketNamespace() {
-        //TODO: If we actually just run a pre-populated lua .where query here then we can offer filtering/etc easily
         $out = $this->getOutput();
         $title = $this->getArticle()->getTitle();
         $out->setPageTitle( "Bucket View: $title" );
 
-        $limit = $this->getRequest()->getVal( "limit", 50 );
-        $offset = $this->getRequest()->getVal( "offset", 0 );
-
 		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
 
-        $table_name = Bucket::getValidFieldName($title->getBaseText());
+        $table_name = Bucket::getValidFieldName($title->getRootText());
 
         $res = $dbw->select( 'bucket_schemas', [ 'table_name', 'schema_json' ], [ 'table_name' => $table_name ] );
 		$schemas = [];
@@ -83,31 +123,35 @@ class BucketAction extends Action {
 			$schemas[$row->table_name] = json_decode( $row->schema_json, true );
 		}
 
-        $out->addHTML($this->getPageLinks($limit, $offset));
-
-        $output = [];
-        $res = $dbw->newSelectQueryBuilder()
-            ->from( $dbw->addIdentifierQuotes( 'bucket__' . $table_name ) )
-            ->select( '*' )
-            ->caller( __METHOD__ )
-            ->limit($limit)
-            ->offset($offset)
-            ->fetchResultSet();
-
-        $fieldNames = $res->getFieldNames();
-        $output[] = "<table class=\"wikitable\"><tr>";
-        $dissallowColumns = ['_page_id', 'page_name_version'];
-        foreach ($fieldNames as $name) {
-            if (!in_array($name, $dissallowColumns)) {
-                $output[] = "<th>$name</th>";
+        //If select isn't specified, then select everything
+        $selectNames = [];
+        if ( $this->getRequest()->getText( "select" ) == '' ) {
+            foreach ( $schemas[ $table_name ] as $name => $value ) {
+                if ( !str_starts_with($name, '_' ) ) {
+                    $selectNames[] = "'" . $name . "'";
+                }
             }
         }
-        foreach ($res as $row) {
+
+        $select = $this->getRequest()->getText( "select", implode(',', $selectNames));
+        $where = $this->getRequest()->getText( "where", '' );
+        $limit = $this->getRequest()->getInt( "limit", 50 );
+        $offset = $this->getRequest()->getInt( "offset", 0 );
+
+        $out->addHTML($this->getPageLinks($limit, $offset, $this->getRequest()->getQueryValues()));
+
+        $queryResult = $this->runQuery($table_name, $select, $where, $limit, $offset);
+
+        $output = [];
+
+        $output[] = "<table class=\"wikitable\"><tr>";
+        foreach ($selectNames as $name) {
+            $output[] = "<th>$name</th>";
+        }
+        foreach ($queryResult as $row) {
             $output[] = "<tr>";
             foreach ($row as $key => $value) {
-                if (!in_array($key, $dissallowColumns)) {
-                    $output[] = "<td>" . $this->formatValue($value, $schemas[$table_name][$key]['type'], $schemas[$table_name][$key]['repeated']) . "</td>";
-                }
+                $output[] = "<td>" . $this->formatValue($value, $schemas[$table_name][$key]['type'], $schemas[$table_name][$key]['repeated']) . "</td>";
             }
             $output[] = "</tr>";
         }

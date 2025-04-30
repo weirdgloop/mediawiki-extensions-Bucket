@@ -70,8 +70,17 @@ function QueryBuilder:limit(arg)
     return self
 end
 
+function QueryBuilder:offset(arg)
+    self.offset = arg
+    return self
+end
+
 function QueryBuilder:run()
     return php.run(self)
+end
+
+function QueryBuilder:runJson()
+    return php.runJson(self)
 end
 
 function bucket.put(bucket_name, data)

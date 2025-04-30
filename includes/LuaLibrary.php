@@ -9,7 +9,8 @@ class LuaLibrary extends LibraryBase {
 		$lib = [
 			'put' => [ $this, 'bucketPut' ],
 			'get' => [ $this, 'bucketGet' ],
-			'run' => [ $this, 'bucketRun' ]
+			'run' => [ $this, 'bucketRun' ],
+			'runJson' => [ $this, 'bucketRunJson' ]
 		];
 		return $this->getEngine()->registerInterface( __DIR__ . '/mw.ext.bucket.lua', $lib, [] );
 	}
@@ -28,6 +29,12 @@ class LuaLibrary extends LibraryBase {
 		$data = self::convertFromLuaTable( $data );
 		$rows = Bucket::runSelect( $data );
 		return [ self::convertToLuaTable( $rows ) ];
+	}
+
+	public function bucketRunJson( $data ): array {
+		$data = self::convertFromLuaTable( $data );
+		$rows = Bucket::runSelect( $data );
+		return [ json_encode( $rows ) ];
 	}
 
 	// Go from 0-index to 1-index.

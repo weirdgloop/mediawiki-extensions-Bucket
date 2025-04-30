@@ -683,6 +683,11 @@ class Bucket {
 			$OPTIONS['LIMIT'] = min( $data['limit'], self::$MAX_LIMIT );
 		}
 
+		$OPTIONS['OFFSET'] = 0;
+		if ( isset($data['offset']) && is_int( $data['offset'] ) && $data['offset'] >= 0 ) {
+			$OPTIONS['OFFSET'] = $data['offset'];
+		}
+
 		$rows = [];
 		// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "TABLES " . print_r($TABLES, true) . "\n", FILE_APPEND);
 		// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "SELECTS " . print_r($SELECTS, true) . "\n", FILE_APPEND);
