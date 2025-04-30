@@ -79,10 +79,6 @@ function QueryBuilder:run()
     return php.run(self)
 end
 
-function QueryBuilder:runJson()
-    return php.runJson(self)
-end
-
 function bucket.put(bucket_name, data)
     return php.put(bucket_name, data)
 end

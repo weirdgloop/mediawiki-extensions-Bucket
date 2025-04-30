@@ -2,8 +2,7 @@
 
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Extension\Bucket\Bucket;
-use MediaWiki\Extension\Scribunto\Scribunto;
-use MediaWiki\Extension\Scribunto\ScribuntoException;
+use MediaWiki\Request\DerivativeRequest;
 
 class BucketAction extends Action {
 
@@ -45,46 +44,122 @@ class BucketAction extends Action {
         return new OOUI\ButtonGroupWidget( [ 'items' => $links ] );
     }
 
+    private function getQueryBuilder($lastQuery, $bucket, $select, $where, $limit, $offset) {
+        $inputs = [];
+        $inputs[] = new OOUI\HiddenInputWidget([
+            "name" => "action",
+            "value" => "bucket"
+        ]);
+        $inputs[] = new OOUI\HiddenInputWidget([
+            "name" => "title",
+            "value" => $this->getRequest()->getText("title")
+        ]);
+        $inputs[] = new OOUI\FieldLayout(
+            new OOUI\TextInputWidget(
+                [
+                    "name" => "bucket",
+                    "value" => $bucket,
+                    "readOnly" => true
+                ]
+            ),
+            [
+                "align" => "right",
+                "label" => "Bucket",
+                "help" => "The current bucket name"
+            ]
+        );
+        $inputs[] = new OOUI\FieldLayout(
+            new OOUI\TextInputWidget(
+                [
+                    "name" => "select",
+                    "value" => $select,
+                ]
+            ),
+            [
+                "align" => "right",
+                "label" => "Select",
+                "help" => "Names of columns to select, in quotes and seperated by commas. Such as 'page_name','uses_material' "
+            ]
+        );
+        $inputs[] = new OOUI\FieldLayout(
+            new OOUI\TextInputWidget(
+                [
+                    "name" => "where",
+                    "value" => $where,
+                ]
+            ),
+            [
+                "align" => "right",
+                "label" => "Where",
+                "help" => "A valid lua string to be run inside bucket.where()"
+            ]
+        );
+        $inputs[] = new OOUI\FieldLayout(
+            new OOUI\NumberInputWidget(
+                [
+                    "name" => "limit",
+                    "value" => $limit,
+                    "min" => 0,
+                    "max" => 500
+                ]
+            ),
+            [
+                "align" => "right",
+                "label" => "Limit",
+                "help" => "The number of results to return per page. Maximum 500."
+            ]
+        );
+        $inputs[] = new OOUI\FieldLayout(
+            new OOUI\NumberInputWidget(
+                [
+                    "name" => "offset",
+                    "value" => $offset,
+                    "min" => 0
+                ]
+            ),
+            [
+                "align" => "right",
+                "label" => "Offset",
+                "help" => "How far to offset the returned values."
+            ]
+        );
+        $inputs[] = new OOUI\FieldLayout(
+            new OOUI\ButtonInputWidget(
+                [
+                    "type" => "submit",
+                    "label" => "Submit",
+                    "align" => "center"
+
+                ]),
+                [
+                    "label" => " "
+                ]
+        );
+
+        $form = new OOUI\FormLayout([
+            "items" => $inputs,
+            "action" => '/',
+            "method" => 'get'
+        ]);
+
+        return $form . "<br>";
+    }
+
     private function runQuery($bucket, $select, $where, $limit, $offset) {
-        $title = $this->getArticle()->getTitle();
-
-        // $questionString = "= bucket($bucket).select($select).limit($limit).offset($offset).runJson()";
-        $questionString = [];
-        $questionString[] = "= bucket('$bucket')";
-        $questionString[] = ".select($select)";
-        if ( strlen($where) > 0 ) {
-            $questionString[] = ".where($where)";
-        }
-        $questionString[] = ".limit($limit).offset($offset).runJson()";
-        $questionString = implode('', $questionString);
-		file_put_contents(MW_INSTALL_PATH . '/cook.txt', "$questionString\n", FILE_APPEND);
-
-        // $oouiGroup = new OOUI\FormLayout();
-        // $oouiInputs = [];
-        // $oouiInputs[] = new OOUI\NumberInputWidget(['min' => 0]);
-        // $oouiInputs[] = new OOUI\NumberInputWidget(['min' => 1, 'max' => 500]);
-
-        // $oouiGroup->addItems($oouiInputs);
-        // $oouiInput = new OOUI\MultilineTextInputWidget();
-        // $oouiInput->setValue("= bucket($bucket).select($select).where($where).limit($limit).offset($offset).runJson()");
-        // $oouiGroup->appendContent($oouiInput);
-
-        $parser = MediaWikiServices::getInstance()->getParser();
-        $options = new ParserOptions($this->getUser());
-        $parser->startExternalParse($title, $options, Parser::OT_HTML, true);
-        $engine = Scribunto::getParserEngine($parser);
-        try {
-            $result = $engine->runConsole([
-                'title' => $title,
-                'content' => '',
-                'prevQuestions' => [],
-                'question' => $questionString
-            ]);
-
-        } catch (ScribuntoException $e) {
-            return $e;
-        }
-        return json_decode($result["return"]);
+        $params = new DerivativeRequest(
+            $this->getRequest(),
+            array(
+                'action' => 'bucket',
+                'bucket' => $bucket,
+                'select' => $select,
+                'where' => $where,
+                'limit' => $limit,
+                'offset' => $offset
+            )
+        );
+        $api = new ApiMain($params);
+        $api->execute();
+        return $api->getResult()->getResultData();
     }
 
     private function formatValue($value, $dataType, $repeated) {
@@ -123,39 +198,45 @@ class BucketAction extends Action {
 			$schemas[$row->table_name] = json_decode( $row->schema_json, true );
 		}
 
-        //If select isn't specified, then select everything
-        $selectNames = [];
-        if ( $this->getRequest()->getText( "select" ) == '' ) {
-            foreach ( $schemas[ $table_name ] as $name => $value ) {
-                if ( !str_starts_with($name, '_' ) ) {
-                    $selectNames[] = "'" . $name . "'";
-                }
-            }
-        }
-
-        $select = $this->getRequest()->getText( "select", implode(',', $selectNames));
+        $select = $this->getRequest()->getText( "select", '*');
         $where = $this->getRequest()->getText( "where", '' );
         $limit = $this->getRequest()->getInt( "limit", 50 );
         $offset = $this->getRequest()->getInt( "offset", 0 );
 
-        $out->addHTML($this->getPageLinks($limit, $offset, $this->getRequest()->getQueryValues()));
+        $fullResult = $this->runQuery($table_name, $select, $where, $limit, $offset);
 
-        $queryResult = $this->runQuery($table_name, $select, $where, $limit, $offset);
+        if (isset($fullResult['error'])) {
+            $out->addHTML($fullResult['error']);
+        }
+        if (isset($fullResult['bucket'])) {
+            $queryResult = $fullResult['bucket'];
+        }
+
+        $out->addHTML($this->getQueryBuilder($fullResult['bucketQuery'], $table_name, $select, $where, $limit, $offset));
+
+        $out->addHTML($this->getPageLinks($limit, $offset, $this->getRequest()->getQueryValues()));
 
         $output = [];
 
-        $output[] = "<table class=\"wikitable\"><tr>";
-        foreach ($selectNames as $name) {
-            $output[] = "<th>$name</th>";
-        }
-        foreach ($queryResult as $row) {
-            $output[] = "<tr>";
-            foreach ($row as $key => $value) {
-                $output[] = "<td>" . $this->formatValue($value, $schemas[$table_name][$key]['type'], $schemas[$table_name][$key]['repeated']) . "</td>";
+        if (isset($queryResult) && isset($queryResult[0])) {
+            file_put_contents(MW_INSTALL_PATH . '/cook.txt', "query results " . print_r($queryResult, true) . "\n", FILE_APPEND);
+            $output[] = "<table class=\"wikitable\"><tr>";
+            foreach (array_keys($queryResult[0]) as $name) {
+                if ($name != "_type") { //PHP adds _type => assoc to arrays idk why
+                    $output[] = "<th>$name</th>";
+                }
             }
-            $output[] = "</tr>";
+            foreach ($queryResult as $row) {
+                $output[] = "<tr>";
+                foreach ($row as $key => $value) {
+                    if ($key != "_type") { //PHP adds _type => assoc to arrays idk why
+                        $output[] = "<td>" . $this->formatValue($value, $schemas[$table_name][$key]['type'], $schemas[$table_name][$key]['repeated']) . "</td>";
+                    }
+                }
+                $output[] = "</tr>";
+            }
+            $output[] = "</table>";
         }
-        $output[] = "</table>";
 
         $out->addWikiTextAsContent( implode('', $output ) );
     }

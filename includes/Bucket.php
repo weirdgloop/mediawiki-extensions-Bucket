@@ -8,6 +8,8 @@ use Exception;
 class Bucket {
 	public const EXTENSION_DATA_KEY = 'bucket:puts';
 	public const EXTENSION_PROPERTY_KEY = 'bucketputs';
+	public const MAX_LIMIT = 5000;
+	public const DEFAULT_LIMIT = 500;
 
 	private static $dataTypes = [
 		'BOOLEAN' => 'BOOLEAN',
@@ -33,9 +35,6 @@ class Bucket {
 		'>'  => true,
 		'<'  => true,
 	];
-
-	private static $MAX_LIMIT = 5000;
-	private static $DEFAULT_LIMIT = 500;
 
 	/*
 	Called when a page is saved containing a bucket.put
@@ -678,9 +677,9 @@ class Bucket {
 
 		$OPTIONS['GROUP BY'] = array_keys( $ungroupedColumns );
 
-		$OPTIONS['LIMIT'] = self::$DEFAULT_LIMIT;
+		$OPTIONS['LIMIT'] = Bucket::DEFAULT_LIMIT;
 		if ( isset($data['limit']) && is_int( $data['limit'] ) && $data['limit'] >= 0 ) {
-			$OPTIONS['LIMIT'] = min( $data['limit'], self::$MAX_LIMIT );
+			$OPTIONS['LIMIT'] = min( $data['limit'], Bucket::MAX_LIMIT );
 		}
 
 		$OPTIONS['OFFSET'] = 0;
