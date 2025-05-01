@@ -219,19 +219,19 @@ class BucketAction extends Action {
         $output = [];
 
         if (isset($queryResult) && isset($queryResult[0])) {
-            file_put_contents(MW_INSTALL_PATH . '/cook.txt', "query results " . print_r($queryResult, true) . "\n", FILE_APPEND);
+            // file_put_contents(MW_INSTALL_PATH . '/cook.txt', "query results " . print_r($queryResult, true) . "\n", FILE_APPEND);
             $output[] = "<table class=\"wikitable\"><tr>";
-            foreach (array_keys($queryResult[0]) as $name) {
-                if ($name != "_type") { //PHP adds _type => assoc to arrays idk why
-                    $output[] = "<th>$name</th>";
+            $keys = [];
+            foreach (array_keys($schemas[$table_name]) as $key) {
+                if (isset($queryResult[0][$key])) {
+                    $keys[] = $key;
+                    $output[] = "<th>$key</th>";
                 }
             }
             foreach ($queryResult as $row) {
                 $output[] = "<tr>";
-                foreach ($row as $key => $value) {
-                    if ($key != "_type") { //PHP adds _type => assoc to arrays idk why
-                        $output[] = "<td>" . $this->formatValue($value, $schemas[$table_name][$key]['type'], $schemas[$table_name][$key]['repeated']) . "</td>";
-                    }
+                foreach ($keys as $key) {
+                    $output[] = "<td>" . $this->formatValue($row[$key], $schemas[$table_name][$key]['type'], $schemas[$table_name][$key]['repeated']) . "</td>";
                 }
                 $output[] = "</tr>";
             }
