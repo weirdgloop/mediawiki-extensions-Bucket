@@ -560,7 +560,7 @@ class Bucket {
 
 	public static function runSelect( $data ) {
 		$SELECTS = [];
-		$JOINS = [];
+		$LEFT_JOINS = [];
 		$TABLES = [];
 		$WHERES = [];
 		$OPTIONS = [];
@@ -641,10 +641,10 @@ class Bucket {
 
 			foreach ( $categoryMap as $categoryName => $alias ) {
 				$TABLES[$alias] = 'categorylinks';
-				$JOINS[$alias] = [ 'LEFT JOIN', [
-					"`$alias`.cl_from" => "`bucket__$primaryTableName`._page_id",
+				$LEFT_JOINS[$alias] = [
+					"`$alias`.cl_from = `bucket__$primaryTableName`.`_page_id`",//Must be all in one string to avoid the table name being treated as a string value.
 					"`$alias`.cl_to" => $categoryName
-				] ];
+				];
 			}
 			$WHERES[] = $categoriesCondition;
 		}
@@ -670,9 +670,9 @@ class Bucket {
 
 			$jsonObject = 'JSON_ARRAYAGG(JSON_OBJECT(' . implode( ', ', $jsonObjectFragments ) . '))';
 			$SELECTS[$join['tableName']] = $jsonObject;
-			$JOINS['bucket__' . $join['tableName']] = [ 'LEFT JOIN', [
+			$LEFT_JOINS['bucket__' . $join['tableName']] = [
 				"`bucket__{$join['tableName']}`.page_name = $fieldName"
-			] ];
+			];
 		}
 
 		$OPTIONS['GROUP BY'] = array_keys( $ungroupedColumns );
@@ -692,8 +692,18 @@ class Bucket {
 		// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "SELECTS " . print_r($SELECTS, true) . "\n", FILE_APPEND);
 		// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "WHERES " . print_r($WHERES, true) . "\n", FILE_APPEND);
 		// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "OPTIONS " . print_r($OPTIONS, true) . "\n", FILE_APPEND);
-		// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "JOINS " . print_r($JOINS, true) . "\n", FILE_APPEND);
-		$res = $dbw->select( $TABLES, $SELECTS, $WHERES, __METHOD__, $OPTIONS, $JOINS );
+		// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "LEFT_JOINS " . print_r($LEFT_JOINS, true) . "\n", FILE_APPEND);
+		$tmp = $dbw->newSelectQueryBuilder()
+			->from('bucket__' . $primaryTableName)
+			->select($SELECTS)
+			->where($WHERES)
+			->options($OPTIONS)
+			->caller( __METHOD__ );
+		foreach ($LEFT_JOINS as $alias => $conds) {
+			$tmp->leftJoin($TABLES[$alias], $alias, $conds);
+		}
+		file_put_contents(MW_INSTALL_PATH . '/cook.txt', "SQL " . print_r($tmp->getSQL(), true) . "\n", FILE_APPEND);
+		$res = $tmp->fetchResultSet();
 		foreach ( $res as $row ) {
 			$row = (array)$row;
 			foreach ( $row as $columnName => $value ) {
