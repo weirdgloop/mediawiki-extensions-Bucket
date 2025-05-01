@@ -34,7 +34,8 @@ function QueryBuilder:new(tableName)
         selects = {},
         wheres = {op = "AND", operands = {}},
         categories = {op = "AND", operands = {}},
-        joins = {}
+        joins = {},
+        subversion = ""
     }
     setmetatable(queryBuilder, self)
     self.__index = function(tbl, key)
@@ -79,8 +80,17 @@ function QueryBuilder:run()
     return php.run(self)
 end
 
+function QueryBuilder:sub(identifier)
+    self.subversion = identifier
+    return self
+end
+
+function QueryBuilder:put(data)
+    return php.put(self.tableName, self.subversion, data)
+end
+
 function bucket.put(bucket_name, data)
-    return php.put(bucket_name, data)
+    return php.put(bucket_name, '', data)
 end
 
 function bucket.Or(...)

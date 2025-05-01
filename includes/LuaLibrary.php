@@ -14,13 +14,13 @@ class LuaLibrary extends LibraryBase {
 		return $this->getEngine()->registerInterface( __DIR__ . '/mw.ext.bucket.lua', $lib, [] );
 	}
 
-	public function bucketPut( $table_name, $data ): void {
+	public function bucketPut( $table_name, $sub, $data ): void {
 		$parserOutput = $this->getParser()->getOutput();
 		$bucketPuts = $parserOutput->getExtensionData( Bucket::EXTENSION_DATA_KEY ) ?? [];
 		if ( !array_key_exists( $table_name, $bucketPuts ) ) {
 			$bucketPuts[ $table_name ] = [];
 		}
-		$bucketPuts[ $table_name ][] = $data;
+		$bucketPuts[ $table_name ][] = ['sub' => $sub, 'data' => $data];
 		$parserOutput->setExtensionData( Bucket::EXTENSION_DATA_KEY, $bucketPuts );
 	}
 

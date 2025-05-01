@@ -24,6 +24,7 @@ class Bucket {
 			'_page_id' => [ 'type' => 'INTEGER', 'index' => false , 'repeated' => false ],
 			'_index' => [ 'type' => 'INTEGER', 'index' => false , 'repeated' => false ],
 			'page_name' => [ 'type' => 'PAGE', 'index' => true,  'repeated' => false ],
+			'page_name_sub' => [ 'type' => 'PAGE', 'index' => true, 'repeated' => false],
 	];
 
 	private static $allSchemas = [];
@@ -43,7 +44,6 @@ class Bucket {
 		// file_put_contents( MW_INSTALL_PATH . '/cook.txt', "writePuts start " . print_r($puts, true) . "\n" , FILE_APPEND);
 		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
 
-		//TODO: not safe?
 		$res = $dbw->newSelectQueryBuilder()
 				->from( 'bucket_schemas' )
 				->select( [ 'table_name', 'schema_json' ] )
@@ -66,7 +66,8 @@ class Bucket {
 			$bucket_hash[ $row->table_name ] = $row->put_hash;
 		}
 
-		foreach ( $puts as $tableName => $tablePuts ) {
+		foreach ( $puts as $tableName => $tableData ) {
+			$tablePuts = [];
 			// TODO: this misses deleting things that are no longer in the output
 			$dbTableName = 'bucket__' . $tableName;
 			$res = $dbw->newSelectQueryBuilder()
@@ -82,10 +83,16 @@ class Bucket {
 				// TODO: match on type, not just existence
 				$fields[ $fieldName ] = true;
 			}
-			foreach ( $tablePuts as $idx => $singlePut ) {
+			foreach ( $tableData as $idx => $singleData) {
+				$sub = $singleData['sub'];
+				$singlePut = $singleData['data'];
 				$singlePut['_page_id'] = $pageId;
 				$singlePut['_index'] = $idx;
 				$singlePut['page_name'] = $titleText;
+				$singlePut['page_name_sub'] = $titleText;
+				if ( isset( $sub ) && strlen($sub) > 0) {
+					$singlePut['page_name_sub'] = $titleText . '#' . $sub;
+				}
 				foreach ( $singlePut as $key => $value ) {
 					if ( !isset($fields[$key]) || !$fields[$key] ) {
 						// TODO: warning somewhere?
@@ -113,7 +120,7 @@ class Bucket {
 			//Remove the bucket_hash entry so we can it as a list of removed buckets at the end.
 			unset( $bucket_hash[ $tableName ] );
 
-			file_put_contents( MW_INSTALL_PATH . '/cook.txt', "writePuts puts " . print_r($tablePuts, true) . "\n" , FILE_APPEND);
+			// file_put_contents( MW_INSTALL_PATH . '/cook.txt', "writePuts puts " . print_r($tablePuts, true) . "\n" , FILE_APPEND);
 			// TODO: does behavior here depend on DBO_TRX?
 			$dbw->begin();
 			$dbw->newDeleteQueryBuilder()
@@ -142,7 +149,7 @@ class Bucket {
 		}
 
 		//Clean up bucket_pages entries for buckets that are no longer written to on this page.
-		file_put_contents(MW_INSTALL_PATH . '/cook.txt', "GOING TO DELETE " . print_r(array_keys( array_filter( $bucket_hash ) ), true) . "\n", FILE_APPEND);
+		// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "GOING TO DELETE " . print_r(array_keys( array_filter( $bucket_hash ) ), true) . "\n", FILE_APPEND);
 		$dbw->begin( __METHOD__ );
 		$tablesToDelete = array_keys( array_filter( $bucket_hash ) );
 		$dbw->newDeleteQueryBuilder()
@@ -150,7 +157,6 @@ class Bucket {
 			->where( [ '_page_id' => $pageId, 'table_name' => $tablesToDelete ])
 			->caller( __METHOD__ )
 			->execute();
-		$table = [];
 		foreach ($tablesToDelete as $name) {
 			$dbw->newDeleteQueryBuilder()
 				->deleteFrom($dbw->addIdentifierQuotes('bucket__' . $name))
@@ -274,12 +280,12 @@ class Bucket {
 
 	private static function getDbType( $fieldName, $fieldData ) {
 		if (isset(self::$requiredColumns[$fieldName])) {
-			return self::$requiredColumns[$fieldName]['type'];
+			return Bucket::$dataTypes[self::$requiredColumns[$fieldName]['type']];
 		} else {
-			if ( $fieldData['repeated'] ) {
+			if ( isset($fieldData['repeated']) && strlen($fieldData['repeated']) > 0) {
 				return 'JSON';
 			} else {
-				return self::$dataTypes[$fieldData['type']];
+				return Bucket::$dataTypes[self::$dataTypes[$fieldData['type']]];
 			}
 		}
 		return 'TEXT';
@@ -356,8 +362,9 @@ class Bucket {
 			unset( $oldSchema[$fieldName] );
 		}
 		//Drop unused columns
-		foreach ($oldSchema as $deletedColumn) {
+		foreach ($oldSchema as $deletedColumn => $val) {
 			#TODO performance test this
+            file_put_contents(MW_INSTALL_PATH . '/cook.txt', "del column " . print_r($deletedColumn, true) . "\n", FILE_APPEND);
 			$alterTableFragments[] = "DROP `$deletedColumn`";
 		}
 
@@ -702,7 +709,7 @@ class Bucket {
 		foreach ($LEFT_JOINS as $alias => $conds) {
 			$tmp->leftJoin($TABLES[$alias], $alias, $conds);
 		}
-		file_put_contents(MW_INSTALL_PATH . '/cook.txt', "SQL " . print_r($tmp->getSQL(), true) . "\n", FILE_APPEND);
+		// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "SQL " . print_r($tmp->getSQL(), true) . "\n", FILE_APPEND);
 		$res = $tmp->fetchResultSet();
 		foreach ( $res as $row ) {
 			$row = (array)$row;
