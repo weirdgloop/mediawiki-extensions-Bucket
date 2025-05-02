@@ -39,16 +39,21 @@ class BucketApi extends ApiBase {
             }
 
             //Select everything if input is *
+            $selectNames = [];
             if ($select == "*" || $select == '') {
-                $selectNames = [];
                 foreach ($schemas[$bucket] as $name => $value) {
                     if (!str_starts_with($name, '_')) {
-                        $selectNames[] = "'" . $name . "'";
+                        $selectNames[] = $name;
                     }
                 }
-                $this->getResult()->addValue(null, 'columns', $selectNames);
-                $select = implode(',', $selectNames);
+            } else {
+                $selectNames = explode(' ', $select);
             }
+            $this->getResult()->addValue(null, 'columns', $selectNames);
+            foreach ($selectNames as $idx => $name) {
+                $selectNames[$idx] = "'" . $name . "'";
+            }
+            $select = implode(',', $selectNames);
 
             $questionString = [];
             $questionString[] = "= mw.text.jsonEncode(bucket('$bucket')";
@@ -84,6 +89,7 @@ class BucketApi extends ApiBase {
     }
 
     protected function getAllowedParams() {
+        //TODO translation strings
        return [
         'query' => [
             ParamValidator::PARAM_TYPE => 'string',

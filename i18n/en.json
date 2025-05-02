@@ -2,7 +2,7 @@
     "bucket": "Bucket",
     "bucket-description": "Store things.",
     "bucket-view-help-bucket-name": "The current bucket name",
-    "bucket-view-help-select": "Names of columns to select, in quotes and seperated by commas. Such as 'page_name', 'uses_material'.",
+    "bucket-view-help-select": "Names of columns to select, seperated by a space. Such as page_name uses_material",
     "bucket-view-help-where": "A valid lua string to be run inside bucket.where()",
     "bucket-view-help-limit": "The number of results to return per page. Maximum 500.",
     "bucket-view-help-ofset": "How far to offset the returned values",

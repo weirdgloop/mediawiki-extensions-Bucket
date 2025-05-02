@@ -48,11 +48,12 @@ class BucketPageHelper {
     }
 
     public static function getResultTable($schema, $columns, $result) {
-        if (count($columns) > 0) {
+        file_put_contents(MW_INSTALL_PATH . '/cook.txt', "RESULT TABLE " . print_r($columns, true) . "\n", FILE_APPEND);
+        if (isset($columns) && count($columns) > 0) {
             $output[] = "<table class=\"wikitable\"><tr>";
             $keys = [];
             foreach (array_keys($schema) as $key) {
-                if (in_array("'" . $key . "'", $columns)) {
+                if (in_array($key, $columns)) {
                     $keys[] = $key;
                     $output[] = "<th>$key</th>";
                 }

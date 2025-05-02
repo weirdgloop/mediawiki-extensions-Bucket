@@ -29,7 +29,12 @@ class BucketPage extends Article {
 
         $table_name = Bucket::getValidFieldName($title->getRootText());
 
-        $res = $dbw->select( 'bucket_schemas', [ 'table_name', 'schema_json' ], [ 'table_name' => $table_name ] );
+        $res = $dbw->newSelectQueryBuilder()
+        ->from('bucket_schemas')
+        ->select(['table_name', 'schema_json'])
+        ->where(['table_name' => $table_name])
+        ->caller(__METHOD__)
+        ->fetchResultSet();
 		$schemas = [];
 		foreach ( $res as $row ) {
 			$schemas[$row->table_name] = json_decode( $row->schema_json, true );
@@ -52,7 +57,6 @@ class BucketPage extends Article {
         $resultCount = count($fullResult['bucket']);
         $endResult = $offset + $resultCount;
         $out->addHTML("Displaying $resultCount results $offset – $endResult. ");
-        // <a>Dive into this Bucket</a><br>");
 
         $linkRenderer = MediaWikiServices::getInstance()->getLinkRenderer();
         $specialQueryValues = $context->getRequest()->getQueryValues();

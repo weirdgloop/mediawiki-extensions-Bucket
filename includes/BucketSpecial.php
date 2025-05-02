@@ -13,6 +13,12 @@ class BucketSpecial extends SpecialPage {
 
     private function getQueryBuilder($lastQuery, $bucket, $select, $where, $limit, $offset) {
         $inputs = [];
+        $inputs[] = new OOUI\HiddenInputWidget(
+            [
+                "name" => "title",
+                "value" => "Special:Bucket"
+            ]
+        );
         $inputs[] = new OOUI\FieldLayout(
             new OOUI\TextInputWidget(
                 [
@@ -129,7 +135,12 @@ class BucketSpecial extends SpecialPage {
             return;
         }
 
-        $res = $dbw->select( 'bucket_schemas', [ 'table_name', 'schema_json' ], [ 'table_name' => $table_name ] );
+        $res = $dbw->newSelectQueryBuilder()
+        ->from('bucket_schemas')
+        ->select(['table_name', 'schema_json'])
+        ->where(['table_name' => $table_name])
+        ->caller(__METHOD__)
+        ->fetchResultSet();
 		$schemas = [];
 		foreach ( $res as $row ) {
 			$schemas[$row->table_name] = json_decode( $row->schema_json, true );
@@ -139,6 +150,7 @@ class BucketSpecial extends SpecialPage {
 
         if (isset($fullResult['error'])) {
             $out->addHTML($fullResult['error']);
+            return;
         }
         if (isset($fullResult['bucket'])) {
             $queryResult = $fullResult['bucket'];
