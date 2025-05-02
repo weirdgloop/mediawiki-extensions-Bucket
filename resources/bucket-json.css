@@ -1,0 +1,17 @@
+/* Display the Bucket definition in a row to mimic the table view below it on the page. */
+.mw-json td, .mw-json th {
+    padding: 0.5em 0.5em;
+}
+
+.mw-json tr {
+    background-color: unset;
+}
+
+#mw-content-text > .mw-json > tbody {
+    display: flex;
+    flex-direction: row;
+}
+
+#mw-content-text > .mw-json > tbody > tr > th {
+    display: table-caption;
+}

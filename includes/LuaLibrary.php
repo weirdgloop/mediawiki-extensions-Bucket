@@ -2,7 +2,10 @@
 
 namespace MediaWiki\Extension\Bucket;
 
+use LogicException;
 use MediaWiki\Extension\Scribunto\Engines\LuaCommon\LibraryBase;
+use MediaWiki\Extension\Scribunto\Engines\LuaCommon\LuaError;
+use MediaWiki\Extension\Scribunto\ScribuntoException;
 
 class LuaLibrary extends LibraryBase {
 	public function register() {
@@ -25,9 +28,14 @@ class LuaLibrary extends LibraryBase {
 	}
 
 	public function bucketRun( $data ): array {
-		$data = self::convertFromLuaTable( $data );
-		$rows = Bucket::runSelect( $data );
-		return [ self::convertToLuaTable( $rows ) ];
+		try {
+			$data = self::convertFromLuaTable($data);
+			$rows = Bucket::runSelect($data);
+			return [self::convertToLuaTable($rows)];
+		} catch (LogicException $e) {
+			//TODO: Actually make this show something useful
+			throw $this->getEngine()->newLuaError('bucket-select-fail', "weeeeee");
+		}
 	}
 
 	// Go from 0-index to 1-index.

@@ -3,7 +3,7 @@
 namespace MediaWiki\Extension\Bucket;
 
 use MediaWiki\MediaWikiServices;
-use Exception;
+use LogicException;
 
 class Bucket {
 	public const EXTENSION_DATA_KEY = 'bucket:puts';
@@ -740,7 +740,7 @@ class Bucket {
 	}
 }
 
-class SchemaException extends Exception {
+class SchemaException extends LogicException {
 	function __construct($msg)
 	{
 		file_put_contents( MW_INSTALL_PATH . '/cook.txt', "SCHEMA EXCEPTION " . print_r($msg, true) . "\n" , FILE_APPEND);
@@ -748,7 +748,7 @@ class SchemaException extends Exception {
 	}
 }
 
-class QueryException extends Exception {
+class QueryException extends LogicException {
 	function __construct($msg)
 	{
 		file_put_contents( MW_INSTALL_PATH . '/cook.txt', "QUERY EXCEPTION " . print_r($msg, true) . "\n" , FILE_APPEND);

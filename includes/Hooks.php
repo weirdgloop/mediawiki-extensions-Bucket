@@ -3,19 +3,25 @@
 namespace MediaWiki\Extension\Bucket;
 
 use MediaWiki\Content\JsonContent;
+use MediaWiki\Extension\Bucket\BucketPage;
 use MediaWiki\Extension\Scribunto\Hooks\ScribuntoExternalLibrariesHook;
 use MediaWiki\Hook\LinksUpdateCompleteHook;
 use MediaWiki\Hook\SkinBuildSidebarHook;
 use MediaWiki\Installer\Hook\LoadExtensionSchemaUpdatesHook;
+use MediaWiki\Page\Hook\ArticleFromTitleHook;
 use MediaWiki\Storage\Hook\MultiContentSaveHook;
 use MediaWiki\Revision\SlotRecord;
+use MediaWiki\Title\Title;
+use MediaWiki\Page\Article;
+use MediaWiki\Context\IContextSource;
 
 class Hooks implements
 	LinksUpdateCompleteHook,
 	LoadExtensionSchemaUpdatesHook,
 	MultiContentSaveHook,
 	ScribuntoExternalLibrariesHook,
-	SkinBuildSidebarHook
+	SkinBuildSidebarHook,
+	ArticleFromTitleHook
 {
 	/**
 	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/LoadExtensionSchemaUpdates
@@ -103,5 +109,20 @@ class Hooks implements
 			'title' => 'Bucket',
 			'id' => 'n-bucket'
 		];
+	}
+
+	/**
+	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/ArticleFromTitle
+	 * 
+	 * @param Title $title
+	 * @param Article|null $article
+	 * @param IContextSource $context
+	 */
+	public function onArticleFromTitle( $title, &$article, $context) {
+		if ( $title->getNamespace() !== NS_BUCKET ) {
+			return;
+		}
+		$out = $context->getOutput();
+		$article = new BucketPage( $title );
 	}
 }

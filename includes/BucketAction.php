@@ -2,46 +2,13 @@
 
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Extension\Bucket\Bucket;
+use MediaWiki\Extension\Bucket\BucketPageHelper;
 use MediaWiki\Request\DerivativeRequest;
 
 class BucketAction extends Action {
 
     public function getName() {
         return "bucket";
-    }
-
-    private function getPageLinks($limit, $offset, $query) {
-        //TODO localized language
-        $links = [];
-
-        $previousOffset = max(0, $offset-$limit);
-        $links[] = new OOUI\ButtonWidget( [
-            'href' => $this->getTitle()->getLocalURL( [ 'action' => 'bucket', 'limit' => $limit, 'offset' => max(0, $previousOffset) ] + $query ),
-            'title' => "Previous $limit results.",
-            'label' => "Previous $limit"
-        ]);
-        if ( $offset-$limit < 0 ) {
-            end($links)->setDisabled(true);
-        }
-
-        foreach ( [20, 50, 100, 250, 500 ] as $num ) {
-            $query = [ 'action' => 'bucket', 'limit' => $num, 'offset' => $offset ] + $query;
-            $tooltip = "Show $num results per page.";
-            $links[] = new OOUI\ButtonWidget( [
-                'href' => $this->getTitle()->getLocalURL($query),
-                'title' => $tooltip,
-                'label' => $num,
-                'active' => ($num == $limit)
-            ]);
-        }
-
-        $links[] = new OOUI\ButtonWidget( [
-            'href' => $this->getTitle()->getLocalURL( [ 'action' => 'bucket', 'limit' => $limit, 'offset' => $offset+$limit ] + $query ),
-            'title' => "Next $limit results.",
-            'label' => "Next $limit"
-        ]);
-
-        return new OOUI\ButtonGroupWidget( [ 'items' => $links ] );
     }
 
     private function getQueryBuilder($lastQuery, $bucket, $select, $where, $limit, $offset) {
@@ -65,7 +32,7 @@ class BucketAction extends Action {
             [
                 "align" => "right",
                 "label" => "Bucket",
-                "help" => "The current bucket name"
+                "help" => wfMessage('bucket-view-help-bucket-name')
             ]
         );
         $inputs[] = new OOUI\FieldLayout(
@@ -78,7 +45,7 @@ class BucketAction extends Action {
             [
                 "align" => "right",
                 "label" => "Select",
-                "help" => "Names of columns to select, in quotes and seperated by commas. Such as 'page_name','uses_material' "
+                "help" =>wfMessage('bucket-view-help-select')
             ]
         );
         $inputs[] = new OOUI\FieldLayout(
@@ -91,7 +58,7 @@ class BucketAction extends Action {
             [
                 "align" => "right",
                 "label" => "Where",
-                "help" => "A valid lua string to be run inside bucket.where()"
+                "help" => wfMessage('bucket-view-help-where')
             ]
         );
         $inputs[] = new OOUI\FieldLayout(
@@ -106,7 +73,7 @@ class BucketAction extends Action {
             [
                 "align" => "right",
                 "label" => "Limit",
-                "help" => "The number of results to return per page. Maximum 500."
+                "help" => wfMessage('bucket-view-help-limit')
             ]
         );
         $inputs[] = new OOUI\FieldLayout(
@@ -120,14 +87,14 @@ class BucketAction extends Action {
             [
                 "align" => "right",
                 "label" => "Offset",
-                "help" => "How far to offset the returned values."
+                "help" => wfMessage('bucket-view-help-offset')
             ]
         );
         $inputs[] = new OOUI\FieldLayout(
             new OOUI\ButtonInputWidget(
                 [
                     "type" => "submit",
-                    "label" => "Submit",
+                    "label" => wfMessage('bucket-view-submit'),
                     "align" => "center"
 
                 ]),
@@ -214,7 +181,7 @@ class BucketAction extends Action {
 
         $out->addHTML($this->getQueryBuilder($fullResult['bucketQuery'], $table_name, $select, $where, $limit, $offset));
 
-        $out->addHTML($this->getPageLinks($limit, $offset, $this->getRequest()->getQueryValues()));
+        $out->addHTML(BucketPageHelper::getPageLinks($title, $limit, $offset, $this->getRequest()->getQueryValues()));
 
         $output = [];
 

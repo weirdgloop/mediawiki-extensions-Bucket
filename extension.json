@@ -10,7 +10,10 @@
 	"license-name": "GPL-2.0-or-later",
 	"type": "other",
 	"requires": {
-		"MediaWiki": ">= 1.41"
+		"MediaWiki": ">= 1.41",
+		"extensions": {
+			"Scribunto": "*"
+		}
 	},
 	"AutoloadNamespaces": {
 		"MediaWiki\\Extension\\Bucket\\": "includes/"
@@ -36,7 +39,8 @@
 		"LoadExtensionSchemaUpdates": "BucketHookHandler",
 		"MultiContentSave": "BucketHookHandler",
 		"ScribuntoExternalLibraries": "BucketHookHandler",
-		"SkinBuildSidebar": "BucketHookHandler"
+		"SkinBuildSidebar": "BucketHookHandler",
+		"ArticleFromTitle": "BucketHookHandler"
 	},
 	"HookHandlers": {
 		"BucketHookHandler": {
@@ -48,6 +52,26 @@
 	},
 	"APIModules": {
 		"bucket": "MediaWiki\\Extension\\Bucket\\BucketApi"
+	},
+	"MessagesDirs": {
+		"Bucket": [
+			"i18n"
+		]
+	},
+	"SpecialPages": {
+		"bucket": "MediaWiki\\Extension\\Bucket\\BucketSpecial"
+	},
+	"TrackingCategories": [
+		"bucket-category-extra-put-data"
+	],
+	"ResourceFileModulePaths": {
+		"localBasePath": "",
+		"remoteExtPath": "Bucket"
+	},
+	"ResourceModules": {
+		"ext.bucket.bucketpage.css": {
+			"styles": "resources/bucket-json.css"
+		}
 	},
 	"manifest_version": 2
 }
