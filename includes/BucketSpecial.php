@@ -3,24 +3,156 @@
 namespace MediaWiki\Extension\Bucket;
 
 use MediaWiki\SpecialPage\SpecialPage;
+use MediaWiki\MediaWikiServices;
+use OOUI;
 
 class BucketSpecial extends SpecialPage {
     public function __construct() {
         parent::__construct( 'bucket' );
     }
 
+    private function getQueryBuilder($lastQuery, $bucket, $select, $where, $limit, $offset) {
+        $inputs = [];
+        $inputs[] = new OOUI\FieldLayout(
+            new OOUI\TextInputWidget(
+                [
+                    "name" => "bucket",
+                    "value" => $bucket
+                ]
+            ),
+            [
+                "align" => "right",
+                "label" => "Bucket",
+                "help" => wfMessage('bucket-view-help-bucket-name')
+            ]
+        );
+        $inputs[] = new OOUI\FieldLayout(
+            new OOUI\TextInputWidget(
+                [
+                    "name" => "select",
+                    "value" => $select,
+                ]
+            ),
+            [
+                "align" => "right",
+                "label" => "Select",
+                "help" =>wfMessage('bucket-view-help-select')
+            ]
+        );
+        $inputs[] = new OOUI\FieldLayout(
+            new OOUI\TextInputWidget(
+                [
+                    "name" => "where",
+                    "value" => $where,
+                ]
+            ),
+            [
+                "align" => "right",
+                "label" => "Where",
+                "help" => wfMessage('bucket-view-help-where')
+            ]
+        );
+        $inputs[] = new OOUI\FieldLayout(
+            new OOUI\NumberInputWidget(
+                [
+                    "name" => "limit",
+                    "value" => $limit,
+                    "min" => 0,
+                    "max" => 500
+                ]
+            ),
+            [
+                "align" => "right",
+                "label" => "Limit",
+                "help" => wfMessage('bucket-view-help-limit')
+            ]
+        );
+        $inputs[] = new OOUI\FieldLayout(
+            new OOUI\NumberInputWidget(
+                [
+                    "name" => "offset",
+                    "value" => $offset,
+                    "min" => 0
+                ]
+            ),
+            [
+                "align" => "right",
+                "label" => "Offset",
+                "help" => wfMessage('bucket-view-help-offset')
+            ]
+        );
+        $inputs[] = new OOUI\FieldLayout(
+            new OOUI\ButtonInputWidget(
+                [
+                    "type" => "submit",
+                    "label" => wfMessage('bucket-view-submit'),
+                    "align" => "center"
+
+                ]),
+                [
+                    "label" => " "
+                ]
+        );
+
+        $form = new OOUI\FormLayout([
+            "items" => $inputs,
+            "action" => 'Special:Bucket',
+            "method" => 'get'
+        ]);
+
+        return $form . "<br>";
+    }
+
     public function execute( $par ) {
         $request = $this->getRequest();
-		$output = $this->getOutput();
+		$out = $this->getOutput();
 		$this->setHeaders();
 
-		# Get request data from, e.g.
-		$param = $request->getText( 'param' );
+        $out->enableOOUI();
 
-		# Do stuff
-		# ...
-		$wikitext = 'Hello world!';
-		$output->addWikiTextAsInterface( $wikitext );
+        $out->setPageTitle( "Bucket browse" );
+
+        $bucket = $request->getText("bucket", '');
+        $select = $request->getText( "select", '*');
+        $where = $request->getText( "where", '' );
+        $limit = $request->getInt( "limit", 20 );
+        $offset = $request->getInt( "offset", 0 );
+
+		$out->addHTML($this->getQueryBuilder($request, $bucket, $select, $where, $limit, $offset));
+
+        $dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
+
+        $table_name = Bucket::getValidFieldName($bucket);
+
+        if ($table_name == false) {
+            $out->addHTML("ERROR: Invalid bucket name");
+            return;
+        }
+
+        $res = $dbw->select( 'bucket_schemas', [ 'table_name', 'schema_json' ], [ 'table_name' => $table_name ] );
+		$schemas = [];
+		foreach ( $res as $row ) {
+			$schemas[$row->table_name] = json_decode( $row->schema_json, true );
+		}
+
+        $fullResult = BucketPageHelper::runQuery($request, $bucket, $select, $where, $limit, $offset);
+
+        if (isset($fullResult['error'])) {
+            $out->addHTML($fullResult['error']);
+        }
+        if (isset($fullResult['bucket'])) {
+            $queryResult = $fullResult['bucket'];
+        }
+
+        $resultCount = count($fullResult['bucket']);
+        $endResult = $offset + $resultCount;
+        $out->addHTML("Displaying $resultCount results $offset – $endResult. <br>");
+
+        $pageLinks = BucketPageHelper::getPageLinks($this->getFullTitle(), $limit, $offset, $request->getQueryValues(), ($resultCount == $limit));
+
+        $out->addHTML($pageLinks);
+        $out->addWikiTextAsContent( BucketPageHelper::getResultTable($schemas[$table_name], $fullResult['columns'], $queryResult) );
+        $out->addHTML($pageLinks);
     }
 
     function getGroupName() {

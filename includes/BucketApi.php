@@ -46,6 +46,7 @@ class BucketApi extends ApiBase {
                         $selectNames[] = "'" . $name . "'";
                     }
                 }
+                $this->getResult()->addValue(null, 'columns', $selectNames);
                 $select = implode(',', $selectNames);
             }
 

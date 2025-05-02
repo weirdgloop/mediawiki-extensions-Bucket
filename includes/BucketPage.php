@@ -3,56 +3,16 @@
 namespace Mediawiki\Extension\Bucket;
 
 use Article;
+use MediaWiki\Title\TitleValue;
 use Mediawiki\Title\Title;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Extension\Bucket\Bucket;
 use MediaWiki\Extension\Bucket\BucketPageHelper;
-use MediaWiki\Request\DerivativeRequest;
-use OOUI;
-use ApiMain;
 
 class BucketPage extends Article {
 
     public function __construct( Title $title ) {
         parent::__construct( $title );
-    }
-
-    private function runQuery($bucket, $select, $where, $limit, $offset) {
-        $params = new DerivativeRequest(
-            $this->getContext()->getRequest(),
-            array(
-                'action' => 'bucket',
-                'bucket' => $bucket,
-                'select' => $select,
-                'where' => $where,
-                'limit' => $limit,
-                'offset' => $offset
-            )
-        );
-        $api = new ApiMain($params);
-        $api->execute();
-        return $api->getResult()->getResultData();
-    }
-
-    private function formatValue($value, $dataType, $repeated) {
-        if ($repeated) {
-            $json = json_decode($value);
-            $returns = [];
-            foreach ($json as $val) {
-                $formatted_val = $this->formatValue( $val, $dataType, false);
-                if ( $formatted_val != '' ) {
-                    $returns[] = '<li>' . $formatted_val;
-                }
-            }
-            return implode('', $returns);
-        }
-        if ($dataType == "PAGE" && strlen($value) > 0) {
-            return "[[$value]]";
-        }
-        if ($dataType == "TEXT") {
-            return "<nowiki>$value</nowiki>";
-        }
-        return $value;
     }
 
     public function view() {
@@ -80,7 +40,7 @@ class BucketPage extends Article {
         $limit = $context->getRequest()->getInt( "limit", 20 );
         $offset = $context->getRequest()->getInt( "offset", 0 );
 
-        $fullResult = $this->runQuery($table_name, $select, $where, $limit, $offset);
+        $fullResult = BucketPageHelper::runQuery($this->getContext()->getRequest(), $table_name, $select, $where, $limit, $offset);
 
         if (isset($fullResult['error'])) {
             $out->addHTML($fullResult['error']);
@@ -89,31 +49,23 @@ class BucketPage extends Article {
             $queryResult = $fullResult['bucket'];
         }
 
+        $resultCount = count($fullResult['bucket']);
+        $endResult = $offset + $resultCount;
+        $out->addHTML("Displaying $resultCount results $offset – $endResult. ");
+        // <a>Dive into this Bucket</a><br>");
 
-        $out->addHTML(BucketPageHelper::getPageLinks($title, $limit, $offset, $context->getRequest()->getQueryValues()));
+        $linkRenderer = MediaWikiServices::getInstance()->getLinkRenderer();
+        $specialQueryValues = $context->getRequest()->getQueryValues();
+        unset($specialQueryValues['action']);
+        unset($specialQueryValues['title']);
+        $specialQueryValues['bucket'] = $table_name;
+        $out->addHTML($linkRenderer->makeLink(new TitleValue(NS_SPECIAL, "Bucket"), "Dive into this Bucket", [], $specialQueryValues));
+        $out->addHTML('<br>');
 
-        $output = [];
+        $pageLinks = BucketPageHelper::getPageLinks($title, $limit, $offset, $context->getRequest()->getQueryValues(), ($resultCount == $limit));
 
-        if (isset($queryResult) && isset($queryResult[0])) {
-            // file_put_contents(MW_INSTALL_PATH . '/cook.txt', "query results " . print_r($queryResult, true) . "\n", FILE_APPEND);
-            $output[] = "<table class=\"wikitable\"><tr>";
-            $keys = [];
-            foreach (array_keys($schemas[$table_name]) as $key) {
-                if (isset($queryResult[0][$key])) {
-                    $keys[] = $key;
-                    $output[] = "<th>$key</th>";
-                }
-            }
-            foreach ($queryResult as $row) {
-                $output[] = "<tr>";
-                foreach ($keys as $key) {
-                    $output[] = "<td>" . $this->formatValue($row[$key], $schemas[$table_name][$key]['type'], $schemas[$table_name][$key]['repeated']) . "</td>";
-                }
-                $output[] = "</tr>";
-            }
-            $output[] = "</table>";
-        }
-
-        $out->addWikiTextAsContent( implode('', $output ) );
+        $out->addHTML($pageLinks);
+        $out->addWikiTextAsContent( BucketPageHelper::getResultTable($schemas[$table_name], $fullResult['columns'], $queryResult) );
+        $out->addHTML($pageLinks);
     }
 }
