@@ -339,7 +339,8 @@ class Bucket {
 				file_put_contents(MW_INSTALL_PATH . '/cook.txt', "OLD: $oldDbType, NEW: $newDbType \n", FILE_APPEND);
 				if ( $oldDbType !== $newDbType ) {
 					$needNewIndex = false;
-					if ( $oldSchema[$fieldName]['repeated'] || $fieldData['repeated'] ) {
+					if ( $oldSchema[$fieldName]['repeated'] || $fieldData['repeated'] 
+						|| strpos(self::getIndexStatement($fieldName, $oldSchema[$fieldName]), '(') != strpos(self::getIndexStatement($fieldName, $fieldData), '(') ) {
 						file_put_contents(MW_INSTALL_PATH . '/cook.txt', "DROPPING INDEX $fieldName \n", FILE_APPEND);
 						#We cannot MODIFY from a column that doesn't need key length to a column that does need key length
 						$alterTableFragments[] = "DROP INDEX `$fieldName`"; #Repeated types cannot reuse the existing index
@@ -709,7 +710,7 @@ class Bucket {
 		foreach ($LEFT_JOINS as $alias => $conds) {
 			$tmp->leftJoin($TABLES[$alias], $alias, $conds);
 		}
-		// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "SQL " . print_r($tmp->getSQL(), true) . "\n", FILE_APPEND);
+		file_put_contents(MW_INSTALL_PATH . '/cook.txt', "SQL " . print_r($tmp->getSQL(), true) . "\n", FILE_APPEND);
 		$res = $tmp->fetchResultSet();
 		foreach ( $res as $row ) {
 			$row = (array)$row;
