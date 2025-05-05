@@ -551,9 +551,9 @@ class Bucket {
 			$op = $condition[1];
 			$value = $condition[2];
 
-			if ( reset($fieldNamesToTables[$condition[0]]) == "1" ) {//$fieldNamesToTables[table_name] == "1" if the field is repeated
-				return "\"$value\" MEMBER OF($columnName)";
-			} else {
+			// if ( reset($fieldNamesToTables[$condition[0]]) == "1" ) {//$fieldNamesToTables[table_name] == "1" if the field is repeated
+				// return "\"$value\" MEMBER OF($columnName)";
+			// } else {
 				if (is_numeric($value)) {
 					return "($columnName $op $value)";
 				} elseif (is_string($value)) {
@@ -561,7 +561,7 @@ class Bucket {
 					$value = $dbw->strencode($value);
 					return "($columnName $op \"$value\")";
 				}
-			}
+			// }
 		}
 		throw new QueryException( 'Did not understand where condition: ' . json_encode( $condition ) );
 	}
@@ -678,9 +678,13 @@ class Bucket {
 
 			$jsonObject = 'JSON_ARRAYAGG(JSON_OBJECT(' . implode( ', ', $jsonObjectFragments ) . '))';
 			$SELECTS[$join['tableName']] = $jsonObject;
-			$LEFT_JOINS['bucket__' . $join['tableName']] = [
-				"`bucket__{$join['tableName']}`.page_name = $fieldName"
-			];
+			// if (reset($fieldNamesToTables[$join['fieldName']]) == "1") { //$fieldNamesToTables[table_name] == "1" if the field is repeated
+				// $LEFT_JOINS['bucket__' . $join['tableName']] = "`bucket__{$join['tableName']}`.page_name MEMBER OF($fieldName)";
+			// } else {
+				$LEFT_JOINS['bucket__' . $join['tableName']] = [
+					"`bucket__{$join['tableName']}`.page_name = $fieldName"
+				];
+			// }
 		}
 
 		$OPTIONS['GROUP BY'] = array_keys( $ungroupedColumns );

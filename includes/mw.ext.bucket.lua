@@ -61,6 +61,8 @@ function QueryBuilder:whereCategory(condition)
     return self
 end
 
+-- an actual working join
+-- bucket("dropsline").select("page_name", "dropped_item_name").join("recipe", "dropsline.dropped_item_name", {"recipe.page_name"}).run()
 function QueryBuilder:join(tableName, fieldName, selectFields)
     table.insert(self.joins, {tableName = tableName, fieldName = fieldName, selectFields = selectFields})
     return self
