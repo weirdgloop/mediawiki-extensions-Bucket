@@ -400,8 +400,16 @@ class Bucket {
 		}
 	}
 
-	public static function cast( $value, $type ) {
-		if ( $type === 'TEXT' || $type === 'PAGE' ) {
+	public static function cast( $value, $fieldData ) {
+		$type = $fieldData['type'];
+		if ($fieldData['repeated']) {
+			$ret = [];
+			$fieldData['repeated'] = false;
+			foreach( json_decode($value, true) as $subVal ) {
+				$ret[] = self::cast( $subVal, $fieldData);
+			}
+			return $ret;
+		} elseif ( $type === 'TEXT' || $type === 'PAGE' ) {
 			return $value;
 		} elseif ( $type === 'DOUBLE' ) {
 			return floatval( $value );
@@ -409,9 +417,7 @@ class Bucket {
 			return intval( $value );
 		} elseif ( $type === 'BOOLEAN' ) {
 			return boolval( $value );
-		} elseif ( $type === 'JSON' ) {
-			return json_decode( $value, true );
-		}
+		} 
 	}
 
 	public static function sanitizeColumnName( $column, $fieldNamesToTables, $schemas, $tableName = null ) {
@@ -551,6 +557,7 @@ class Bucket {
 			$op = $condition[1];
 			$value = $condition[2];
 
+			//TODO $fieldNamesToTables has been changed
 			// if ( reset($fieldNamesToTables[$condition[0]]) == "1" ) {//$fieldNamesToTables[table_name] == "1" if the field is repeated
 				// return "\"$value\" MEMBER OF($columnName)";
 			// } else {
@@ -630,7 +637,7 @@ class Bucket {
 					if ( !isset( $fieldNamesToTables[$fieldName] ) ) {
 						$fieldNamesToTables[$fieldName] = [];
 					}
-					$fieldNamesToTables[$fieldName][$tableName] = $fieldData['repeated'];
+					$fieldNamesToTables[$fieldName][$tableName] = $fieldData;
 				}
 			}
 		}
@@ -667,17 +674,19 @@ class Bucket {
 			}
 			$fieldName = self::sanitizeColumnName( $join['fieldName'], $fieldNamesToTables, $schemas );
 
-			$jsonObjectFragments = [];
+			// $joinsFragments = [];
 			foreach ( $join['selectFields'] as $joinSelectColumn ) {
 				// TODO: don't like this
 				$joinSelectColumn = strtolower( trim( $joinSelectColumn ) );
 				$joinSelectValue = self::sanitizeColumnName( $joinSelectColumn, $fieldNamesToTables, $schemas, $join['tableName'] );
-				$jsonObjectFragments[] = "\"$joinSelectColumn\", $joinSelectValue";
-
+				// $jsonObjectFragments[] = "$joinSelectValue";
+				// $jsonObjectFragments[] = "\"$joinSelectColumn\", $joinSelectValue";
+				// $jsonObject = 'JSON_ARRAYAGG(' . implode(', ', $jsonObjectFragments) . ')';
+				$SELECTS[$joinSelectColumn] = 'JSON_ARRAY(' . $joinSelectValue . ')';
+				$ungroupedColumns[$dbw->addIdentifierQuotes($joinSelectColumn)] = true;
 			}
+			// $SELECTS[$join['tableName']] = implode(', ', $joinsFragments);
 
-			$jsonObject = 'JSON_ARRAYAGG(JSON_OBJECT(' . implode( ', ', $jsonObjectFragments ) . '))';
-			$SELECTS[$join['tableName']] = $jsonObject;
 			// if (reset($fieldNamesToTables[$join['fieldName']]) == "1") { //$fieldNamesToTables[table_name] == "1" if the field is repeated
 				// $LEFT_JOINS['bucket__' . $join['tableName']] = "`bucket__{$join['tableName']}`.page_name MEMBER OF($fieldName)";
 			// } else {
@@ -720,13 +729,14 @@ class Bucket {
 			$row = (array)$row;
 			foreach ( $row as $columnName => $value ) {
 				if ( $ungroupedColumns[$columnName] ) {
-					$row[$columnName] = self::cast( $value, $schemas[$primaryTableName][$columnName]['type'] );
+					$row[$columnName] = self::cast( $value, $schemas[$primaryTableName][$columnName] );
 				} else {
+					// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "NOT DEAD CODE=json $columnName " . print_r($value, true) . "\n", FILE_APPEND);
 					$value = json_decode( $value, true );
 					$processed = [];
 					foreach ( $value as $jsonRow ) {
 						foreach ( $jsonRow as $jsonColumnName => $jsonValue ) {
-							$jsonRow[$jsonColumnName] = self::cast( $jsonValue, $schemas[$columnName][$jsonColumnName]['type'] );
+							$jsonRow[$jsonColumnName] = self::cast( $jsonValue, $schemas[$columnName][$jsonColumnName] );
 						}
 						$processed[] = $jsonRow;
 					}

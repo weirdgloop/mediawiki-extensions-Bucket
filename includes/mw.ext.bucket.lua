@@ -63,6 +63,8 @@ end
 
 -- an actual working join
 -- bucket("dropsline").select("page_name", "dropped_item_name").join("recipe", "dropsline.dropped_item_name", {"recipe.page_name"}).run()
+--fieldName is a primary table column that will be compared with secondary.page_name
+--selectFields is an array of column names to put in the output
 function QueryBuilder:join(tableName, fieldName, selectFields)
     table.insert(self.joins, {tableName = tableName, fieldName = fieldName, selectFields = selectFields})
     return self
