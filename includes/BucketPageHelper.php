@@ -27,7 +27,11 @@ class BucketPageHelper {
 
     public static function formatValue($value, $dataType, $repeated) {
         if ($repeated) {
-            $json = json_decode($value);
+            if (!is_array($value)) {
+                $json = json_decode($value);
+            } else {
+                $json = $value;
+            }
             $returns = [];
             foreach ($json as $val) {
                 $formatted_val = BucketPageHelper::formatValue( $val, $dataType, false);

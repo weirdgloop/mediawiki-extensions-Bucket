@@ -720,8 +720,17 @@ class Bucket {
 			->where($WHERES)
 			->options($OPTIONS)
 			->caller( __METHOD__ );
+		//TODO should probably be all in a single join call? IDK.
 		foreach ($LEFT_JOINS as $alias => $conds) {
 			$tmp->leftJoin($TABLES[$alias], $alias, $conds);
+		}
+		if ( isset($data['orderBy']) ) {
+			$orderName = self::sanitizeColumnName($data['orderBy']['fieldName'], $fieldNamesToTables, $schemas);
+			if ( $orderName != false ) {
+				$tmp->orderBy($orderName, $data['orderBy']['direction']);
+			} else {
+				//TODO throw warning
+			}
 		}
 		file_put_contents(MW_INSTALL_PATH . '/cook.txt', "SQL " . print_r($tmp->getSQL(), true) . "\n", FILE_APPEND);
 		$res = $tmp->fetchResultSet();

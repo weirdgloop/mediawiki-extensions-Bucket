@@ -35,6 +35,7 @@ function QueryBuilder:new(tableName)
         wheres = {op = "AND", operands = {}},
         categories = {op = "AND", operands = {}},
         joins = {},
+        orderBy = nil,
         subversion = ""
     }
     setmetatable(queryBuilder, self)
@@ -77,6 +78,12 @@ end
 
 function QueryBuilder:offset(arg)
     self.offset = arg
+    return self
+end
+
+function QueryBuilder:orderBy(fieldName, direction)
+    -- TODO throw an error if we set order by twice?
+    self.orderBy = {fieldName = fieldName, direction = direction}
     return self
 end
 
