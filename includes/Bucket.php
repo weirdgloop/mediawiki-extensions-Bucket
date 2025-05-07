@@ -664,8 +664,21 @@ class Bucket {
 		foreach ( $data['selects'] as $selectColumn ) {
 			// TODO: don't like this
 			$selectColumn = strtolower( trim( $selectColumn ) );
-			$SELECTS[$selectColumn] = self::sanitizeColumnName( $selectColumn, $fieldNamesToTables, $schemas, $primaryTableName )["fullName"];
-			$ungroupedColumns[$selectColumn] = true;
+			//TODO if Category: column
+			$selectTableName = null;
+			//If we don't have a period then we must be the primary column.
+			if (count(explode( '.', $selectColumn )) == 1) {
+				$selectTableName = $primaryTableName;
+			}
+
+			$colData = self::sanitizeColumnName($selectColumn, $fieldNamesToTables, $schemas, $selectTableName);
+			
+			if ($colData['tableName'] != $primaryTableName) {
+				$SELECTS[$selectColumn] = 'JSON_ARRAY(' . $colData["fullName"] . ')';
+			} else {
+				$SELECTS[$selectColumn] = $colData["fullName"];
+			}
+			$ungroupedColumns[$dbw->addIdentifierQuotes($selectColumn)] = true;
 		}
 
 		if ( !empty( $data['categories']['operands'] ) ) {
@@ -687,31 +700,38 @@ class Bucket {
 		}
 
 		foreach ( $data['joins'] as $join ) {
-			if ( !is_string( $join['fieldName'] ) || !is_array( $join['selectFields'] ) ) {
-				throw new QueryException( 'Invalid join: ' . json_encode( $join ) );
+			if ( !is_array($join["cond"]) || !count($join["cond"]) == 2) {
+				throw new QueryException( 'Invalid join condition: ' . json_encode( $join ));
 			}
-			$fieldName = self::sanitizeColumnName( $join['fieldName'], $fieldNamesToTables, $schemas )["fullName"];
+			$leftField = self::sanitizeColumnName( $join['cond'][0], $fieldNamesToTables, $schemas );
+			$isLeftRepeated = $leftField["schema"]["repeated"];
+			$rightField = self::sanitizeColumnName( $join['cond'][1], $fieldNamesToTables, $schemas );
+			$isRightRepeated = $rightField["schema"]["repeated"];
+			
 
-			// $joinsFragments = [];
-			foreach ( $join['selectFields'] as $joinSelectColumn ) {
-				// TODO: don't like this
-				$joinSelectColumn = strtolower( trim( $joinSelectColumn ) );
-				$joinSelectValue = self::sanitizeColumnName( $joinSelectColumn, $fieldNamesToTables, $schemas, $join['tableName'] )["fullName"];
-				// $jsonObjectFragments[] = "$joinSelectValue";
-				// $jsonObjectFragments[] = "\"$joinSelectColumn\", $joinSelectValue";
-				// $jsonObject = 'JSON_ARRAYAGG(' . implode(', ', $jsonObjectFragments) . ')';
-				$SELECTS[$joinSelectColumn] = 'JSON_ARRAY(' . $joinSelectValue . ')';
-				$ungroupedColumns[$dbw->addIdentifierQuotes($joinSelectColumn)] = true;
+			if ($isLeftRepeated && $isRightRepeated) {
+				throw new QueryException('Cannot join two repeated fields: ' . $leftField["fullName"] . ", " . $rightField["fullName"]);
 			}
-			// $SELECTS[$join['tableName']] = implode(', ', $joinsFragments);
 
-			// if (reset($fieldNamesToTables[$join['fieldName']]) == "1") { //$fieldNamesToTables[table_name] == "1" if the field is repeated
-				// $LEFT_JOINS['bucket__' . $join['tableName']] = "`bucket__{$join['tableName']}`.page_name MEMBER OF($fieldName)";
-			// } else {
+			if ($isLeftRepeated || $isRightRepeated) {
+				//Make the left field the repeated one just for consistency.
+				if ( $isRightRepeated ) {
+					$tmp = $leftField;
+					$isTmp = $isLeftRepeated;
+					$leftField = $rightField;
+					$isLeftRepeated = $isRightRepeated;
+					$rightField = $tmp;
+					$isRightRepeated = $isTmp;
+				}
+
 				$LEFT_JOINS['bucket__' . $join['tableName']] = [
-					"`bucket__{$join['tableName']}`.page_name = $fieldName"
+					"{$rightField['fullName']} MEMBER OF({$leftField['fullName']})"
 				];
-			// }
+			} else {
+				$LEFT_JOINS['bucket__' . $join['tableName']] = [
+					"{$leftField['fullName']} = {$rightField['fullName']}"
+				];
+			}
 		}
 
 		$OPTIONS['GROUP BY'] = array_keys( $ungroupedColumns );
