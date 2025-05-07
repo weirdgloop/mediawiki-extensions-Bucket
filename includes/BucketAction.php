@@ -51,33 +51,15 @@ class BucketAction extends Action {
 			$schemas[$row->table_name] = json_decode( $row->schema_json, true );
 		}
 
-        $dissallowColumns = ['_page_id', 'page_name', 'page_name_version'];
-
-        $output = [];
         foreach ( $tables as $table_name ) {
             $bucket_page_name = str_replace("_", " ", $table_name);
-            $output[] = "<h2>[[Bucket:$bucket_page_name]]</h2>";
-            $res = $dbw->select('bucket__' . $table_name, ["*"], ["_page_id" => $pageId]);
-            $fieldNames = $res->getFieldNames();
-            $output[] = "<table class=\"wikitable\"><tr>";
-            foreach ( $fieldNames as $name ) {
-                if (!in_array($name, $dissallowColumns)) {
-                    $output[] = "<th>$name</th>";
-                }
-            }
-            foreach ( $res as $row ) {
-                $output[] = "<tr>";
-                foreach ( $row as $key => $value ) {
-                    if (!in_array($key, $dissallowColumns)) {
-                        $output[] = "<td>" . BucketPageHelper::formatValue($value, $schemas[$table_name][$key]['type'], $schemas[$table_name][$key]['repeated']) . "</td>";
-                    }
-                }
-                $output[] = "</tr>";
-            }
-            $output[] = "</table>";
-        }
+            $out->addWikiTextAsContent("<h2>[[Bucket:$bucket_page_name]]</h2>");
 
-        $out->addWikiTextAsContent( implode('', $output ) );
+            //TODO properly escape title
+            $fullResult = BucketPageHelper::runQuery($this->getRequest(), $table_name, '*', "{'page_name', \"$title\"}", 500, 0);
+
+            $out->addWikiTextAsContent( BucketPageHelper::getResultTable($schemas[$table_name], $fullResult['columns'], $fullResult['bucket']) );
+        }
     }
 
 }

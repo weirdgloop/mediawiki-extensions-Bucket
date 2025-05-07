@@ -100,6 +100,7 @@ class Bucket {
 						unset( $singlePut[$key] );
 					} else {
 						#TODO JSON relies on forcing utf8 transmission in DatabaseMySQL.php line 829
+						// file_put_contents(MW_INSTALL_PATH . '/cook.txt', print_r($value, true) . " =====================\n", FILE_APPEND);
 						unset( $singlePut[$key] );
 						$singlePut['`' . $key . '`'] = self::castToDbType( $value, self::getDbType( $fieldName, $schemas[$tableName][$key] ) );
 					}
@@ -112,10 +113,11 @@ class Bucket {
 			sort($schemas[$tableName]);
 			$newHash = hash( 'sha256', json_encode( $tablePuts ) . json_encode($schemas[$tableName]));
 			if ( isset($bucket_hash[ $tableName ]) && $bucket_hash[ $tableName ] == $newHash ) {
-				file_put_contents(MW_INSTALL_PATH . '/cook.txt', "HASH MATCH SKIPPING WRITING =====================\n", FILE_APPEND);
+				// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "HASH MATCH SKIPPING WRITING $tableName $titleText =====================\n", FILE_APPEND);
 				unset( $bucket_hash[ $tableName ] );
 				continue;
 			}
+			file_put_contents(MW_INSTALL_PATH . '/cook.txt', "WRITING $tableName $titleText \n", FILE_APPEND);
 
 			//Remove the bucket_hash entry so we can it as a list of removed buckets at the end.
 			unset( $bucket_hash[ $tableName ] );
@@ -396,7 +398,11 @@ class Bucket {
 		} elseif ( $type === 'BOOLEAN' ) {
 			return boolval( $value );
 		} elseif ( $type === 'JSON' ) {
-			return json_encode( LuaLibrary::convertFromLuaTable($value) );
+			if (!is_array($value)) {
+				return json_encode([$value]); //Wrap single values in an array for compatability
+			} else {
+				return json_encode(LuaLibrary::convertFromLuaTable($value));
+			}
 		}
 	}
 
@@ -405,8 +411,12 @@ class Bucket {
 		if ($fieldData['repeated']) {
 			$ret = [];
 			$fieldData['repeated'] = false;
-			foreach( json_decode($value, true) as $subVal ) {
-				$ret[] = self::cast( $subVal, $fieldData);
+			$jsonData = json_decode($value, true);
+			if ( !is_array($jsonData) ) { //If we are in a repeated field but only holding a scalar, make it an array anyway.
+				$jsonData = [ $jsonData ];
+			}
+			foreach ($jsonData as $subVal) {
+				$ret[] = self::cast($subVal, $fieldData);
 			}
 			return $ret;
 		} elseif ( $type === 'TEXT' || $type === 'PAGE' ) {
@@ -437,6 +447,7 @@ class Bucket {
 			if ( !isset( $fieldNamesToTables[$columnName] ) ) {
 				throw new QueryException( "Column name $columnName not found." );
 			}
+			// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA $column " . print_r($tableName, true) . "\n", FILE_APPEND);
 			if ( $tableName === null ) {
 				$tableOptions = $fieldNamesToTables[$columnName];
 				if ( count( $tableOptions ) > 1 ) {
@@ -460,7 +471,12 @@ class Bucket {
 		if ( !isset( $schemas[$tableName][$columnName] ) ) {
 			throw new QueryException( "Column $columnName not found in bucket $tableName." );
 		}
-		return "`bucket__$tableName`.`$columnName`";
+		return [
+			"fullName" => "`bucket__$tableName`.`$columnName`",
+			"tableName" => $tableName,
+			"columnName" => $columnName,
+			"schema" => $schemas[$tableName][$columnName]
+		];
 	}
 
 	public static function isNot( $condition ) {
@@ -550,17 +566,19 @@ class Bucket {
 			if ( count( $condition ) === 2 ) {
 				$condition = [ $condition[0], '=', $condition[1] ];
 			}
-			$columnName = self::sanitizeColumnName( $condition[0], $fieldNamesToTables, $schemas );
+			$columnNameData = self::sanitizeColumnName( $condition[0], $fieldNamesToTables, $schemas );
 			if ( !isset( self::$WHERE_OPS[$condition[1]] ) ) {
 				throw new QueryException( 'Invalid op for WHERE: ' . $condition[1] );
 			}
 			$op = $condition[1];
 			$value = $condition[2];
 
-			//TODO $fieldNamesToTables has been changed
-			// if ( reset($fieldNamesToTables[$condition[0]]) == "1" ) {//$fieldNamesToTables[table_name] == "1" if the field is repeated
-				// return "\"$value\" MEMBER OF($columnName)";
-			// } else {
+			$columnName = $columnNameData["fullName"];
+			// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "DATA " . print_r($fieldNamesToTables, true) . "\n", FILE_APPEND);
+			// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "COLUMNS " . print_r($columnNameData, true) . "\n", FILE_APPEND);
+			if ( $fieldNamesToTables[$columnNameData["columnName"]][$columnNameData["tableName"]]["repeated"] == true ) {
+				return "\"$value\" MEMBER OF($columnName)";
+			} else {
 				if (is_numeric($value)) {
 					return "($columnName $op $value)";
 				} elseif (is_string($value)) {
@@ -568,7 +586,7 @@ class Bucket {
 					$value = $dbw->strencode($value);
 					return "($columnName $op \"$value\")";
 				}
-			// }
+			}
 		}
 		throw new QueryException( 'Did not understand where condition: ' . json_encode( $condition ) );
 	}
@@ -594,7 +612,7 @@ class Bucket {
 			if ( !$tableName ) {
 				throw new QueryException( "Bucket name {$join['tableName']} is not valid." );
 			}
-			if ( $tableNames[$tableName] ) {
+			if ( isset($tableNames[$tableName]) ) {
 				throw new QueryException( "Bucket $tableName is already used and can't be JOINed again." );
 			}
 			$tableNames[$tableName] = true;
@@ -646,7 +664,7 @@ class Bucket {
 		foreach ( $data['selects'] as $selectColumn ) {
 			// TODO: don't like this
 			$selectColumn = strtolower( trim( $selectColumn ) );
-			$SELECTS[$selectColumn] = self::sanitizeColumnName( $selectColumn, $fieldNamesToTables, $schemas, $primaryTableName );
+			$SELECTS[$selectColumn] = self::sanitizeColumnName( $selectColumn, $fieldNamesToTables, $schemas, $primaryTableName )["fullName"];
 			$ungroupedColumns[$selectColumn] = true;
 		}
 
@@ -672,13 +690,13 @@ class Bucket {
 			if ( !is_string( $join['fieldName'] ) || !is_array( $join['selectFields'] ) ) {
 				throw new QueryException( 'Invalid join: ' . json_encode( $join ) );
 			}
-			$fieldName = self::sanitizeColumnName( $join['fieldName'], $fieldNamesToTables, $schemas );
+			$fieldName = self::sanitizeColumnName( $join['fieldName'], $fieldNamesToTables, $schemas )["fullName"];
 
 			// $joinsFragments = [];
 			foreach ( $join['selectFields'] as $joinSelectColumn ) {
 				// TODO: don't like this
 				$joinSelectColumn = strtolower( trim( $joinSelectColumn ) );
-				$joinSelectValue = self::sanitizeColumnName( $joinSelectColumn, $fieldNamesToTables, $schemas, $join['tableName'] );
+				$joinSelectValue = self::sanitizeColumnName( $joinSelectColumn, $fieldNamesToTables, $schemas, $join['tableName'] )["fullName"];
 				// $jsonObjectFragments[] = "$joinSelectValue";
 				// $jsonObjectFragments[] = "\"$joinSelectColumn\", $joinSelectValue";
 				// $jsonObject = 'JSON_ARRAYAGG(' . implode(', ', $jsonObjectFragments) . ')';
@@ -725,7 +743,7 @@ class Bucket {
 			$tmp->leftJoin($TABLES[$alias], $alias, $conds);
 		}
 		if ( isset($data['orderBy']) ) {
-			$orderName = self::sanitizeColumnName($data['orderBy']['fieldName'], $fieldNamesToTables, $schemas);
+			$orderName = self::sanitizeColumnName($data['orderBy']['fieldName'], $fieldNamesToTables, $schemas)["fullName"];
 			if ( $orderName != false ) {
 				$tmp->orderBy($orderName, $data['orderBy']['direction']);
 			} else {
@@ -735,28 +753,16 @@ class Bucket {
 		file_put_contents(MW_INSTALL_PATH . '/cook.txt', "SQL " . print_r($tmp->getSQL(), true) . "\n", FILE_APPEND);
 		$res = $tmp->fetchResultSet();
 		foreach ( $res as $row ) {
+			// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "ROWS " . print_r($row, true) . "\n", FILE_APPEND);
 			$row = (array)$row;
 			foreach ( $row as $columnName => $value ) {
-				if ( $ungroupedColumns[$columnName] ) {
-					$row[$columnName] = self::cast( $value, $schemas[$primaryTableName][$columnName] );
-				} else {
-					// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "NOT DEAD CODE=json $columnName " . print_r($value, true) . "\n", FILE_APPEND);
-					$value = json_decode( $value, true );
-					$processed = [];
-					foreach ( $value as $jsonRow ) {
-						foreach ( $jsonRow as $jsonColumnName => $jsonValue ) {
-							$jsonRow[$jsonColumnName] = self::cast( $jsonValue, $schemas[$columnName][$jsonColumnName] );
-						}
-						$processed[] = $jsonRow;
-					}
-					if ( count( $processed ) === 0 ) {
-						$row[$columnName] = null;
-					} elseif ( count( $processed ) === 1 ) {
-						$row[$columnName] = $processed[0];
-					} else {
-						$row[$columnName] = $processed;
-					}
+				$defaultTableName = null;
+				//If we don't have a period in the column name it must be a primary table column.
+				if (count(explode( '.', $columnName )) == 1) {
+					$defaultTableName = $primaryTableName;
 				}
+				$schema = self::sanitizeColumnName($columnName, $fieldNamesToTables, $schemas, $defaultTableName)["schema"];
+				$row[$columnName] = self::cast($value, $schema);
 			}
 			$rows[] = $row;
 		}
