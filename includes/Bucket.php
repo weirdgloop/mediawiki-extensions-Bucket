@@ -434,6 +434,21 @@ class Bucket {
 		if ( !is_string( $column ) ) {
 			throw new QueryException( "Can't interpret column: $column" );
 		}
+		//Category column names are specially handled
+		if ( self::isCategory($column) ) {
+			$tableName = "category";
+			$columnName = explode('.', $column)[1];
+			return [
+				"fullName" => "`bucket__$tableName`.`$columnName`",
+				"tableName" => $tableName,
+				"columnName" => $columnName,
+				"schema" => [
+					"type" => "BOOLEAN",
+					"index" => false,
+					"repeated" => false
+				]
+			];
+		}
 		$parts = explode( '.', $column );
 		if ( $column === '' || count( $parts ) > 2 ) {
 			throw new QueryException( "Invalid column name: $column" );
@@ -494,6 +509,10 @@ class Bucket {
 		&& is_array( $condition['operands'] );
 	}
 
+	public static function isCategory( $columnName ) {
+		return substr(strtolower(trim($columnName)), 0, 9) == "category.";
+	}
+
 	public static function getCategoriesCondition( $condition, &$categoryMap ) {
 		if ( self::isOrAnd( $condition ) ) {
 			if ( empty( $condition['operands'] ) ) {
@@ -511,12 +530,12 @@ class Bucket {
 		} elseif ( is_string( $condition ) ) {
 			// TODO: better way to do this?
 			// TODO: strencode elsewhere
-			$category = ucfirst( str_replace( ' ', '_', $condition ) );
-			if ( !isset( $categoryMap[$category] ) ) {
-				$categoryMap[$category] = 'categorylinks_' . count( $categoryMap );
-			}
-			$alias = $categoryMap[$category];
-			return "($alias.cl_to IS NOT NULL)";
+			// $category = ucfirst( str_replace( ' ', '_', $condition ) );
+			// if ( !isset( $categoryMap[$category] ) ) {
+			// 	$categoryMap[$category] = 'categorylinks_' . count( $categoryMap );
+			// }
+			// $alias = $categoryMap[$category];
+			return "(`category.$condition`.cl_to IS NOT NULL)";
 		}
 		throw new QueryException( 'Did not understand category condition: ' . json_encode( $condition ) );
 	}
@@ -599,6 +618,7 @@ class Bucket {
 		$OPTIONS = [];
 		// check to see if any duplicates
 		$tableNames = [];
+		$categoryJoins = [];
 
 		$primaryTableName = self::getValidFieldName( $data['tableName'] );
 		if ( !$primaryTableName ) {
@@ -662,40 +682,45 @@ class Bucket {
 
 		$ungroupedColumns = [];
 		foreach ( $data['selects'] as $selectColumn ) {
-			// TODO: don't like this
-			$selectColumn = strtolower( trim( $selectColumn ) );
-			//TODO if Category: column
-			$selectTableName = null;
-			//If we don't have a period then we must be the primary column.
-			if (count(explode( '.', $selectColumn )) == 1) {
-				$selectTableName = $primaryTableName;
-			}
-
-			$colData = self::sanitizeColumnName($selectColumn, $fieldNamesToTables, $schemas, $selectTableName);
-			
-			if ($colData['tableName'] != $primaryTableName) {
-				$SELECTS[$selectColumn] = 'JSON_ARRAY(' . $colData["fullName"] . ')';
+			//TODO prevent someone from making an actual Bucket:Category page.
+			if ( self::isCategory($selectColumn) ) {
+				$SELECTS[$selectColumn] = "IF({$dbw->addIdentifierQuotes($selectColumn)}.`cl_to` IS NULL, FALSE, TRUE)";
+				$categoryName = explode('.', $selectColumn)[1];
+				$categoryJoins[$categoryName] = $selectColumn;
+				continue;
 			} else {
-				$SELECTS[$selectColumn] = $colData["fullName"];
+				// TODO: don't like this
+				$selectColumn = strtolower(trim($selectColumn));
+				$selectTableName = null;
+				//If we don't have a period then we must be the primary column.
+				if (count(explode('.', $selectColumn)) == 1) {
+					$selectTableName = $primaryTableName;
+				}
+
+				$colData = self::sanitizeColumnName($selectColumn, $fieldNamesToTables, $schemas, $selectTableName);
+
+				if ($colData['tableName'] != $primaryTableName) {
+					$SELECTS[$selectColumn] = 'JSON_ARRAY(' . $colData["fullName"] . ')';
+				} else {
+					$SELECTS[$selectColumn] = $colData["fullName"];
+				}
 			}
 			$ungroupedColumns[$dbw->addIdentifierQuotes($selectColumn)] = true;
 		}
 
-		if ( !empty( $data['categories']['operands'] ) ) {
-			$categoryMap = [];
-			$categoriesCondition = self::getCategoriesCondition( $data['categories'], $categoryMap );
+		if ( !empty( $categoryJoins ) ) {
 
-			foreach ( $categoryMap as $categoryName => $alias ) {
+			foreach ( $categoryJoins as $categoryName => $alias ) {
 				$TABLES[$alias] = 'categorylinks';
 				$LEFT_JOINS[$alias] = [
 					"`$alias`.cl_from = `bucket__$primaryTableName`.`_page_id`",//Must be all in one string to avoid the table name being treated as a string value.
-					"`$alias`.cl_to" => $categoryName
+					"`$alias`.cl_to" => str_replace(" ", "_", $categoryName)
 				];
 			}
-			$WHERES[] = $categoriesCondition;
 		}
 
 		if ( !empty( $data['wheres']['operands'] ) ) {
+			//TODO category wheres
 			$WHERES[] = self::getWhereCondition( $data['wheres'], $fieldNamesToTables, $schemas, $dbw );
 		}
 
