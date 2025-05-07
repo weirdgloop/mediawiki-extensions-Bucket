@@ -437,7 +437,7 @@ class Bucket {
 		//Category column names are specially handled
 		if ( self::isCategory($column) ) {
 			$tableName = "category";
-			$columnName = explode('.', $column)[1];
+			$columnName = explode(':', $column)[1];
 			return [
 				"fullName" => "`bucket__$tableName`.`$columnName`",
 				"tableName" => $tableName,
@@ -510,34 +510,7 @@ class Bucket {
 	}
 
 	public static function isCategory( $columnName ) {
-		return substr(strtolower(trim($columnName)), 0, 9) == "category.";
-	}
-
-	public static function getCategoriesCondition( $condition, &$categoryMap ) {
-		if ( self::isOrAnd( $condition ) ) {
-			if ( empty( $condition['operands'] ) ) {
-				throw new QueryException( 'Missing condition: ' . json_encode( $condition ) );
-			}
-			$children = [];
-			foreach ( $condition['operands'] as $operand ) {
-				$children[] = self::getCategoriesCondition( $operand, $categoryMap );
-			}
-			$children = implode( " {$condition['op']} ", $children );
-			return "($children)";
-		} elseif ( self::isNot( $condition ) ) {
-			$child = self::getCategoriesCondition( $condition['operand'], $categoryMap );
-			return "(NOT $child)";
-		} elseif ( is_string( $condition ) ) {
-			// TODO: better way to do this?
-			// TODO: strencode elsewhere
-			// $category = ucfirst( str_replace( ' ', '_', $condition ) );
-			// if ( !isset( $categoryMap[$category] ) ) {
-			// 	$categoryMap[$category] = 'categorylinks_' . count( $categoryMap );
-			// }
-			// $alias = $categoryMap[$category];
-			return "(`category.$condition`.cl_to IS NOT NULL)";
-		}
-		throw new QueryException( 'Did not understand category condition: ' . json_encode( $condition ) );
+		return substr(strtolower(trim($columnName)), 0, 9) == "category:";
 	}
 
 	/**
@@ -546,7 +519,7 @@ class Bucket {
 	 * 		(optional)op -> AND | OR | NOT
 	 * 		unnamed -> scalar value or array of scalar values
 	 */
-	public static function getWhereCondition( $condition, $fieldNamesToTables, $schemas, $dbw ) {
+	public static function getWhereCondition( $condition, $fieldNamesToTables, $schemas, $dbw, &$categoryJoins ) {
 		// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "Condition: " . print_r($condition, true) . "\n", FILE_APPEND);
 		if ( self::isOrAnd( $condition ) ) {
 			if ( empty( $condition['operands'] ) ) {
@@ -559,7 +532,7 @@ class Bucket {
 						$operand['op'] = $condition['op']; //Set child op to parent
 					}
 					// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "Calling getWhereCondition 1: " . print_r($operand, true) . "\n", FILE_APPEND);
-					$children[] = self::getWhereCondition($operand, $fieldNamesToTables, $schemas, $dbw);
+					$children[] = self::getWhereCondition($operand, $fieldNamesToTables, $schemas, $dbw, $categoryJoins );
 				}
 			}
 			$children = implode( " {$condition['op']} ", $children );
@@ -567,12 +540,12 @@ class Bucket {
 		} elseif ( self::isNot( $condition ) ) {
 			//TODO I think NOT should support multiple operands
 			// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "Calling getWhereCondition for NOT: " . print_r($condition, true) . "\n", FILE_APPEND);
-			$child = self::getWhereCondition( $condition['operand'], $fieldNamesToTables, $schemas, $dbw );
+			$child = self::getWhereCondition( $condition['operand'], $fieldNamesToTables, $schemas, $dbw, $categoryJoins );
 			return "(NOT $child)";
 		} elseif ( is_array( $condition ) && is_array( $condition[0] ) ) {
 			// .where{{"a", ">", 0}, {"b", "=", "5"}})
 			// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "Calling getWhereCondition 2 with overriding op: " . print_r($condition, true) . "\n", FILE_APPEND);
-			return self::getWhereCondition( [ 'op' => isset($condition[ 'op' ]) ? $condition[ 'op' ] : 'AND', 'operands' => $condition ], $fieldNamesToTables, $schemas, $dbw );
+			return self::getWhereCondition( [ 'op' => isset($condition[ 'op' ]) ? $condition[ 'op' ] : 'AND', 'operands' => $condition ], $fieldNamesToTables, $schemas, $dbw, $categoryJoins );
 		} elseif ( is_array( $condition ) && !empty( $condition ) && !isset( $condition[0] ) ) {
 			// .where({a = 1, b = 2})
 			$operands = [];
@@ -580,14 +553,14 @@ class Bucket {
 				$operands[] = [ $key, '=', $value ];
 			}
 			// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "Calling getWhereCondition 3 with overriding op = AND: " . print_r($operands, true) . "\n", FILE_APPEND);
-			return self::getWhereCondition( [ 'op' => 'AND', 'operands' => $operands ], $fieldNamesToTables, $schemas, $dbw );
+			return self::getWhereCondition( [ 'op' => 'AND', 'operands' => $operands ], $fieldNamesToTables, $schemas, $dbw, $categoryJoins );
 		} elseif ( is_array( $condition ) && isset( $condition[0] ) && isset( $condition[1] ) ) {
 			if ( count( $condition ) === 2 ) {
 				$condition = [ $condition[0], '=', $condition[1] ];
 			}
-			$columnNameData = self::sanitizeColumnName( $condition[0], $fieldNamesToTables, $schemas );
-			if ( !isset( self::$WHERE_OPS[$condition[1]] ) ) {
-				throw new QueryException( 'Invalid op for WHERE: ' . $condition[1] );
+			$columnNameData = self::sanitizeColumnName($condition[0], $fieldNamesToTables, $schemas);
+			if (!isset(self::$WHERE_OPS[$condition[1]])) {
+				throw new QueryException('Invalid op for WHERE: ' . $condition[1]);
 			}
 			$op = $condition[1];
 			$value = $condition[2];
@@ -595,7 +568,7 @@ class Bucket {
 			$columnName = $columnNameData["fullName"];
 			// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "DATA " . print_r($fieldNamesToTables, true) . "\n", FILE_APPEND);
 			// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "COLUMNS " . print_r($columnNameData, true) . "\n", FILE_APPEND);
-			if ( $fieldNamesToTables[$columnNameData["columnName"]][$columnNameData["tableName"]]["repeated"] == true ) {
+			if ($fieldNamesToTables[$columnNameData["columnName"]][$columnNameData["tableName"]]["repeated"] == true) {
 				return "\"$value\" MEMBER OF($columnName)";
 			} else {
 				if (is_numeric($value)) {
@@ -606,6 +579,13 @@ class Bucket {
 					return "($columnName $op \"$value\")";
 				}
 			}
+		} elseif ( self::isCategory( $condition ) || (is_array($condition) && self::isCategory($condition[0]))) {
+			if (is_array($condition)) {
+				$condition = $condition[0];
+			}
+			$categoryName = explode(':', $condition)[1];
+			$categoryJoins[$categoryName] = $condition;	
+			return "(`$condition`.cl_to IS NOT NULL)";
 		}
 		throw new QueryException( 'Did not understand where condition: ' . json_encode( $condition ) );
 	}
@@ -682,10 +662,9 @@ class Bucket {
 
 		$ungroupedColumns = [];
 		foreach ( $data['selects'] as $selectColumn ) {
-			//TODO prevent someone from making an actual Bucket:Category page.
 			if ( self::isCategory($selectColumn) ) {
-				$SELECTS[$selectColumn] = "IF({$dbw->addIdentifierQuotes($selectColumn)}.`cl_to` IS NULL, FALSE, TRUE)";
-				$categoryName = explode('.', $selectColumn)[1];
+				$SELECTS[$selectColumn] = "{$dbw->addIdentifierQuotes($selectColumn)}.`cl_to` IS NOT NULL";
+				$categoryName = explode(':', $selectColumn)[1];
 				$categoryJoins[$categoryName] = $selectColumn;
 				continue;
 			} else {
@@ -708,6 +687,10 @@ class Bucket {
 			$ungroupedColumns[$dbw->addIdentifierQuotes($selectColumn)] = true;
 		}
 
+		if ( !empty( $data['wheres']['operands'] ) ) {
+			$WHERES[] = self::getWhereCondition( $data['wheres'], $fieldNamesToTables, $schemas, $dbw, $categoryJoins );
+		}
+
 		if ( !empty( $categoryJoins ) ) {
 
 			foreach ( $categoryJoins as $categoryName => $alias ) {
@@ -717,11 +700,6 @@ class Bucket {
 					"`$alias`.cl_to" => str_replace(" ", "_", $categoryName)
 				];
 			}
-		}
-
-		if ( !empty( $data['wheres']['operands'] ) ) {
-			//TODO category wheres
-			$WHERES[] = self::getWhereCondition( $data['wheres'], $fieldNamesToTables, $schemas, $dbw );
 		}
 
 		foreach ( $data['joins'] as $join ) {

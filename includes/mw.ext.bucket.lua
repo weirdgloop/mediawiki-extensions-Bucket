@@ -21,10 +21,6 @@ function bucket.setupInterface( options )
     package.loaded['mw.ext.bucket'] = bucket
 end
 
--- function bucket.put(bucket_name, data)
---     return php.put(bucket_name, data)
--- end
-
 local QueryBuilder = {}
 
 function QueryBuilder:new(tableName)
@@ -54,11 +50,6 @@ end
 
 function QueryBuilder:where(...)
     table.insert(self.wheres.operands, {...})
-    return self
-end
-
-function QueryBuilder:whereCategory(condition)
-    table.insert(self.categories.operands, condition)
     return self
 end
 
@@ -96,11 +87,7 @@ function QueryBuilder:sub(identifier)
 end
 
 function QueryBuilder:put(data)
-    return php.put(self.tableName, self.subversion, data)
-end
-
-function bucket.put(bucket_name, data)
-    return php.put(bucket_name, '', data)
+    php.put(self, data)
 end
 
 function bucket.Or(...)
