@@ -579,7 +579,7 @@ class Bucket {
 					return "($columnName $op \"$value\")";
 				}
 			}
-		} elseif ( self::isCategory( $condition ) || (is_array($condition) && self::isCategory($condition[0]))) {
+		} elseif ( is_string($condition) && self::isCategory( $condition ) || (is_array($condition) && self::isCategory($condition[0]))) {
 			if (is_array($condition)) {
 				$condition = $condition[0];
 			}
