@@ -102,6 +102,10 @@ function bucket.Not(arg)
     return {op = "NOT", operand = arg}
 end
 
+function bucket.Null()
+    return "&&NULL&&"
+end
+
 setmetatable(bucket, {
     __call = function(tbl, tableName)
         return QueryBuilder:new(tableName)

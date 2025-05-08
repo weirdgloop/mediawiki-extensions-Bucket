@@ -591,7 +591,10 @@ class Bucket {
 			$columnName = $columnNameData["fullName"];
 			// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "DATA " . print_r($fieldNamesToTables, true) . "\n", FILE_APPEND);
 			// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "COLUMNS " . print_r($columnNameData, true) . "\n", FILE_APPEND);
-			if ($fieldNamesToTables[$columnNameData["columnName"]][$columnNameData["tableName"]]["repeated"] == true) {
+			if ( $value == "&&NULL&&" ) {
+				//TODO if op is something other than equals throw warning?
+				return "($columnName IS NULL)";
+			} elseif ($fieldNamesToTables[$columnNameData["columnName"]][$columnNameData["tableName"]]["repeated"] == true) {
 				return "\"$value\" MEMBER OF($columnName)";
 			} else {
 				if (is_numeric($value)) {
