@@ -67,6 +67,10 @@ class Bucket {
 		}
 
 		foreach ( $puts as $tableName => $tableData ) {
+			if ($tableName == "") {
+				//TODO put in category for bad puts
+				continue;
+			}
 			$tablePuts = [];
 			// TODO: this misses deleting things that are no longer in the output
 			$dbTableName = 'bucket__' . $tableName;
@@ -85,25 +89,26 @@ class Bucket {
 			}
 			foreach ( $tableData as $idx => $singleData) {
 				$sub = $singleData['sub'];
-				$singlePut = $singleData['data'];
-				$singlePut['_page_id'] = $pageId;
-				$singlePut['_index'] = $idx;
-				$singlePut['page_name'] = $titleText;
-				$singlePut['page_name_sub'] = $titleText;
-				if ( isset( $sub ) && strlen($sub) > 0) {
-					$singlePut['page_name_sub'] = $titleText . '#' . $sub;
-				}
-				foreach ( $singlePut as $key => $value ) {
+				$singleData = $singleData['data'];
+				foreach ( $singleData as $key => $value ) {
 					if ( !isset($fields[$key]) || !$fields[$key] ) {
 						// TODO: warning somewhere?
 						file_put_contents( MW_INSTALL_PATH . '/cook.txt', "writePuts KEY UNSET " . print_r($key, true) . "\n" , FILE_APPEND);
-						unset( $singlePut[$key] );
-					} else {
-						#TODO JSON relies on forcing utf8 transmission in DatabaseMySQL.php line 829
-						// file_put_contents(MW_INSTALL_PATH . '/cook.txt', print_r($value, true) . " =====================\n", FILE_APPEND);
-						unset( $singlePut[$key] );
-						$singlePut['`' . $key . '`'] = self::castToDbType( $value, self::getDbType( $fieldName, $schemas[$tableName][$key] ) );
 					}
+				}
+				$singlePut = [];
+				foreach ( $fields as $key => $_ ) {
+					$value = isset($singleData[$key]) ? $singleData[$key] : null;
+					// file_put_contents(MW_INSTALL_PATH . '/cook.txt', print_r($value, true) . " ==========$key===========\n", FILE_APPEND);
+					#TODO JSON relies on forcing utf8 transmission in DatabaseMySQL.php line 829
+					$singlePut[$dbw->addIdentifierQuotes($key)] = self::castToDbType($value, self::getDbType($fieldName, $schemas[$tableName][$key]));
+				}
+				$singlePut[$dbw->addIdentifierQuotes('_page_id')] = $pageId;
+				$singlePut[$dbw->addIdentifierQuotes('_index')] = $idx;
+				$singlePut[$dbw->addIdentifierQuotes('page_name')] = $titleText;
+				$singlePut[$dbw->addIdentifierQuotes('page_name_sub')] = $titleText;
+				if ( isset( $sub ) && strlen($sub) > 0) {
+					$singlePut[$dbw->addIdentifierQuotes('page_name_sub')] = $titleText . '#' . $sub;
 				}
 				$tablePuts[$idx] = $singlePut;
 			}
@@ -122,7 +127,7 @@ class Bucket {
 			//Remove the bucket_hash entry so we can it as a list of removed buckets at the end.
 			unset( $bucket_hash[ $tableName ] );
 
-			// file_put_contents( MW_INSTALL_PATH . '/cook.txt', "writePuts puts " . print_r($tablePuts, true) . "\n" , FILE_APPEND);
+			// file_put_contents( MW_INSTALL_PATH . '/cook.txt', "writePuts puts " . print_r(json_encode($tablePuts, JSON_PRETTY_PRINT), true) . "\n" , FILE_APPEND);
 			// TODO: does behavior here depend on DBO_TRX?
 			$dbw->begin();
 			$dbw->newDeleteQueryBuilder()
@@ -151,22 +156,23 @@ class Bucket {
 		}
 
 		//Clean up bucket_pages entries for buckets that are no longer written to on this page.
-		// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "GOING TO DELETE " . print_r(array_keys( array_filter( $bucket_hash ) ), true) . "\n", FILE_APPEND);
-		$dbw->begin( __METHOD__ );
 		$tablesToDelete = array_keys( array_filter( $bucket_hash ) );
-		$dbw->newDeleteQueryBuilder()
-			->deleteFrom( 'bucket_pages' )
-			->where( [ '_page_id' => $pageId, 'table_name' => $tablesToDelete ])
-			->caller( __METHOD__ )
-			->execute();
-		foreach ($tablesToDelete as $name) {
+		if ( count($tablesToDelete) > 0 ) {
+			$dbw->begin(__METHOD__);
 			$dbw->newDeleteQueryBuilder()
-				->deleteFrom($dbw->addIdentifierQuotes('bucket__' . $name))
-				->where(['_page_id' => $pageId])
+				->deleteFrom('bucket_pages')
+				->where(['_page_id' => $pageId, 'table_name' => $tablesToDelete])
 				->caller(__METHOD__)
 				->execute();
+			foreach ($tablesToDelete as $name) {
+				$dbw->newDeleteQueryBuilder()
+					->deleteFrom($dbw->addIdentifierQuotes('bucket__' . $name))
+					->where(['_page_id' => $pageId])
+					->caller(__METHOD__)
+					->execute();
+			}
+			$dbw->commit(__METHOD__);
 		}
-		$dbw->commit( __METHOD__ );
 	}
 
 	/**
@@ -214,7 +220,7 @@ class Bucket {
 		return false;
 	}
 
-	public static function createOrModifyTable( string $bucketName, object $jsonSchema ) {
+	public static function createOrModifyTable( string $bucketName, object $jsonSchema, int $parentId ) {
 		$newSchema = array_merge( [], self::$requiredColumns );
 
 		if ( empty( (array)$jsonSchema ) ) {
@@ -271,6 +277,7 @@ class Bucket {
 			file_put_contents(MW_INSTALL_PATH . '/cook.txt', "ALTER TABLE STATEMENT $statement \n", FILE_APPEND);
 			$dbw->query( $statement );
 		}
+		$newSchema["_parent_rev_id"] = $parentId;
 		$schemaJson = json_encode( $newSchema );
 		$dbw->upsert(
 			'bucket_schemas',
@@ -390,7 +397,11 @@ class Bucket {
 
 	public static function castToDbType( $value, $type) {
 		if ( $type === 'TEXT' || $type === 'PAGE' ) {
-			return $value;
+			if ( $value == "" ) {
+				return null;
+			} else {
+				return $value;
+			}
 		} elseif ( $type === 'DOUBLE' ) {
 			return floatval( $value );
 		} elseif ( $type === 'INTEGER' ) {
@@ -399,9 +410,21 @@ class Bucket {
 			return boolval( $value );
 		} elseif ( $type === 'JSON' ) {
 			if (!is_array($value)) {
-				return json_encode([$value]); //Wrap single values in an array for compatability
+				if ( $value == "" ) {
+					return null;
+				} else {
+					return json_encode([$value]); //Wrap single values in an array for compatability
+				}
 			} else {
-				return json_encode(LuaLibrary::convertFromLuaTable($value));
+				//Remove empty strings
+				$value = array_filter($value, function($v) { 
+					return $v != ""; 
+				});
+				if ( count($value) > 0 ) {
+					return json_encode(LuaLibrary::convertFromLuaTable($value));
+				} else {
+					return null;
+				}
 			}
 		}
 	}

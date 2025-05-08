@@ -77,7 +77,7 @@ class Hooks implements
 		}
 		$jsonSchema = $content->getData()->value;
 		$title = $page->getDBkey();
-		Bucket::createOrModifyTable( $title, $jsonSchema );
+		Bucket::createOrModifyTable( $title, $jsonSchema, $revRecord->getParentId() );
 	}
 
 	/**
