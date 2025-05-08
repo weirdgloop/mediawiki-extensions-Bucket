@@ -18,9 +18,15 @@ class LuaLibrary extends LibraryBase {
 	public function bucketPut( $builder, $data ): void {
 		$parserOutput = $this->getParser()->getOutput();
 		$bucketPuts = $parserOutput->getExtensionData( Bucket::EXTENSION_DATA_KEY ) ?? [];
-		$table_name = $builder["tableName"];
+		$table_name = "";
+		if (array_key_exists("tableName", $builder)) {
+			$table_name = $builder["tableName"];
+		}
 		$sub = $builder["subversion"];
 		if ( !array_key_exists( $table_name, $bucketPuts ) ) {
+			//TODO: This would allow WhatLinksHere to be used for a list of pages that put to this bucket.
+			//TODO: Is that a good idea?
+			// $parserOutput->addLink(new TitleValue( NS_BUCKET, "Recipe"));
 			$bucketPuts[ $table_name ] = [];
 		}
 		$bucketPuts[ $table_name ][] = ['sub' => $sub, 'data' => $data];

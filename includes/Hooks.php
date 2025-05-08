@@ -14,6 +14,7 @@ use MediaWiki\Revision\SlotRecord;
 use MediaWiki\Title\Title;
 use MediaWiki\Page\Article;
 use MediaWiki\Context\IContextSource;
+use MediaWiki\Deferred\LinksUpdate\LinksUpdate;
 
 class Hooks implements
 	LinksUpdateCompleteHook,
@@ -77,7 +78,8 @@ class Hooks implements
 		}
 		$jsonSchema = $content->getData()->value;
 		$title = $page->getDBkey();
-		Bucket::createOrModifyTable( $title, $jsonSchema, $revRecord->getParentId() );
+		$parentId = $revRecord->getParentId() ?? 0;
+		Bucket::createOrModifyTable( $title, $jsonSchema, $parentId );
 	}
 
 	/**

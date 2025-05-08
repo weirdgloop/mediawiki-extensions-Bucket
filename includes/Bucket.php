@@ -10,6 +10,7 @@ class Bucket {
 	public const EXTENSION_PROPERTY_KEY = 'bucketputs';
 	public const MAX_LIMIT = 5000;
 	public const DEFAULT_LIMIT = 500;
+	public const ERROR_BUCKET = 'error';
 
 	private static $dataTypes = [
 		'BOOLEAN' => 'BOOLEAN',
@@ -37,11 +38,31 @@ class Bucket {
 		'<'  => true,
 	];
 
+	public static function logMessage( string $bucket, string $property, string $type, string $message, &$logs) {
+		//TODO need to create the correct bucket on plugin install
+		if ( !array_key_exists( self::ERROR_BUCKET, $logs ) ) {
+			$logs[self::ERROR_BUCKET] = [];
+		}
+		if ( $bucket != "" ) {
+			$bucket = "Bucket:" . $bucket;
+		}
+		$logs[self::ERROR_BUCKET][] = [
+			"sub" => "",
+			"data" => [
+				"bucket" => $bucket,
+				"property" => $property,
+				"type" => $type,
+				"message" => $message
+			]
+		];
+	}
+
 	/*
 	Called when a page is saved containing a bucket.put
 	*/
-	public static function writePuts( int $pageId, string $titleText, array $puts ) {
+	public static function writePuts( int $pageId, string $titleText, array $puts, bool $writingLogs = false) {
 		// file_put_contents( MW_INSTALL_PATH . '/cook.txt', "writePuts start " . print_r($puts, true) . "\n" , FILE_APPEND);
+		$logs = [];
 		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
 
 		$res = $dbw->newSelectQueryBuilder()
@@ -68,7 +89,7 @@ class Bucket {
 
 		foreach ( $puts as $tableName => $tableData ) {
 			if ($tableName == "") {
-				//TODO put in category for bad puts
+				self::logMessage($tableName, "", "ERROR", "No bucket defined for writing.", $logs);
 				continue;
 			}
 			$tablePuts = [];
@@ -92,8 +113,7 @@ class Bucket {
 				$singleData = $singleData['data'];
 				foreach ( $singleData as $key => $value ) {
 					if ( !isset($fields[$key]) || !$fields[$key] ) {
-						// TODO: warning somewhere?
-						file_put_contents( MW_INSTALL_PATH . '/cook.txt', "writePuts KEY UNSET " . print_r($key, true) . "\n" , FILE_APPEND);
+						self::logMessage($tableName, $key, "WARNING", "Key: '$key' does not exist in $tableName.", $logs);
 					}
 				}
 				$singlePut = [];
@@ -157,7 +177,7 @@ class Bucket {
 
 		//Clean up bucket_pages entries for buckets that are no longer written to on this page.
 		$tablesToDelete = array_keys( array_filter( $bucket_hash ) );
-		if ( count($tablesToDelete) > 0 ) {
+		if ( !$writingLogs && count($tablesToDelete) > 0 ) {
 			$dbw->begin(__METHOD__);
 			$dbw->newDeleteQueryBuilder()
 				->deleteFrom('bucket_pages')
@@ -172,6 +192,11 @@ class Bucket {
 					->execute();
 			}
 			$dbw->commit(__METHOD__);
+		}
+		
+		//TODO log database errors?
+		if ( !$writingLogs && count($logs) > 0 ) {
+			self::writePuts($pageId, $titleText, $logs, true);
 		}
 	}
 
@@ -799,7 +824,7 @@ class Bucket {
 				//TODO throw warning
 			}
 		}
-		file_put_contents(MW_INSTALL_PATH . '/cook.txt', "SQL " . print_r($tmp->getSQL(), true) . "\n", FILE_APPEND);
+		// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "SQL " . print_r($tmp->getSQL(), true) . "\n", FILE_APPEND);
 		$res = $tmp->fetchResultSet();
 		foreach ( $res as $row ) {
 			// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "ROWS " . print_r($row, true) . "\n", FILE_APPEND);
