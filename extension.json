@@ -43,7 +43,7 @@
 		"ScribuntoExternalLibraries": "BucketHookHandler",
 		"SkinBuildSidebar": "BucketHookHandler",
 		"ArticleFromTitle": "BucketHookHandler",
-		"TitleMoveStarting": "BucketHookHandler",
+		"PageMoveComplete": "BucketHookHandler",
 		"MovePageIsValidMove": "BucketHookHandler",
 		"PageDelete": "BucketHookHandler",
 		"PageDeleteComplete": "BucketHookHandler"

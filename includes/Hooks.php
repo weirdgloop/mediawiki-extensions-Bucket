@@ -18,6 +18,7 @@ use MediaWiki\Page\Article;
 use MediaWiki\Context\IContextSource;
 use MediaWiki\Deferred\LinksUpdate\LinksUpdate;
 use MediaWiki\Hook\MovePageIsValidMoveHook;
+use MediaWiki\Hook\PageMoveCompleteHook;
 use MediaWiki\Hook\TitleMoveStartingHook;
 use MediaWiki\Page\Hook\PageDeleteCompleteHook;
 use MediaWiki\Page\Hook\PageDeleteHook;
@@ -28,7 +29,6 @@ use MediaWiki\Permissions\Authority;
 use MediaWiki\Status\Status;
 use MediaWiki\Revision\RenderedRevision;
 use MediaWiki\Revision\RevisionRecord;
-use MediaWiki\User\User;
 use StatusValue;
 
 class Hooks implements
@@ -40,7 +40,7 @@ class Hooks implements
 	ScribuntoExternalLibrariesHook,
 	SkinBuildSidebarHook,
 	ArticleFromTitleHook,
-	TitleMoveStartingHook,
+	PageMoveCompleteHook,
 	MovePageIsValidMoveHook,
 	PageDeleteHook,
 	PageDeleteCompleteHook
@@ -197,29 +197,14 @@ class Hooks implements
 	}
 
 	/**
-	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/TitleMoveStarting
-	 * @param Title $title
-	 * @param Title $newTitle
-	 * @param User $user
-	 * @return bool|void True or no return value to continue or false to abort
-	 * 
-	 * Restrictions for moving Bucket namespace titles:
-	 * 1. The destination must not have any bucket usages.
+	 * @see http://mediawiki.org/wiki/Manual:Hooks/PageMoveComplete
 	 */
-	public function onTitleMoveStarting( $title, $newTitle, $user ) {
-		if ( $title->getNamespace() !== NS_BUCKET ) {
-			return true;
+	public function onPageMoveComplete($oldTitle, $newTitle, $user, $pageid, $redirid, $reason, $revision) {
+		if ( $oldTitle->getNamespace() !== NS_BUCKET  && $newTitle->getNamespace() !== NS_BUCKET ) {
+			return;
 		}
-
-		$currentName = $title->getBaseText();
-		$newName = $newTitle->getBaseText();
-		try {
-			// Bucket::moveBucket( $currentName, $newName );
-		} catch ( Exception $e ) {
-			// $status->fatal($e->getMessage());
-			return false;
-			// throw($e);
-		}
+		file_put_contents(MW_INSTALL_PATH . '/cook.txt', "MOVING " . $oldTitle->getDBkey() . " \n", FILE_APPEND);
+		Bucket::moveBucket($oldTitle->getDBkey(), $newTitle->getDBkey());
 	}
 
 	/** 
@@ -231,10 +216,10 @@ class Hooks implements
 		}
 
 		if ( $oldTitle->getNamespace() !== NS_BUCKET ) {
-			$status->fatal("Cannot move bucket page out of namespace");
+			$status->fatal("Cannot move pages to the Bucket namespace");
 		}
 		if ( $newTitle->getNamespace() !== NS_BUCKET ) {
-			$status->fatal("Cannot move pages to the Bucket namespace");
+			$status->fatal("Cannot move a Bucket page out of Bucket namespace");
 		}
 
 		$result = Bucket::canMoveBucket($oldTitle->getBaseText(), $newTitle->getBaseText());

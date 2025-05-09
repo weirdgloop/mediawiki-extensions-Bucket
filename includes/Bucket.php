@@ -411,32 +411,28 @@ class Bucket {
 
 		$tableName = "bucket__" . $bucketName;
 		$newTableName = "bucket__" . $newBucketName;
-		$needToDropView = false; //TODO
-		// // $dbw->startAtomic(__METHOD__, IDatabase::ATOMIC_CANCELABLE);
-		// try {
-			if ($needToDropView) {
-				$dbw->query("DROP VIEW IF EXISTS $newTableName;");
-			}
-			$dbw->query("RENAME TABLE $tableName TO $newTableName;");
-			$dbw->query("CREATE OR REPLACE VIEW $tableName AS SELECT * FROM $newTableName;");
+		$needToDropView = Bucket::canMoveBucket($bucketName, $newBucketName);
+		if ($needToDropView) {
+			$dbw->query("DROP VIEW IF EXISTS $newTableName;");
+		}
+		$dbw->query("RENAME TABLE $tableName TO $newTableName;");
+		$dbw->query("CREATE OR REPLACE VIEW $tableName AS SELECT * FROM $newTableName;");
 
-			//Update bucket_schemas to have a reference to the moved table
-			$existing_schema = $dbw->newSelectQueryBuilder()
-				->table("bucket_schemas")
-				->select("table_name")
-				->where(["table_name" => $bucketName])
-				->fetchField();
-			$dbw->newInsertQueryBuilder()
-				->table("bucket_schemas")
-				->set([
-					"table_name" => $newBucketName,
-					"schema_json" => $existing_schema
-				]);
-		// } catch (Exception $e) {
-			// $dbw->cancelAtomic(__METHOD__);
-			// throw new Exception("Error moving bucket");
-		// }
-		// $dbw->endAtomic(__METHOD__);
+		//Update bucket_schemas to have a reference to the moved table
+		$existing_schema = $dbw->newSelectQueryBuilder()
+			->table("bucket_schemas")
+			->select("schema_json")
+			->where(["table_name" => $bucketName])
+			->fetchField();
+		//TODO only create a view if the table isn't empty?
+		$dbw->newInsertQueryBuilder()
+			->insert("bucket_schemas")
+			->row([
+				"table_name" => $newBucketName,
+				"schema_json" => $existing_schema
+			])
+			->caller(__METHOD__)
+			->execute();
 	}
 
 	private static function getDbType( $fieldName, $fieldData ) {
