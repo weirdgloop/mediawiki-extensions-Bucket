@@ -265,6 +265,7 @@ class Hooks implements
 	 */
 	public function onPageDeleteComplete(ProperPageIdentity $page, Authority $deleter, string $reason, int $pageID, RevisionRecord $deletedRev, ManualLogEntry $logEntry, int $archivedRevisionCount) {
 		if ( $page->getNamespace() !== NS_BUCKET ) {
+			Bucket::clearOrphanedData($page->getId());
 			return;
 		}
 		Bucket::deleteTable($page->getDBkey());

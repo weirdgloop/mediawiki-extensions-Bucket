@@ -216,7 +216,8 @@ class Bucket {
 
 		//If there is data associated with this page, delete it.
 		if( $res->count() > 0 ) {
-			$dbw->begin( __METHOD__ );
+			//TODO I have no idea how transactions work
+			// $dbw->begin( __METHOD__ );
 			$dbw->newDeleteQueryBuilder()
 				->deleteFrom('bucket_pages')
 				->where(['_page_id' => $pageId])
@@ -233,7 +234,7 @@ class Bucket {
 					->caller(__METHOD__)
 					->execute();
 			}
-			$dbw->commit( __METHOD__ );
+			// $dbw->commit( __METHOD__ );
 		}
 	}
 
