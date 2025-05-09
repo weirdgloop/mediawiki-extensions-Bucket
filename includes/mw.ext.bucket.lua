@@ -78,7 +78,14 @@ function QueryBuilder:orderBy(fieldName, direction)
 end
 
 function QueryBuilder:run()
-    return php.run(self)
+    local result = php.run(self)
+
+    if type(result) == "table" then
+        return result
+    else
+        error(result)
+        return nil
+    end
 end
 
 function QueryBuilder:sub(identifier)

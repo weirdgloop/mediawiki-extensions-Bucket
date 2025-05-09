@@ -38,9 +38,15 @@
 		"LinksUpdateComplete": "BucketHookHandler",
 		"LoadExtensionSchemaUpdates": "BucketHookHandler",
 		"MultiContentSave": "BucketHookHandler",
+		"PageUndelete": "BucketHookHandler",
+		"PageUndeleteComplete": "BucketHookHandler",
 		"ScribuntoExternalLibraries": "BucketHookHandler",
 		"SkinBuildSidebar": "BucketHookHandler",
-		"ArticleFromTitle": "BucketHookHandler"
+		"ArticleFromTitle": "BucketHookHandler",
+		"TitleMoveStarting": "BucketHookHandler",
+		"MovePageIsValidMove": "BucketHookHandler",
+		"PageDelete": "BucketHookHandler",
+		"PageDeleteComplete": "BucketHookHandler"
 	},
 	"HookHandlers": {
 		"BucketHookHandler": {

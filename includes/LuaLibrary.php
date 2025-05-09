@@ -38,9 +38,8 @@ class LuaLibrary extends LibraryBase {
 			$data = self::convertFromLuaTable($data);
 			$rows = Bucket::runSelect($data);
 			return [self::convertToLuaTable($rows)];
-		} catch (LogicException $e) {
-			//TODO: Actually make this show something useful
-			throw $this->getEngine()->newLuaError('bucket-select-fail', "weeeeee");
+		} catch (QueryException $e) { //TODO also catch db exceptions?
+			return ["error" => $e->getMessage()];
 		}
 	}
 

@@ -3,6 +3,7 @@
 namespace MediaWiki\Extension\Bucket;
 
 use ApiBase;
+use LogicException;
 use ParserOptions;
 use Parser;
 use MediaWiki\MediaWikiServices;
@@ -82,7 +83,8 @@ class BucketApi extends ApiBase {
             ]);
 
         } catch (ScribuntoException $e) {
-            $this->getResult()->addValue(null, 'error', $e);
+            //TODO this ends up being a message like "Lua error in mw.ext.bucket.lua at line 86: Bucket aaaaaa does not exist.." which is kinda uggo
+            $this->getResult()->addValue(null, 'error', $e->getMessage());
         }
 
         $this->getResult()->addValue(null, 'bucket', json_decode($result["return"]));

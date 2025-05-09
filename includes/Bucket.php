@@ -93,7 +93,6 @@ class Bucket {
 				continue;
 			}
 			$tablePuts = [];
-			// TODO: this misses deleting things that are no longer in the output
 			$dbTableName = 'bucket__' . $tableName;
 			$res = $dbw->newSelectQueryBuilder()
 				->from( $dbw->addIdentifierQuotes( $dbTableName ) )
@@ -245,6 +244,27 @@ class Bucket {
 		return false;
 	}
 
+	private static function getValidBucketName( string $bucketName ) {
+		if ( ucfirst($bucketName) != ucfirst(strtolower($bucketName))) {
+			throw new SchemaException( 'Bucket name must be all lower case' );
+		}
+		$bucketName = self::getValidFieldName( $bucketName );
+		if ( !$bucketName ) {
+			throw new SchemaException( 'Bucket name not valid.' );
+		}
+		return $bucketName;
+	}
+
+	public static function canCreateTable( string $bucketName ) {
+		$bucketName = self::getValidBucketName($bucketName);
+		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
+		if (!$dbw->selectField( 'bucket_schemas', [ 'schema_json' ], [ 'table_name' => $bucketName ] )) {
+			return true;
+		} else {
+			return false;
+		}
+	}
+
 	public static function createOrModifyTable( string $bucketName, object $jsonSchema, int $parentId ) {
 		$newSchema = array_merge( [], self::$requiredColumns );
 
@@ -252,10 +272,7 @@ class Bucket {
 			throw new SchemaException( 'Need at least one column in the schema.' );
 		}
 
-		$bucketName = self::getValidFieldName( $bucketName );
-		if ( !$bucketName ) {
-			throw new SchemaException( 'Bucket name not valid.' );
-		}
+		$bucketName = self::getValidBucketName($bucketName);
 
 		foreach ( $jsonSchema as $fieldName => $fieldData ) {
 			if ( gettype( $fieldName ) !== 'string' ) {
@@ -312,6 +329,115 @@ class Bucket {
 		);
 	}
 
+	public static function deleteTable( $bucketName ) {
+		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
+		$bucketName = self::getValidBucketName($bucketName);
+		$tableName = "bucket__" . $bucketName;
+
+		if (Bucket::canDeleteBucketPage($bucketName)) {
+			$dbw->newDeleteQueryBuilder()
+				->table("bucket_schemas")
+				->where(["table_name" => $bucketName])
+				->caller(__METHOD__)
+				->execute();
+			$dbw->query("DROP TABLE IF EXISTS $tableName");
+		} else {
+			//TODO: Throw error?
+		}
+	}
+	
+	public static function canDeleteBucketPage( $bucketName ) {
+		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
+		$bucketName = self::getValidBucketName($bucketName);
+		$tableName = "bucket__" . $bucketName;
+		//Check that table actually exists
+		$res = $dbw->query("SHOW FULL TABLES LIKE {$dbw->addQuotes($tableName)}");
+		if ( $res->count() == 0 ) {
+			return true;
+		}
+		//TODO also need to find usages of views that point to this table
+		$putCount = $dbw->newSelectQueryBuilder()->table("bucket_pages")->where(["table_name" => $bucketName])->fetchRowCount();
+		if ( $putCount > 0 ) { 
+			return false;
+		}
+		return true;
+	}
+
+	public static function canMoveBucket( $bucketName, $newBucketName ) {
+		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
+		//TODO: Is there a query builder for this?
+
+		//TODO: Check that destination table doesn't exist
+		$bucketName = self::getValidBucketName($bucketName);
+		$newBucketName = self::getValidBucketName($newBucketName);
+
+		$tableName = "bucket__" . $bucketName;
+		$newTableName = "bucket__" . $newBucketName;
+
+		//Check that old table actually exists
+		$res = $dbw->query("SHOW FULL TABLES LIKE {$dbw->addQuotes($tableName)}");
+		//TODO if we move a table do we update its old views?
+		if ( $res->count() == 0 ) {
+			return "Bucket $bucketName does not exist in the database.";
+		}
+		//Check that new table doesn't already exist
+		//OR if it exists and is a view and no buckets write to it then we are good
+		$res = $dbw->query("SHOW FULL TABLES LIKE {$dbw->addQuotes($newTableName)}");
+		$needToDropView = false;
+		file_put_contents(MW_INSTALL_PATH . '/cook.txt', "res count " . $res->count() . " \n", FILE_APPEND);
+		if ( $res->count() > 0 ) {
+			//If there is one result and its a view, and its no longer written to.
+
+			$test = $dbw->newSelectQueryBuilder()->table("bucket_pages")->where(["table_name" => $newBucketName])->fetchRowCount();
+				file_put_contents(MW_INSTALL_PATH . '/cook.txt', "Testing overwriting view " . $test . " \n", FILE_APPEND);
+			if ( $res->count() == 1 
+				&& $res->fetchRow()[1] == "VIEW" 
+				&& $dbw->newSelectQueryBuilder()->table("bucket_pages")->where(["table_name" => $newBucketName])->fetchRowCount() == 0 ) {
+					//Drop the view so we can rename the old table to the new
+					$needToDropView = true;
+			} else {
+				return "Bucket $newBucketName already exists.";
+			}
+		}
+		return $needToDropView;
+	}
+
+	public static function moveBucket( $bucketName, $newBucketName ) {
+		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
+
+		$bucketName = self::getValidBucketName($bucketName);
+		$newBucketName = self::getValidBucketName($newBucketName);
+
+		$tableName = "bucket__" . $bucketName;
+		$newTableName = "bucket__" . $newBucketName;
+		$needToDropView = false; //TODO
+		// // $dbw->startAtomic(__METHOD__, IDatabase::ATOMIC_CANCELABLE);
+		// try {
+			if ($needToDropView) {
+				$dbw->query("DROP VIEW IF EXISTS $newTableName;");
+			}
+			$dbw->query("RENAME TABLE $tableName TO $newTableName;");
+			$dbw->query("CREATE OR REPLACE VIEW $tableName AS SELECT * FROM $newTableName;");
+
+			//Update bucket_schemas to have a reference to the moved table
+			$existing_schema = $dbw->newSelectQueryBuilder()
+				->table("bucket_schemas")
+				->select("table_name")
+				->where(["table_name" => $bucketName])
+				->fetchField();
+			$dbw->newInsertQueryBuilder()
+				->table("bucket_schemas")
+				->set([
+					"table_name" => $newBucketName,
+					"schema_json" => $existing_schema
+				]);
+		// } catch (Exception $e) {
+			// $dbw->cancelAtomic(__METHOD__);
+			// throw new Exception("Error moving bucket");
+		// }
+		// $dbw->endAtomic(__METHOD__);
+	}
+
 	private static function getDbType( $fieldName, $fieldData ) {
 		if (isset(self::$requiredColumns[$fieldName])) {
 			return Bucket::$dataTypes[self::$requiredColumns[$fieldName]['type']];
@@ -356,6 +482,7 @@ class Bucket {
 	private static function getAlterTableStatement( $dbTableName, $newSchema, $oldSchema, $dbw ) {
 		$alterTableFragments = [];
 
+		unset($oldSchema["_parent_rev_id"]); // _parent_rev_id is not a column, its just metadata
 		foreach ( $newSchema as $fieldName => $fieldData ) {
 			#Handle new columns
 			if ( !isset( $oldSchema[$fieldName] ) ) {
@@ -510,7 +637,6 @@ class Bucket {
 			if ( !isset( $fieldNamesToTables[$columnName] ) ) {
 				throw new QueryException( "Column name $columnName not found." );
 			}
-			// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA $column " . print_r($tableName, true) . "\n", FILE_APPEND);
 			if ( $tableName === null ) {
 				$tableOptions = $fieldNamesToTables[$columnName];
 				if ( count( $tableOptions ) > 1 ) {
@@ -586,7 +712,6 @@ class Bucket {
 			$children = implode( " {$condition['op']} ", $children );
 			return "($children)";
 		} elseif ( self::isNot( $condition ) ) {
-			//TODO I think NOT should support multiple operands
 			// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "Calling getWhereCondition for NOT: " . print_r($condition, true) . "\n", FILE_APPEND);
 			$child = self::getWhereCondition( $condition['operand'], $fieldNamesToTables, $schemas, $dbw, $categoryJoins );
 			return "(NOT $child)";
@@ -689,7 +814,7 @@ class Bucket {
 			}
 		}
 		foreach ( $tableNamesList as $tableName ) {
-			if ( !self::$allSchemas[$tableName] ) {
+			if ( !array_key_exists($tableName, self::$allSchemas) || !self::$allSchemas[$tableName] ) {
 				throw new QueryException( "Bucket $tableName does not exist." );
 			}
 		}
@@ -844,6 +969,7 @@ class Bucket {
 	}
 }
 
+//TODO all schema exception strings need to be translation strings
 class SchemaException extends LogicException {
 	function __construct($msg)
 	{
@@ -852,6 +978,7 @@ class SchemaException extends LogicException {
 	}
 }
 
+//TODO all queryException strings need to not have periods
 class QueryException extends LogicException {
 	function __construct($msg)
 	{

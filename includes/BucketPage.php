@@ -48,13 +48,16 @@ class BucketPage extends Article {
         $fullResult = BucketPageHelper::runQuery($this->getContext()->getRequest(), $table_name, $select, $where, $limit, $offset);
 
         if (isset($fullResult['error'])) {
+            file_put_contents(MW_INSTALL_PATH . '/cook.txt', "ERROR " . print_r($fullResult['error'], true) . "\n", FILE_APPEND);
             $out->addHTML($fullResult['error']);
+            return;
         }
+        $queryResult = [];
         if (isset($fullResult['bucket'])) {
             $queryResult = $fullResult['bucket'];
         }
 
-        $resultCount = count($fullResult['bucket']);
+        $resultCount = count($queryResult);
         $endResult = $offset + $resultCount;
         $out->addHTML("Displaying $resultCount results $offset – $endResult. ");
 
@@ -69,7 +72,7 @@ class BucketPage extends Article {
         $pageLinks = BucketPageHelper::getPageLinks($title, $limit, $offset, $context->getRequest()->getQueryValues(), ($resultCount == $limit));
 
         $out->addHTML($pageLinks);
-        $out->addWikiTextAsContent( BucketPageHelper::getResultTable($schemas[$table_name], $fullResult['columns'], $queryResult) );
+        $out->addWikiTextAsContent(BucketPageHelper::getResultTable($schemas[$table_name], $fullResult['columns'], $queryResult));
         $out->addHTML($pageLinks);
     }
 }
