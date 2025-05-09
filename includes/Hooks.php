@@ -87,7 +87,7 @@ class Hooks implements
 			if (Bucket::canCreateTable($title)) {
 				return true;
 			} else {
-				$status->fatal($e->getMessage());
+				$status->fatal("bucket-undelete-error");
 				return false;
 			}
 		} catch ( Exception $e ) {

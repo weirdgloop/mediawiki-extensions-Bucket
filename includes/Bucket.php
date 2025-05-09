@@ -4,6 +4,7 @@ namespace MediaWiki\Extension\Bucket;
 
 use MediaWiki\MediaWikiServices;
 use LogicException;
+use Wikimedia\Rdbms\IDatabase;
 
 class Bucket {
 	public const EXTENSION_DATA_KEY = 'bucket:puts';
@@ -310,11 +311,22 @@ class Bucket {
 		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
 
 		$oldSchema = $dbw->selectField( 'bucket_schemas', [ 'schema_json' ], [ 'table_name' => $bucketName ] );
+		if ($oldSchema && $parentId == 0) {
+			//An existing bucket json with a parent id of 0 means we are trying to create a new bucket at a location with an active view.
+			if ( Bucket::isBucketWithPuts($bucketName, $dbw) ) {
+				throw new SchemaException("Cannot create a new bucket page while bucket move is incomplete.");
+			}
+			file_put_contents(MW_INSTALL_PATH . '/cook.txt', "OVERWRITING SCHEMA FOR UNUSED VIEW \n", FILE_APPEND);
+			$dbw->query("DROP VIEW IF EXISTS `bucket__$bucketName`");
+			$oldSchema = false;
+		}
 		if ( !$oldSchema ) {
+			//We are a new bucket json
 			$statement = self::getCreateTableStatement( $dbTableName, $newSchema );
 			file_put_contents(MW_INSTALL_PATH . '/cook.txt', "CREATE TABLE STATEMENT $statement \n", FILE_APPEND);
 			$dbw->query( $statement );
 		} else {
+			//We are an existing bucket json
 			$oldSchema = json_decode( $oldSchema, true );
 			$statement = self::getAlterTableStatement( $dbTableName, $newSchema, $oldSchema, $dbw );
 			file_put_contents(MW_INSTALL_PATH . '/cook.txt', "ALTER TABLE STATEMENT $statement \n", FILE_APPEND);
@@ -364,6 +376,20 @@ class Bucket {
 		return true;
 	}
 
+	public static function isBucketWithPuts( $cleanBucketName, IDatabase $dbw ) {
+		return $dbw->newSelectQueryBuilder()->table("bucket_pages")->where(["table_name" => $cleanBucketName])->fetchRowCount() !== 0;
+	}
+
+	public static function getBucketTableType( $cleanBucketName, IDatabase $dbw ) {
+		$res = $dbw->query("SHOW FULL TABLES LIKE \"bucket__$cleanBucketName\";");
+		$res = $res->fetchRow();
+		if ( $res ) {
+			//either "BASE TABLE" or "VIEW"
+			return $res["Table_type"];
+		}
+		return false;
+	}
+
 	public static function canMoveBucket( $bucketName, $newBucketName ) {
 		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
 		//TODO: Is there a query builder for this?
@@ -372,29 +398,18 @@ class Bucket {
 		$bucketName = self::getValidBucketName($bucketName);
 		$newBucketName = self::getValidBucketName($newBucketName);
 
-		$tableName = "bucket__" . $bucketName;
-		$newTableName = "bucket__" . $newBucketName;
-
 		//Check that old table actually exists
-		$res = $dbw->query("SHOW FULL TABLES LIKE {$dbw->addQuotes($tableName)}");
 		//TODO if we move a table do we update its old views?
-		if ( $res->count() == 0 ) {
+		if ( Bucket::getBucketTableType($bucketName, $dbw) == false ) {
 			return "Bucket $bucketName does not exist in the database.";
 		}
 		//Check that new table doesn't already exist
 		//OR if it exists and is a view and no buckets write to it then we are good
-		$res = $dbw->query("SHOW FULL TABLES LIKE {$dbw->addQuotes($newTableName)}");
 		$needToDropView = false;
-		file_put_contents(MW_INSTALL_PATH . '/cook.txt', "res count " . $res->count() . " \n", FILE_APPEND);
-		if ( $res->count() > 0 ) {
-			//If there is one result and its a view, and its no longer written to.
-
-			$test = $dbw->newSelectQueryBuilder()->table("bucket_pages")->where(["table_name" => $newBucketName])->fetchRowCount();
-				file_put_contents(MW_INSTALL_PATH . '/cook.txt', "Testing overwriting view " . $test . " \n", FILE_APPEND);
-			if ( $res->count() == 1 
-				&& $res->fetchRow()[1] == "VIEW" 
-				&& $dbw->newSelectQueryBuilder()->table("bucket_pages")->where(["table_name" => $newBucketName])->fetchRowCount() == 0 ) {
-					//Drop the view so we can rename the old table to the new
+		$tableType = Bucket::getBucketTableType($newBucketName, $dbw);
+		if ( $tableType !== false ) {
+			//If there is a result and its a view, and its no longer written to.
+			if ( $tableType == "VIEW" && !Bucket::isBucketWithPuts($newBucketName, $dbw)) {
 					$needToDropView = true;
 			} else {
 				return "Bucket $newBucketName already exists.";
