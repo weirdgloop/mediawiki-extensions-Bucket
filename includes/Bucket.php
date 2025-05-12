@@ -380,36 +380,40 @@ class Bucket {
 		return $dbw->newSelectQueryBuilder()->table("bucket_pages")->where(["table_name" => $cleanBucketName])->fetchRowCount() !== 0;
 	}
 
-	public static function getBucketTableType( $cleanBucketName, IDatabase $dbw ) {
-		$res = $dbw->query("SHOW FULL TABLES LIKE \"bucket__$cleanBucketName\";");
-		$res = $res->fetchRow();
-		if ( $res ) {
-			//either "BASE TABLE" or "VIEW"
-			return $res["Table_type"];
-		}
-		return false;
-	}
-
+	/**
+	 * @return string|bool - String if the move will fail. True if the move is good and on top of a view, false if the move is good but there is no view.
+	 */
 	public static function canMoveBucket( $bucketName, $newBucketName ) {
 		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
 		//TODO: Is there a query builder for this?
 
-		//TODO: Check that destination table doesn't exist
 		$bucketName = self::getValidBucketName($bucketName);
 		$newBucketName = self::getValidBucketName($newBucketName);
 
+		$res = $dbw->newSelectQueryBuilder()
+			->table("bucket_schemas")
+			->select(["table_name", "backing_table_name", "schema_json"])
+			->where(["table_name" => [$bucketName, $newBucketName], "backing_table_name" => [null, $bucketName, $newBucketName]])
+			// ->forUpdate()
+			->fetchResultSet();
+
+		$existingBuckets = [];
+		foreach ($res as $row) {
+			$existingBuckets[$row->table_name] = $row;
+			file_put_contents(MW_INSTALL_PATH . '/cook.txt', "CAN MOVE BUCKET? " . print_r($row, true) . " \n", FILE_APPEND);
+		}
+
 		//Check that old table actually exists
-		//TODO if we move a table do we update its old views?
-		if ( Bucket::getBucketTableType($bucketName, $dbw) == false ) {
+		if ( !array_key_exists($bucketName, $existingBuckets) ) {
 			return "Bucket $bucketName does not exist in the database.";
 		}
 		//Check that new table doesn't already exist
 		//OR if it exists and is a view and no buckets write to it then we are good
 		$needToDropView = false;
-		$tableType = Bucket::getBucketTableType($newBucketName, $dbw);
-		if ( $tableType !== false ) {
-			//If there is a result and its a view, and its no longer written to.
-			if ( $tableType == "VIEW" && !Bucket::isBucketWithPuts($newBucketName, $dbw)) {
+		if ( array_key_exists($newBucketName, $existingBuckets) ) {
+			//If there is a result and its a view(view has backing_table_name set), and its no longer written to.
+			file_put_contents(MW_INSTALL_PATH . '/cook.txt', " ASDFASDF " . print_r($existingBuckets[$newBucketName], true) . " \n", FILE_APPEND);
+			if ( $existingBuckets[$newBucketName]->backing_table_name != null && !Bucket::isBucketWithPuts($newBucketName, $dbw)) {
 					$needToDropView = true;
 			} else {
 				return "Bucket $newBucketName already exists.";
@@ -427,7 +431,7 @@ class Bucket {
 		$tableName = "bucket__" . $bucketName;
 		$newTableName = "bucket__" . $newBucketName;
 		$needToDropView = Bucket::canMoveBucket($bucketName, $newBucketName);
-		if ($needToDropView) {
+		if ($needToDropView) { //TODO this weird multi return thing is no good. Just always try and drop it I think
 			$dbw->query("DROP VIEW IF EXISTS $newTableName;");
 		}
 		$dbw->query("RENAME TABLE $tableName TO $newTableName;");
@@ -440,12 +444,31 @@ class Bucket {
 			->where(["table_name" => $bucketName])
 			->fetchField();
 		//TODO only create a view if the table isn't empty?
+		//Create a new entry for the moved bucket
 		$dbw->newInsertQueryBuilder()
 			->insert("bucket_schemas")
 			->row([
 				"table_name" => $newBucketName,
+				"backing_table_name" => null,
 				"schema_json" => $existing_schema
 			])
+			->onDuplicateKeyUpdate()
+			->uniqueIndexFields("table_name")
+			->set([
+				"backing_table_name" => null,
+				"schema_json" => $existing_schema
+			])
+			->caller(__METHOD__)
+			->execute();
+		//Update the old entry, which is now representing a view, to point to new bucket
+		$dbw->newUpdateQueryBuilder()
+			->update("bucket_schemas")
+			->set([
+				"table_name" => $bucketName,
+				"backing_table_name" => $newBucketName,
+				"schema_json" => $existing_schema
+			])
+			->where(["table_name" => $bucketName])
 			->caller(__METHOD__)
 			->execute();
 	}
