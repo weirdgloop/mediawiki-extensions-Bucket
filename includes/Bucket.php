@@ -1011,7 +1011,8 @@ class Bucket {
 			->select($SELECTS)
 			->where($WHERES)
 			->options($OPTIONS)
-			->caller( __METHOD__ );
+			->caller( __METHOD__ )
+			->setMaxExecutionTime(500);
 		//TODO should probably be all in a single join call? IDK.
 		foreach ($LEFT_JOINS as $alias => $conds) {
 			$tmp->leftJoin($TABLES[$alias], $alias, $conds);
