@@ -182,28 +182,34 @@ class Bucket {
 			// file_put_contents( MW_INSTALL_PATH . '/cook.txt', "commited\n", FILE_APPEND );
 		}
 
-		//Clean up bucket_pages entries for buckets that are no longer written to on this page.
-		$tablesToDelete = array_keys( array_filter( $bucket_hash ) );
-		if ( !$writingLogs && count($tablesToDelete) > 0 ) {
-			$dbw->begin(__METHOD__);
-			$dbw->newDeleteQueryBuilder()
-				->deleteFrom('bucket_pages')
-				->where(['_page_id' => $pageId, 'table_name' => $tablesToDelete])
-				->caller(__METHOD__)
-				->execute();
-			foreach ($tablesToDelete as $name) {
+
+		if ( !$writingLogs ) {
+			//Clean up bucket_pages entries for buckets that are no longer written to on this page.
+			$tablesToDelete = array_keys( array_filter( $bucket_hash ) );
+			if ( count($logs) == 0 ) {
+				$tablesToDelete[] = Bucket::ERROR_BUCKET;
+			}
+
+			if ( count($tablesToDelete) > 0 ) {
+				$dbw->begin(__METHOD__);
 				$dbw->newDeleteQueryBuilder()
-					->deleteFrom($dbw->addIdentifierQuotes('bucket__' . $name))
-					->where(['_page_id' => $pageId])
+					->deleteFrom('bucket_pages')
+					->where(['_page_id' => $pageId, 'table_name' => $tablesToDelete])
 					->caller(__METHOD__)
 					->execute();
+				foreach ($tablesToDelete as $name) {
+					$dbw->newDeleteQueryBuilder()
+						->deleteFrom($dbw->addIdentifierQuotes('bucket__' . $name))
+						->where(['_page_id' => $pageId])
+						->caller(__METHOD__)
+						->execute();
+				}
+				$dbw->commit(__METHOD__);
 			}
-			$dbw->commit(__METHOD__);
-		}
-		
-		//TODO log database errors?
-		if ( !$writingLogs && count($logs) > 0 ) {
-			self::writePuts($pageId, $titleText, $logs, true);
+			
+			if ( count($logs) > 0 ) {
+				self::writePuts($pageId, $titleText, $logs, true);
+			}
 		}
 	}
 

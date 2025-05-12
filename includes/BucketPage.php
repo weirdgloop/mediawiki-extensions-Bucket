@@ -30,14 +30,21 @@ class BucketPage extends Article {
         $table_name = Bucket::getValidFieldName($title->getRootText());
 
         $res = $dbw->newSelectQueryBuilder()
-        ->from('bucket_schemas')
-        ->select(['table_name', 'schema_json'])
-        ->where(['table_name' => $table_name])
-        ->caller(__METHOD__)
-        ->fetchResultSet();
+                    ->from('bucket_schemas')
+                    ->select(['table_name', 'backing_table_name', 'schema_json'])
+                    ->where($dbw->makeList(['table_name' => $table_name, 'backing_table_name' => $table_name], LIST_OR))
+                    ->caller(__METHOD__)
+                    ->fetchResultSet();
 		$schemas = [];
+		$backingBucketName = [];
 		foreach ( $res as $row ) {
 			$schemas[$row->table_name] = json_decode( $row->schema_json, true );
+			$backingBucketName[$row->table_name] = $row->backing_table_name;
+            //Buckets pointing to this bucket
+            if ($row->table_name != $table_name) {
+                //TODO views are never deleted so this warning is kinda meh
+                $out->addHTML("<h3>Warning: Bucket $row->table_name points to this Bucket.</h3>");
+            }
 		}
 
         $select = $context->getRequest()->getText( "select", '*');
@@ -55,6 +62,10 @@ class BucketPage extends Article {
         $queryResult = [];
         if (isset($fullResult['bucket'])) {
             $queryResult = $fullResult['bucket'];
+        }
+
+        if ($backingBucketName[$table_name] !== null) {
+            $out->addWikiTextAsContent("<h3>Warning: This Bucket redirects to [[Bucket:$backingBucketName[$table_name]]]. All puts should be updated to use the new name.</h3>");
         }
 
         $resultCount = count($queryResult);

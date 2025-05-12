@@ -42,18 +42,27 @@ class BucketAction extends Action {
 
         $res = $dbw->newSelectQueryBuilder()
             ->from('bucket_schemas')
-            ->select(['table_name', 'schema_json'])
+            ->select(['table_name', 'backing_table_name', 'schema_json'])
             ->where(['table_name' => $tables])
             ->caller(__METHOD__)
             ->fetchResultSet();
 		$schemas = [];
+		$backingBucketName = [];
 		foreach ( $res as $row ) {
 			$schemas[$row->table_name] = json_decode( $row->schema_json, true );
+            $backingBucketName[$row->table_name] = $row->backing_table_name;
 		}
 
         foreach ( $tables as $table_name ) {
             $bucket_page_name = str_replace("_", " ", $table_name);
-            $out->addWikiTextAsContent("<h2>[[Bucket:$bucket_page_name]]</h2>");
+
+            if ($backingBucketName[$table_name] != null) {
+                $backingBucketPageName = str_replace("_", " ", $backingBucketName[$table_name]);
+                $out->addWikiTextAsContent("<h2>[[Bucket:$backingBucketPageName]] (Written as $table_name)");
+            } else {
+                $out->addWikiTextAsContent("<h2>[[Bucket:$bucket_page_name]]</h2>");
+            }
+
 
             //TODO properly escape title
             $fullResult = BucketPageHelper::runQuery($this->getRequest(), $table_name, '*', "{'page_name', \"$title\"}", 500, 0);
