@@ -68,13 +68,15 @@ class Bucket {
 
 		$res = $dbw->newSelectQueryBuilder()
 				->from( 'bucket_schemas' )
-				->select( [ 'table_name', 'schema_json' ] )
+				->select( [ 'table_name', 'backing_table_name', 'schema_json' ] )
 				->where( ['table_name' => array_keys( $puts ) ] )
 				->caller( __METHOD__ )
 				->fetchResultSet();
 		$schemas = [];
+		$backingBucketName = []; //Used to generate warning messages when writing to a view
 		foreach ( $res as $row ) {
 			$schemas[$row->table_name] = json_decode( $row->schema_json, true );
+			$backingBucketName[$row->table_name] = $row->backing_table_name;
 		}
 
 		$res =  $dbw->newSelectQueryBuilder()
@@ -93,6 +95,11 @@ class Bucket {
 				self::logMessage($tableName, "", "ERROR", "No bucket defined for writing.", $logs);
 				continue;
 			}
+
+			if ($backingBucketName[$tableName] != null) {
+				self::logMessage($tableName, "", "REDIRECT WARNING", "Bucket $tableName redirects to $backingBucketName[$tableName]. Please update to the new Bucket name.", $logs);
+			}
+
 			$tablePuts = [];
 			$dbTableName = 'bucket__' . $tableName;
 			$res = $dbw->newSelectQueryBuilder()
@@ -368,8 +375,18 @@ class Bucket {
 		if ( $res->count() == 0 ) {
 			return true;
 		}
-		//TODO also need to find usages of views that point to this table
-		$putCount = $dbw->newSelectQueryBuilder()->table("bucket_pages")->where(["table_name" => $bucketName])->fetchRowCount();
+		//Get all bucket names that point to this table
+		//TODO: Probably doesn't matter much, but surely this can be a subquery or something
+		$bucketNames = $dbw->newSelectQueryBuilder()
+							->table("bucket_schemas")
+							->select("table_name")
+							->where($dbw->makeList(["table_name" => $bucketName, "backing_table_name" => $bucketName], LIST_OR))
+							->caller(__METHOD__)
+							->fetchFieldValues();
+		$putCount = $dbw->newSelectQueryBuilder()
+						->table("bucket_pages")
+						->where(["table_name" => $bucketNames])
+						->fetchRowCount();
 		if ( $putCount > 0 ) { 
 			return false;
 		}
@@ -393,7 +410,7 @@ class Bucket {
 		$res = $dbw->newSelectQueryBuilder()
 			->table("bucket_schemas")
 			->select(["table_name", "backing_table_name", "schema_json"])
-			->where(["table_name" => [$bucketName, $newBucketName], "backing_table_name" => [null, $bucketName, $newBucketName]])
+			->where($dbw->makeList(["table_name" => [$bucketName, $newBucketName], "backing_table_name" => [$bucketName, $newBucketName]], LIST_OR))
 			// ->forUpdate()
 			->fetchResultSet();
 
@@ -411,9 +428,10 @@ class Bucket {
 		//OR if it exists and is a view and no buckets write to it then we are good
 		$needToDropView = false;
 		if ( array_key_exists($newBucketName, $existingBuckets) ) {
-			//If there is a result and its a view(view has backing_table_name set), and its no longer written to.
 			file_put_contents(MW_INSTALL_PATH . '/cook.txt', " ASDFASDF " . print_r($existingBuckets[$newBucketName], true) . " \n", FILE_APPEND);
-			if ( $existingBuckets[$newBucketName]->backing_table_name != null && !Bucket::isBucketWithPuts($newBucketName, $dbw)) {
+			//If there is a result and its a view(view has backing_table_name set), and either its no longer written to or it has the same backing table.
+			if ( $existingBuckets[$newBucketName]->backing_table_name != null 
+				&& (!Bucket::isBucketWithPuts($newBucketName, $dbw) || $existingBuckets[$newBucketName]->backing_table_name == $bucketName)) {
 					$needToDropView = true;
 			} else {
 				return "Bucket $newBucketName already exists.";
