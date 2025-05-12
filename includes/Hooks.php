@@ -5,6 +5,7 @@ namespace MediaWiki\Extension\Bucket;
 use JsonContent;
 use Exception;
 use ManualLogEntry;
+use MediaWiki\Content\Hook\ContentModelCanBeUsedOnHook;
 use MediaWiki\Extension\Bucket\BucketPage;
 use MediaWiki\Extension\Scribunto\Hooks\ScribuntoExternalLibrariesHook;
 use MediaWiki\Hook\LinksUpdateCompleteHook;
@@ -19,7 +20,6 @@ use MediaWiki\Context\IContextSource;
 use MediaWiki\Deferred\LinksUpdate\LinksUpdate;
 use MediaWiki\Hook\MovePageIsValidMoveHook;
 use MediaWiki\Hook\PageMoveCompleteHook;
-use MediaWiki\Hook\TitleMoveStartingHook;
 use MediaWiki\Page\Hook\PageDeleteCompleteHook;
 use MediaWiki\Page\Hook\PageDeleteHook;
 use MediaWiki\Page\Hook\PageUndeleteCompleteHook;
@@ -43,7 +43,8 @@ class Hooks implements
 	PageMoveCompleteHook,
 	MovePageIsValidMoveHook,
 	PageDeleteHook,
-	PageDeleteCompleteHook
+	PageDeleteCompleteHook,
+	ContentModelCanBeUsedOnHook
 {
 	/**
 	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/LoadExtensionSchemaUpdates
@@ -254,5 +255,18 @@ class Hooks implements
 			return;
 		}
 		Bucket::deleteTable($page->getDBkey());
+	}
+
+	/**
+	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/ContentModelCanBeUsedOn
+	 */
+	public function onContentModelCanBeUsedOn($contentModel, $title, &$ok) {
+		if ( $title->getNamespace() !== NS_BUCKET ) {
+			return;
+		} else if ($contentModel != 'json') {
+			$ok = false;
+			return false;
+		}
+		
 	}
 }

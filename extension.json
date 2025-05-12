@@ -46,7 +46,8 @@
 		"PageMoveComplete": "BucketHookHandler",
 		"MovePageIsValidMove": "BucketHookHandler",
 		"PageDelete": "BucketHookHandler",
-		"PageDeleteComplete": "BucketHookHandler"
+		"PageDeleteComplete": "BucketHookHandler",
+		"ContentModelCanBeUsedOn": "BucketHookHandler"
 	},
 	"HookHandlers": {
 		"BucketHookHandler": {
