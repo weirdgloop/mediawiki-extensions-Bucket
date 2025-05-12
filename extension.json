@@ -66,11 +66,9 @@
 		]
 	},
 	"SpecialPages": {
-		"bucket": "MediaWiki\\Extension\\Bucket\\BucketSpecial"
+		"bucket": "MediaWiki\\Extension\\Bucket\\BucketSpecial",
+		"allbuckets": "MediaWiki\\Extension\\Bucket\\AllBucketsSpecial"
 	},
-	"TrackingCategories": [
-		"bucket-category-extra-put-data"
-	],
 	"ResourceFileModulePaths": {
 		"localBasePath": "",
 		"remoteExtPath": "Bucket"
