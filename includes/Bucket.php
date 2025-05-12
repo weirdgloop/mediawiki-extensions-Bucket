@@ -96,8 +96,23 @@ class Bucket {
 				continue;
 			}
 
-			if ($backingBucketName[$tableName] != null) {
+			$tableNameTmp = Bucket::getValidFieldName($tableName);
+			if ( $tableNameTmp == false ) {
+				self::logMessage($tableName, "", "INVALID NAME WARNING", "Bucket name is invalid.", $logs);
+				continue;
+			}
+			if ( $tableNameTmp != $tableName) {
+				self::logMessage($tableName, "", "BUCKET NAME WARNING", "Bucket name should be all lower case.", $logs);
+			}
+			$tableName = $tableNameTmp;
+
+			if (array_key_exists($tableName, $backingBucketName) && $backingBucketName[$tableName] != null) {
 				self::logMessage($tableName, "", "REDIRECT WARNING", "Bucket $tableName redirects to $backingBucketName[$tableName]. Please update to the new Bucket name.", $logs);
+			}
+
+			if (!array_key_exists($tableName, $schemas)) {
+				self::logMessage($tableName, "", "ERROR", "Bucket doesn't exist.", $logs);
+				continue;
 			}
 
 			$tablePuts = [];
@@ -118,6 +133,10 @@ class Bucket {
 			foreach ( $tableData as $idx => $singleData) {
 				$sub = $singleData['sub'];
 				$singleData = $singleData['data'];
+				if (gettype($singleData) != "array") {
+					self::logMessage($tableName, "", "ERROR", "Bucket.put argument must be a table.", $logs);
+					continue;
+				}
 				foreach ( $singleData as $key => $value ) {
 					if ( !isset($fields[$key]) || !$fields[$key] ) {
 						self::logMessage($tableName, $key, "WARNING", "Key: '$key' does not exist in $tableName.", $logs);
