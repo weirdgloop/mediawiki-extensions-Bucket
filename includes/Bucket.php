@@ -66,19 +66,6 @@ class Bucket {
 		$logs = [];
 		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
 
-		$res = $dbw->newSelectQueryBuilder()
-				->from( 'bucket_schemas' )
-				->select( [ 'table_name', 'backing_table_name', 'schema_json' ] )
-				->where( ['table_name' => array_keys( $puts ) ] )
-				->caller( __METHOD__ )
-				->fetchResultSet();
-		$schemas = [];
-		$backingBucketName = []; //Used to generate warning messages when writing to a view
-		foreach ( $res as $row ) {
-			$schemas[$row->table_name] = json_decode( $row->schema_json, true );
-			$backingBucketName[$row->table_name] = $row->backing_table_name;
-		}
-
 		$res =  $dbw->newSelectQueryBuilder()
 				->from( 'bucket_pages' )
 				->select( [ '_page_id', 'table_name', 'put_hash' ] )
@@ -88,6 +75,31 @@ class Bucket {
 		$bucket_hash = [];
 		foreach ( $res as $row ) {
 			$bucket_hash[ $row->table_name ] = $row->put_hash;
+		}
+
+		//Combine existing written bucket list and new written bucket list.
+		$relevantBuckets = array_merge(array_keys($puts), array_keys($bucket_hash));
+		$res = $dbw->newSelectQueryBuilder()
+				->from( 'bucket_schemas' )
+				->select( [ 'table_name', 'backing_table_name', 'schema_json' ] )
+				->where( ['table_name' => $relevantBuckets ] )
+				->caller( __METHOD__ )
+				->fetchResultSet();
+		$schemas = [];
+		$backingBucketName = []; //Used to generate warning messages when writing to a view
+		$backingBuckets = []; //Used to generate error when a written view and bucket are pointing to the same location
+		foreach ( $res as $row ) {
+			$schemas[$row->table_name] = json_decode($row->schema_json, true);
+			$backingBucketName[$row->table_name] = $row->backing_table_name;
+			$realTable = $row->backing_table_name ?? $row->table_name;
+			if (isset($puts[$row->table_name])) {
+				if (array_key_exists($realTable, $backingBuckets)) {
+					self::logMessage($row->table_name, "", "ERROR", "Cannot write to $row->table_name, already writing to $backingBuckets[$realTable]", $logs);
+					unset($puts[$row->table_name]);
+				} else {
+					$backingBuckets[$realTable] = $row->table_name;
+				}
+			}
 		}
 
 		foreach ( $puts as $tableName => $tableData ) {
@@ -164,7 +176,7 @@ class Bucket {
 			sort($schemas[$tableName]);
 			$newHash = hash( 'sha256', json_encode( $tablePuts ) . json_encode($schemas[$tableName]));
 			if ( isset($bucket_hash[ $tableName ]) && $bucket_hash[ $tableName ] == $newHash ) {
-				// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "HASH MATCH SKIPPING WRITING $tableName $titleText =====================\n", FILE_APPEND);
+				file_put_contents(MW_INSTALL_PATH . '/cook.txt', "HASH MATCH SKIPPING WRITING $tableName $titleText =====================\n", FILE_APPEND);
 				unset( $bucket_hash[ $tableName ] );
 				continue;
 			}
@@ -205,7 +217,9 @@ class Bucket {
 		if ( !$writingLogs ) {
 			//Clean up bucket_pages entries for buckets that are no longer written to on this page.
 			$tablesToDelete = array_keys( array_filter( $bucket_hash ) );
-			if ( count($logs) == 0 ) {
+			if ( count($logs) != 0 ) {
+				unset($tablesToDelete[Bucket::ERROR_BUCKET]);
+			} else {
 				$tablesToDelete[] = Bucket::ERROR_BUCKET;
 			}
 
@@ -217,11 +231,32 @@ class Bucket {
 					->caller(__METHOD__)
 					->execute();
 				foreach ($tablesToDelete as $name) {
-					$dbw->newDeleteQueryBuilder()
-						->deleteFrom($dbw->addIdentifierQuotes('bucket__' . $name))
-						->where(['_page_id' => $pageId])
-						->caller(__METHOD__)
-						->execute();
+					$isView = isset($backingBucketName[$name]);
+					//If we aren't a view and we aren't a backing bucket, or we are a view and our backing bucket isn't also written to
+					$shouldDelete = (!$isView && !in_array($name, $backingBucketName)) || ($isView && !array_key_exists($backingBucketName[$name], $schemas));
+					if ( $shouldDelete ) {
+						$dbw->newDeleteQueryBuilder()
+							->deleteFrom($dbw->addIdentifierQuotes('bucket__' . $name))
+							->where(['_page_id' => $pageId])
+							->caller(__METHOD__)
+							->execute();
+					}
+					if ( $isView ) {
+						$viewUses = $dbw->newSelectQueryBuilder()
+							->from('bucket_pages')
+							->where(['table_name' => $name])
+							->caller(__METHOD__)
+							->fetchRowCount();
+						if ($viewUses == 0) {
+							$dbw->newDeleteQueryBuilder()
+								->table("bucket_schemas")
+								->where(["table_name" => $name])
+								->caller(__METHOD__)
+								->execute();
+							$dbw->query("DROP VIEW IF EXISTS " . $dbw->addIdentifierQuotes('bucket__' . $name));
+							file_put_contents(MW_INSTALL_PATH . '/cook.txt', "DROPPING VIEW $name with $viewUses \n", FILE_APPEND);
+						}
+					}
 				}
 				$dbw->commit(__METHOD__);
 			}
@@ -258,12 +293,42 @@ class Bucket {
 			foreach ( $res as $row ) {
 				$table[] = $row->table_name;
 			}
+			$res = $dbw->newSelectQueryBuilder()
+				->from( 'bucket_schemas' )
+				->select( [ 'table_name', 'backing_table_name' ] )
+				->where( ['table_name' => array_unique($table) ] )
+				->caller( __METHOD__ )
+				->fetchResultSet();
+			$isView = [];
+			foreach ($res as $row) {
+				$isView[$row->table_name] = $row->backing_table_name;
+			}
+
 			foreach ( $table as $name ) {
+				//Clear this pages data from the bucket
 				$dbw->newDeleteQueryBuilder()
 					->deleteFrom($dbw->addIdentifierQuotes('bucket__' . $name ))
 					->where(['_page_id' => $pageId])
 					->caller(__METHOD__)
 					->execute();
+				
+				//If the bucket is a view and now empty, delete the view
+				if (isset($isView[$name])) {
+					$viewUses = $dbw->newSelectQueryBuilder()
+						->from('bucket_pages')
+						->where(['table_name' => $name])
+						->caller(__METHOD__)
+						->fetchRowCount();
+					if ($viewUses == 0) {
+						$dbw->newDeleteQueryBuilder()
+							->table("bucket_schemas")
+							->where(["table_name" => $name])
+							->caller(__METHOD__)
+							->execute();
+						$dbw->query("DROP VIEW IF EXISTS " . $dbw->addIdentifierQuotes('bucket__' . $name));
+						file_put_contents(MW_INSTALL_PATH . '/cook.txt', "DROPPING VIEW $name with $viewUses \n", FILE_APPEND);
+					}
+				}
 			}
 		}
 	}
