@@ -11,7 +11,7 @@ class Bucket {
 	public const EXTENSION_PROPERTY_KEY = 'bucketputs';
 	public const MAX_LIMIT = 5000;
 	public const DEFAULT_LIMIT = 500;
-	public const ERROR_BUCKET = 'error';
+	public const MESSAGE_BUCKET = 'bucket_message';
 
 	private static $dataTypes = [
 		'BOOLEAN' => 'BOOLEAN',
@@ -41,18 +41,18 @@ class Bucket {
 
 	public static function logMessage( string $bucket, string $property, string $type, string $message, &$logs) {
 		//TODO need to create the correct bucket on plugin install
-		if ( !array_key_exists( self::ERROR_BUCKET, $logs ) ) {
-			$logs[self::ERROR_BUCKET] = [];
+		if ( !array_key_exists( self::MESSAGE_BUCKET, $logs ) ) {
+			$logs[self::MESSAGE_BUCKET] = [];
 		}
 		if ( $bucket != "" ) {
 			$bucket = "Bucket:" . $bucket;
 		}
-		$logs[self::ERROR_BUCKET][] = [
+		$logs[self::MESSAGE_BUCKET][] = [
 			"sub" => "",
 			"data" => [
 				"bucket" => $bucket,
 				"property" => $property,
-				"type" => $type,
+				"type" => wfMessage($type),
 				"message" => $message
 			]
 		];
@@ -94,7 +94,7 @@ class Bucket {
 			$realTable = $row->backing_table_name ?? $row->table_name;
 			if (isset($puts[$row->table_name])) {
 				if (array_key_exists($realTable, $backingBuckets)) {
-					self::logMessage($row->table_name, "", "ERROR", "Cannot write to $row->table_name, already writing to $backingBuckets[$realTable]", $logs);
+					self::logMessage($row->table_name, "", "bucket-general-error", wfMessage("bucket-double-write-redirect-error", $row->table_name, $backingBuckets[$realTable]), $logs);
 					unset($puts[$row->table_name]);
 				} else {
 					$backingBuckets[$realTable] = $row->table_name;
@@ -104,26 +104,26 @@ class Bucket {
 
 		foreach ( $puts as $tableName => $tableData ) {
 			if ($tableName == "") {
-				self::logMessage($tableName, "", "ERROR", "No bucket defined for writing.", $logs);
+				self::logMessage($tableName, "", "bucket-general-error", wfMessage("bucket-no-bucket-defined-warning"), $logs);
 				continue;
 			}
 
 			$tableNameTmp = Bucket::getValidFieldName($tableName);
 			if ( $tableNameTmp == false ) {
-				self::logMessage($tableName, "", "INVALID NAME WARNING", "Bucket name is invalid.", $logs);
+				self::logMessage($tableName, "", "bucket-general-warning", wfMessage("bucket-invalid-name-warning", $tableName), $logs);
 				continue;
 			}
 			if ( $tableNameTmp != $tableName) {
-				self::logMessage($tableName, "", "BUCKET NAME WARNING", "Bucket name should be all lower case.", $logs);
+				self::logMessage($tableName, "", "bucket-general-warning", wfMessage("bucket-capital-name-warning"), $logs);
 			}
 			$tableName = $tableNameTmp;
 
 			if (array_key_exists($tableName, $backingBucketName) && $backingBucketName[$tableName] != null) {
-				self::logMessage($tableName, "", "REDIRECT WARNING", "Bucket $tableName redirects to $backingBucketName[$tableName]. Please update to the new Bucket name.", $logs);
+				self::logMessage($tableName, "", "bucket-general-warning", wfMessage("bucket-redirect-write-update-warning", $tableName, $backingBucketName[$tableName]), $logs);
 			}
 
 			if (!array_key_exists($tableName, $schemas)) {
-				self::logMessage($tableName, "", "ERROR", "Bucket doesn't exist.", $logs);
+				self::logMessage($tableName, "", "bucket-general-error", wfMessage("bucket-no-exist-error"), $logs);
 				continue;
 			}
 
@@ -146,12 +146,12 @@ class Bucket {
 				$sub = $singleData['sub'];
 				$singleData = $singleData['data'];
 				if (gettype($singleData) != "array") {
-					self::logMessage($tableName, "", "ERROR", "Bucket.put argument must be a table.", $logs);
+					self::logMessage($tableName, "", "bucket-general-error", wfMessage("bucket-put-syntax-error"), $logs);
 					continue;
 				}
 				foreach ( $singleData as $key => $value ) {
 					if ( !isset($fields[$key]) || !$fields[$key] ) {
-						self::logMessage($tableName, $key, "WARNING", "Key: '$key' does not exist in $tableName.", $logs);
+						self::logMessage($tableName, $key, "bucket-general-warning", wfMessage("bucket-put-key-missing-warning", $key, $tableName), $logs);
 					}
 				}
 				$singlePut = [];
@@ -218,9 +218,9 @@ class Bucket {
 			//Clean up bucket_pages entries for buckets that are no longer written to on this page.
 			$tablesToDelete = array_keys( array_filter( $bucket_hash ) );
 			if ( count($logs) != 0 ) {
-				unset($tablesToDelete[Bucket::ERROR_BUCKET]);
+				unset($tablesToDelete[Bucket::MESSAGE_BUCKET]);
 			} else {
-				$tablesToDelete[] = Bucket::ERROR_BUCKET;
+				$tablesToDelete[] = Bucket::MESSAGE_BUCKET;
 			}
 
 			if ( count($tablesToDelete) > 0 ) {
@@ -342,11 +342,11 @@ class Bucket {
 
 	private static function getValidBucketName( string $bucketName ) {
 		if ( ucfirst($bucketName) != ucfirst(strtolower($bucketName))) {
-			throw new SchemaException( 'Bucket name must be all lower case' );
+			throw new SchemaException( wfMessage("bucket-capital-name-error") );
 		}
 		$bucketName = self::getValidFieldName( $bucketName );
 		if ( !$bucketName ) {
-			throw new SchemaException( 'Bucket name not valid.' );
+			throw new SchemaException( wfMessage("bucket-invalid-name-warning", $bucketName) );
 		}
 		return $bucketName;
 	}
@@ -365,28 +365,28 @@ class Bucket {
 		$newSchema = array_merge( [], self::$requiredColumns );
 
 		if ( empty( (array)$jsonSchema ) ) {
-			throw new SchemaException( 'Need at least one column in the schema.' );
+			throw new SchemaException( wfMessage("bucket-schema-no-columns-error") );
 		}
 
 		$bucketName = self::getValidBucketName($bucketName);
 
 		foreach ( $jsonSchema as $fieldName => $fieldData ) {
 			if ( gettype( $fieldName ) !== 'string' ) {
-				throw new SchemaException( 'All field names must be strings: ' . $fieldName );
+				throw new SchemaException( wfMessage("bucket-schema-must-be-strings", $fieldName) );
 			}
 
 			$lcFieldName = self::getValidFieldName( $fieldName );
 			if ( !$lcFieldName ) {
-				throw new SchemaException( 'Invalid field name: ' . $fieldName );
+				throw new SchemaException( wfMessage("bucket-schema-invalid-field-name", $fieldName) );
 			}
 
 			$lcFieldName = strtolower( $fieldName );
 			if ( isset( $newSchema[$lcFieldName] ) ) {
-				throw new SchemaException( 'Duplicate field name: ' . $fieldName );
+				throw new SchemaException( wfMessage("bucket-schema-duplicated-field-name", $fieldName) );
 			}
 
 			if ( !isset( self::$dataTypes[$fieldData->type] ) ) {
-				throw new SchemaException( 'Invalid data type for field ' . $fieldName . ': ' . $fieldData->type );
+				throw new SchemaException( wfMessage("bucket-schema-invalid-data-type", $fieldName, $fieldData->type) );
 			}
 
 			$index = true;
@@ -408,7 +408,7 @@ class Bucket {
 		if ($oldSchema && $parentId == 0) {
 			//An existing bucket json with a parent id of 0 means we are trying to create a new bucket at a location with an active view.
 			if ( Bucket::isBucketWithPuts($bucketName, $dbw) ) {
-				throw new SchemaException("Cannot create a new bucket page while bucket move is incomplete.");
+				throw new SchemaException( wfMessage("bucket-schema-create-over-redirect-error") );
 			}
 			file_put_contents(MW_INSTALL_PATH . '/cook.txt', "OVERWRITING SCHEMA FOR UNUSED VIEW \n", FILE_APPEND);
 			$dbw->query("DROP VIEW IF EXISTS `bucket__$bucketName`");
@@ -510,13 +510,13 @@ class Bucket {
 		if ( count($existingBuckets) > 1) {
 			file_put_contents(MW_INSTALL_PATH . '/cook.txt', " ASDFASDF " . print_r($existingBuckets, true) . " \n", FILE_APPEND);
 			if (!isset($existingBuckets[$bucketName]) || !isset($existingBuckets[$newBucketName])) {
-				return "Cannot move a Bucket that is already redirected to.";
+				return wfMessage("bucket-move-existing-redirect-error");
 			}
 		}
 
 		//Check that old table actually exists
 		if ( !array_key_exists($bucketName, $existingBuckets) ) {
-			return "Bucket $bucketName does not exist in the database.";
+			return wfMessage("bucket-no-exist", $bucketName);
 		}
 		//Check that new table doesn't already exist
 		//OR if it exists and is a view and no buckets write to it then we are good
@@ -528,7 +528,7 @@ class Bucket {
 				&& (!Bucket::isBucketWithPuts($newBucketName, $dbw) || $existingBuckets[$newBucketName]->backing_table_name == $bucketName)) {
 					$needToDropView = true;
 			} else {
-				return "Bucket $newBucketName already exists.";
+				return wfMessage("bucket-move-already-exists", $newBucketName);
 			}
 		}
 		return $needToDropView;
@@ -754,7 +754,7 @@ class Bucket {
 
 	public static function sanitizeColumnName( $column, $fieldNamesToTables, $schemas, $tableName = null ) {
 		if ( !is_string( $column ) ) {
-			throw new QueryException( "Can't interpret column: $column" );
+			throw new QueryException( wfMessage("bucket-query-column-interpret-error", $column) );
 		}
 		//Category column names are specially handled
 		if ( self::isCategory($column) ) {
@@ -773,39 +773,39 @@ class Bucket {
 		}
 		$parts = explode( '.', $column );
 		if ( $column === '' || count( $parts ) > 2 ) {
-			throw new QueryException( "Invalid column name: $column" );
+			throw new QueryException( wfMessage("bucket-query-column-name-invalid", $column) );
 		}
 		$columnNameTemp = end( $parts );
 		$columnName = self::getValidFieldName( $columnNameTemp );
 		if ( !$columnName ) {
-			throw new QueryException( "Invalid column name: $columnNameTemp." );
+			throw new QueryException( wfMessage("bucket-query-column-name-invalid", $columnNameTemp) );
 		}
 		if ( count( $parts ) === 1 ) {
 			if ( !isset( $fieldNamesToTables[$columnName] ) ) {
-				throw new QueryException( "Column name $columnName not found." );
+				throw new QueryException( wfMessage("bucket-query-column-not-found", $columnName ) );
 			}
 			if ( $tableName === null ) {
 				$tableOptions = $fieldNamesToTables[$columnName];
 				if ( count( $tableOptions ) > 1 ) {
-					throw new QueryException( "Column name $columnName is ambiguous." );
+					throw new QueryException( wfMessage("bucket-query-column-ambiguous", $columnName) );
 				}
 				$tableName = array_keys( $tableOptions )[0];
 			}
 		} elseif ( count( $parts ) === 2 ) {
 			$columnTableName = self::getValidFieldName( $parts[0] );
 			if ( !$columnTableName ) {
-				throw new QueryException( "Invalid bucket name: {$parts[0]}" );
+				throw new QueryException( wfMessage("bucket-invalid-name-warning", $parts[0]) );
 			}
 			if ( $tableName !== null && $columnTableName !== $tableName ) {
-				throw new QueryException( "Can't use bucket name {$parts[0]} here." );
+				throw new QueryException( wfMessage("bucket-query-bucket-invalid", $parts[0]) );
 			}
 			$tableName = $columnTableName;
 		}
 		if ( !isset( $schemas[$tableName] ) ) {
-			throw new QueryException( "Bucket name $tableName not found in query." );
+			throw new QueryException( wfMessage("bucket-query-bucket-not-found", $tableName) );
 		}
 		if ( !isset( $schemas[$tableName][$columnName] ) ) {
-			throw new QueryException( "Column $columnName not found in bucket $tableName." );
+			throw new QueryException( wfMessage("bucket-query-column-not-found-in-bucket", $columnName,  $tableName) );
 		}
 		return [
 			"fullName" => "`bucket__$tableName`.`$columnName`",
@@ -844,7 +844,7 @@ class Bucket {
 		// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "Condition: " . print_r($condition, true) . "\n", FILE_APPEND);
 		if ( self::isOrAnd( $condition ) ) {
 			if ( empty( $condition['operands'] ) ) {
-				throw new QueryException( 'Missing condition: ' . json_encode( $condition ) );
+				throw new QueryException( wfMessage("bucket-query-where-missing-cond", json_encode( $condition )) );
 			}
 			$children = [];
 			foreach ( $condition['operands'] as $key => $operand ) {
@@ -880,7 +880,7 @@ class Bucket {
 			}
 			$columnNameData = self::sanitizeColumnName($condition[0], $fieldNamesToTables, $schemas);
 			if (!isset(self::$WHERE_OPS[$condition[1]])) {
-				throw new QueryException('Invalid op for WHERE: ' . $condition[1]);
+				throw new QueryException(wfMessage("bucket-query-where-invalid-op", $condition[1]));
 			}
 			$op = $condition[1];
 			$value = $condition[2];
@@ -910,7 +910,7 @@ class Bucket {
 			$categoryJoins[$categoryName] = $condition;	
 			return "(`$condition`.cl_to IS NOT NULL)";
 		}
-		throw new QueryException( 'Did not understand where condition: ' . json_encode( $condition ) );
+		throw new QueryException( wfMessage("bucket-query-where-confused", json_encode( $condition ) ) );
 	}
 
 	public static function runSelect( $data ) {
@@ -925,7 +925,7 @@ class Bucket {
 
 		$primaryTableName = self::getValidFieldName( $data['tableName'] );
 		if ( !$primaryTableName ) {
-			throw new QueryException( "Bucket name {$data['tableName']} is not valid." );
+			throw new QueryException( wfMessage("bucket-invalid-name-warning", $data['tableName']) );
 		}
 		$tableNames[ $primaryTableName ] = true;
 		$TABLES['bucket__' . $primaryTableName] = 'bucket__' . $primaryTableName;
@@ -933,10 +933,10 @@ class Bucket {
 		foreach ( $data['joins'] as $join ) {
 			$tableName = self::getValidFieldName( $join['tableName'] );
 			if ( !$tableName ) {
-				throw new QueryException( "Bucket name {$join['tableName']} is not valid." );
+				throw new QueryException( wfMessage("bucket-invalid-name-warning", $join['tableName']) );
 			}
 			if ( isset($tableNames[$tableName]) ) {
-				throw new QueryException( "Bucket $tableName is already used and can't be JOINed again." );
+				throw new QueryException( wfMessage("bucket-select-duplicate-join", $tableName) );
 			}
 			$tableNames[$tableName] = true;
 			$TABLES['bucket__' . $tableName] = 'bucket__' . $tableName;
@@ -962,7 +962,7 @@ class Bucket {
 		}
 		foreach ( $tableNamesList as $tableName ) {
 			if ( !array_key_exists($tableName, self::$allSchemas) || !self::$allSchemas[$tableName] ) {
-				throw new QueryException( "Bucket $tableName does not exist." );
+				throw new QueryException( wfMessage("bucket-no-exist", $tableName) );
 			}
 		}
 
@@ -1027,7 +1027,7 @@ class Bucket {
 
 		foreach ( $data['joins'] as $join ) {
 			if ( !is_array($join["cond"]) || !count($join["cond"]) == 2) {
-				throw new QueryException( 'Invalid join condition: ' . json_encode( $join ));
+				throw new QueryException( wfMessage("bucket-query-invalid-join", json_encode( $join )));
 			}
 			$leftField = self::sanitizeColumnName( $join['cond'][0], $fieldNamesToTables, $schemas );
 			$isLeftRepeated = $leftField["schema"]["repeated"];
@@ -1036,7 +1036,7 @@ class Bucket {
 			
 
 			if ($isLeftRepeated && $isRightRepeated) {
-				throw new QueryException('Cannot join two repeated fields: ' . $leftField["fullName"] . ", " . $rightField["fullName"]);
+				throw new QueryException( wfMessage("bucket-invalid-join-two-repeated", $leftField["fullName"], $rightField["fullName"]));
 			}
 
 			if ($isLeftRepeated || $isRightRepeated) {

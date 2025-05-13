@@ -36,7 +36,7 @@ class BucketAction extends Action {
         }
 
         if (count($tables) == 0) {
-            $out->addWikiTextAsContent("No Buckets are written to from this page.");
+            $out->addWikiTextAsContent(wfMessage("bucket-action-writes-empty"));
             return;
         }
 

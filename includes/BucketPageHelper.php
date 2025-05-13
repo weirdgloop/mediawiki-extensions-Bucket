@@ -85,7 +85,7 @@ class BucketPageHelper {
         $previousOffset = max(0, $offset-$limit);
         $links[] = new OOUI\ButtonWidget( [
             'href' => $title->getLocalURL( [ 'limit' => $limit, 'offset' => max(0, $previousOffset) ] + $query ),
-            'title' => wfMessage("bucket-previous") . " $limit results.",
+            'title' => wfMessage("bucket-previous-results", $limit) ,
             'label' => wfMessage("bucket-previous") . " $limit",
             'disabled' => ($offset == 0)
         ]);
@@ -103,7 +103,7 @@ class BucketPageHelper {
 
         $links[] = new OOUI\ButtonWidget( [
             'href' => $title->getLocalURL( [ 'limit' => $limit, 'offset' => $offset+$limit ] + $query ),
-            'title' => wfMessage("bucket-next") . " $limit results.",
+            'title' => wfMessage("bucket-next-results", $limit),
             'label' => wfMessage("bucket-next") . " $limit",
             'disabled' => !$hasNext
         ]);

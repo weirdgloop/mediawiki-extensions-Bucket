@@ -26,6 +26,7 @@ class BucketPage extends Article {
         $out->setPageTitle( $title );
 
 		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
+        $linkRenderer = MediaWikiServices::getInstance()->getLinkRenderer();
 
         $table_name = Bucket::getValidFieldName($title->getRootText());
 
@@ -42,8 +43,8 @@ class BucketPage extends Article {
 			$backingBucketName[$row->table_name] = $row->backing_table_name;
             //Buckets pointing to this bucket
             if ($row->table_name != $table_name) {
-                //TODO views are never deleted so this warning is kinda meh
-                $out->addHTML("<h3>Warning: Bucket $row->table_name points to this Bucket.</h3>");
+                $link = $linkRenderer->makeKnownLink(new TitleValue(NS_BUCKET, $row->table_name));
+                $out->addHTML("<h3>" . wfMessage("bucket-page-redirect-here-warning", $link)->text() . "</h3>");
             }
 		}
 
@@ -59,25 +60,28 @@ class BucketPage extends Article {
             $out->addHTML($fullResult['error']);
             return;
         }
+
         $queryResult = [];
         if (isset($fullResult['bucket'])) {
             $queryResult = $fullResult['bucket'];
         }
 
         if ($backingBucketName[$table_name] !== null) {
-            $out->addWikiTextAsContent("<h3>Warning: This Bucket redirects to [[Bucket:$backingBucketName[$table_name]]]. All puts should be updated to use the new name.</h3>");
+            $link = $linkRenderer->makeKnownLink(new TitleValue(NS_BUCKET, $backingBucketName[$table_name]));
+            $out->addHTML("<h3>" . wfMessage("bucket-page-redirects-to-warning", $link)->text() . "</h3>");
         }
 
         $resultCount = count($queryResult);
         $endResult = $offset + $resultCount;
-        $out->addHTML("Displaying $resultCount results $offset – $endResult. ");
+        //TODO: I really want to show the total row count for the table
+        $out->addHTML(wfMessage("bucket-page-result-counter", $resultCount, $offset, $endResult));
 
-        $linkRenderer = MediaWikiServices::getInstance()->getLinkRenderer();
         $specialQueryValues = $context->getRequest()->getQueryValues();
         unset($specialQueryValues['action']);
         unset($specialQueryValues['title']);
         $specialQueryValues['bucket'] = $table_name;
-        $out->addHTML($linkRenderer->makeLink(new TitleValue(NS_SPECIAL, "Bucket"), "Dive into this Bucket", [], $specialQueryValues));
+        $out->addHTML(" ");
+        $out->addHTML($linkRenderer->makeKnownLink(new TitleValue(NS_SPECIAL, "Bucket"), wfMessage("bucket-page-dive-into"), [], $specialQueryValues));
         $out->addHTML('<br>');
 
         $pageLinks = BucketPageHelper::getPageLinks($title, $limit, $offset, $context->getRequest()->getQueryValues(), ($resultCount == $limit));

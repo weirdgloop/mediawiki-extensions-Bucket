@@ -131,7 +131,7 @@ class BucketSpecial extends SpecialPage {
         $table_name = Bucket::getValidFieldName($bucket);
 
         if ($table_name == false) {
-            $out->addHTML("ERROR: Invalid bucket name");
+            $out->addHTML(wfMessage("bucket-query-bucket-invalid", $bucket));
             return;
         }
 
@@ -158,7 +158,7 @@ class BucketSpecial extends SpecialPage {
 
         $resultCount = count($fullResult['bucket']);
         $endResult = $offset + $resultCount;
-        $out->addHTML("Displaying $resultCount results $offset – $endResult. <br>");
+        $out->addHTML(wfMessage("bucket-page-result-counter", $resultCount, $offset, $endResult) . "<br>");
 
         $pageLinks = BucketPageHelper::getPageLinks($this->getFullTitle(), $limit, $offset, $request->getQueryValues(), ($resultCount == $limit));
 

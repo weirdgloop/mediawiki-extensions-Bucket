@@ -15,7 +15,7 @@ class AllBucketsSpecial extends SpecialPage {
 		$out = $this->getOutput();
 		$this->setHeaders();
 
-        $out->setPageTitle( "All Buckets" );
+        $out->setPageTitle( wfMessage("bucket-specialpage-all-buckets-title") );
 
         $dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
         $res = $dbw->newSelectQueryBuilder()
@@ -34,7 +34,7 @@ class AllBucketsSpecial extends SpecialPage {
         $output = [];
 
         $output[] = "<table class=\"wikitable\"><tr>";
-        $output[] = "<th>Bucket</th><th>Backing Bucket</th>";
+        $output[] = "<th>Bucket</th><th>Redirect target</th>";
         foreach( $schemas as $row => $val ) {
             $output[] = "<tr>";
             $output[] = "<td>[[Bucket:$row]]</td>";

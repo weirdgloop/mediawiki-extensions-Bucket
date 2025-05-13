@@ -217,10 +217,10 @@ class Hooks implements
 		}
 
 		if ( $oldTitle->getNamespace() !== NS_BUCKET ) {
-			$status->fatal("Cannot move pages to the Bucket namespace");
+			$status->fatal("bucket-namespace-move-into");
 		}
 		if ( $newTitle->getNamespace() !== NS_BUCKET ) {
-			$status->fatal("Cannot move a Bucket page out of Bucket namespace");
+			$status->fatal("bucket-namespace-move-outof");
 		}
 
 		$result = Bucket::canMoveBucket($oldTitle->getBaseText(), $newTitle->getBaseText());

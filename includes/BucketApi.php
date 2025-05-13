@@ -3,7 +3,6 @@
 namespace MediaWiki\Extension\Bucket;
 
 use ApiBase;
-use LogicException;
 use ParserOptions;
 use Parser;
 use MediaWiki\MediaWikiServices;
@@ -48,7 +47,7 @@ class BucketApi extends ApiBase {
                     }
                 }
             } else {
-                $selectNames = explode(' ', $select);
+                $selectNames = explode(' ', $select); //TODO this breaks if given categories with spaces in them
             }
             $this->getResult()->addValue(null, 'columns', $selectNames);
             foreach ($selectNames as $idx => $name) {
@@ -95,20 +94,20 @@ class BucketApi extends ApiBase {
        return [
         'query' => [
             ParamValidator::PARAM_TYPE => 'string',
-            ApiBase::PARAM_HELP_MSG => 'Invalidates all other params. Must be a fully valid lua bucket call.'
+            ApiBase::PARAM_HELP_MSG => wfMessage("bucket-api-help-query")
         ],
         'bucket' => [
             ParamValidator::PARAM_TYPE => 'string',
-            ApiBase::PARAM_HELP_MSG => 'A valid bucket name. Required if query param is not set.',
+            ApiBase::PARAM_HELP_MSG => wfMessage("bucket-api-help-bucket")
         ],
         'select' => [
             ParamValidator::PARAM_TYPE => 'string',
             ParamValidator::PARAM_DEFAULT => '*',
-            ApiBase::PARAM_HELP_MSG => 'A lua string that goes inside of bucket.select(). Leave blank to select all columns.',
+            ApiBase::PARAM_HELP_MSG => wfMessage("bucket-api-help-select")
         ],
         'where' => [
             ParamValidator::PARAM_TYPE => 'string',
-            ApiBase::PARAM_HELP_MSG => 'A lua string that goes inside of bucket.where().',
+            ApiBase::PARAM_HELP_MSG => wfMessage("bucket-api-help-where")
         ],
         'limit' => [
             ParamValidator::PARAM_DEFAULT => 20,
