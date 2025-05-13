@@ -498,13 +498,20 @@ class Bucket {
 			->table("bucket_schemas")
 			->select(["table_name", "backing_table_name", "schema_json"])
 			->where($dbw->makeList(["table_name" => [$bucketName, $newBucketName], "backing_table_name" => [$bucketName, $newBucketName]], LIST_OR))
-			// ->forUpdate()
 			->fetchResultSet();
 
 		$existingBuckets = [];
 		foreach ($res as $row) {
 			$existingBuckets[$row->table_name] = $row;
 			file_put_contents(MW_INSTALL_PATH . '/cook.txt', "CAN MOVE BUCKET? " . print_r($row, true) . " \n", FILE_APPEND);
+		}
+
+		//The only way we have more than 1 is if theres a view pointing to this bucket we are trying to move.
+		if ( count($existingBuckets) > 1) {
+			file_put_contents(MW_INSTALL_PATH . '/cook.txt', " ASDFASDF " . print_r($existingBuckets, true) . " \n", FILE_APPEND);
+			if (!isset($existingBuckets[$bucketName]) || !isset($existingBuckets[$newBucketName])) {
+				return "Cannot move a Bucket that is already redirected to.";
+			}
 		}
 
 		//Check that old table actually exists
