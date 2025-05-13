@@ -224,7 +224,7 @@ class Hooks implements
 		}
 
 		$result = Bucket::canMoveBucket($oldTitle->getBaseText(), $newTitle->getBaseText());
-		if (getType($result) == "string") {
+		if (getType($result) !== "boolean") {
 			$status->fatal($result);
 		}
 	} 

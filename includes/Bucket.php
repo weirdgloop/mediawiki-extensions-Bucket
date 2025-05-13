@@ -489,7 +489,6 @@ class Bucket {
 	 */
 	public static function canMoveBucket( $bucketName, $newBucketName ) {
 		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
-		//TODO: Is there a query builder for this?
 
 		$bucketName = self::getValidBucketName($bucketName);
 		$newBucketName = self::getValidBucketName($newBucketName);
