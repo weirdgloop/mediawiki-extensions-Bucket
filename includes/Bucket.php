@@ -542,11 +542,14 @@ class Bucket {
 		$tableName = "bucket__" . $bucketName;
 		$newTableName = "bucket__" . $newBucketName;
 		$needToDropView = Bucket::canMoveBucket($bucketName, $newBucketName);
+		$needView = Bucket::isBucketWithPuts($bucketName, $dbw);
 		if ($needToDropView) { //TODO this weird multi return thing is no good. Just always try and drop it I think
 			$dbw->query("DROP VIEW IF EXISTS $newTableName;");
 		}
 		$dbw->query("RENAME TABLE $tableName TO $newTableName;");
-		$dbw->query("CREATE OR REPLACE VIEW $tableName AS SELECT * FROM $newTableName;");
+		if ($needView) {
+			$dbw->query("CREATE OR REPLACE VIEW $tableName AS SELECT * FROM $newTableName;");
+		}
 
 		//Update bucket_schemas to have a reference to the moved table
 		$existing_schema = $dbw->newSelectQueryBuilder()
@@ -554,7 +557,7 @@ class Bucket {
 			->select("schema_json")
 			->where(["table_name" => $bucketName])
 			->fetchField();
-		//TODO only create a view if the table isn't empty?
+		//TODO only create a view if the table isn't empty
 		//Create a new entry for the moved bucket
 		$dbw->newInsertQueryBuilder()
 			->insert("bucket_schemas")
@@ -571,17 +574,25 @@ class Bucket {
 			])
 			->caller(__METHOD__)
 			->execute();
-		//Update the old entry, which is now representing a view, to point to new bucket
-		$dbw->newUpdateQueryBuilder()
-			->update("bucket_schemas")
-			->set([
-				"table_name" => $bucketName,
-				"backing_table_name" => $newBucketName,
-				"schema_json" => $existing_schema
-			])
-			->where(["table_name" => $bucketName])
-			->caller(__METHOD__)
-			->execute();
+		if ($needView) {
+			//Update the old entry, which is now representing a view, to point to new bucket
+			$dbw->newUpdateQueryBuilder()
+				->update("bucket_schemas")
+				->set([
+					"table_name" => $bucketName,
+					"backing_table_name" => $newBucketName,
+					"schema_json" => $existing_schema
+				])
+				->where(["table_name" => $bucketName])
+				->caller(__METHOD__)
+				->execute();
+		} else {
+			$dbw->newDeleteQueryBuilder()
+				->delete("bucket_schemas")
+				->where(["table_name" => $bucketName])
+				->caller(__METHOD__)
+				->execute();
+		}
 	}
 
 	private static function getDbType( $fieldName, $fieldData ) {
