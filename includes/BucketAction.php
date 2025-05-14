@@ -11,10 +11,6 @@ class BucketAction extends Action {
 
     public function show() {
         $this->getOutput()->enableOOUI(); //We want to use OOUI for consistent styling
-        if ($this->getArticle()->getTitle()->inNamespaces(9592, 9593)) {
-            // return $this->showBucketNamespace();
-            //TODO redirect to special bucket with the bucket name filled in
-        }
 
         $out = $this->getOutput();
         $title = $this->getArticle()->getTitle();
@@ -62,7 +58,6 @@ class BucketAction extends Action {
             } else {
                 $out->addWikiTextAsContent("<h2>[[Bucket:$bucket_page_name]]</h2>");
             }
-
 
             //TODO properly escape title
             $fullResult = BucketPageHelper::runQuery($this->getRequest(), $table_name, '*', "{'page_name', \"$title\"}", 500, 0);

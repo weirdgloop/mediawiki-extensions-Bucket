@@ -557,7 +557,6 @@ class Bucket {
 			->select("schema_json")
 			->where(["table_name" => $bucketName])
 			->fetchField();
-		//TODO only create a view if the table isn't empty
 		//Create a new entry for the moved bucket
 		$dbw->newInsertQueryBuilder()
 			->insert("bucket_schemas")
@@ -1127,7 +1126,6 @@ class Bucket {
 	}
 }
 
-//TODO all schema exception strings need to be translation strings
 class SchemaException extends LogicException {
 	function __construct($msg)
 	{
@@ -1136,7 +1134,6 @@ class SchemaException extends LogicException {
 	}
 }
 
-//TODO all queryException strings need to not have periods
 class QueryException extends LogicException {
 	function __construct($msg)
 	{

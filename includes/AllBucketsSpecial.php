@@ -11,7 +11,6 @@ class AllBucketsSpecial extends SpecialPage {
     }
 
     public function execute( $par ) {
-        $request = $this->getRequest();
 		$out = $this->getOutput();
 		$this->setHeaders();
 

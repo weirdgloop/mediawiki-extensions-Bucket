@@ -2,7 +2,6 @@
 
 namespace MediaWiki\Extension\Bucket;
 
-use LogicException;
 use MediaWiki\Extension\Scribunto\Engines\LuaCommon\LibraryBase;
 
 class LuaLibrary extends LibraryBase {

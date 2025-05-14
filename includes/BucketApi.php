@@ -90,7 +90,6 @@ class BucketApi extends ApiBase {
     }
 
     protected function getAllowedParams() {
-        //TODO translation strings
        return [
         'query' => [
             ParamValidator::PARAM_TYPE => 'string',

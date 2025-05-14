@@ -113,9 +113,7 @@ class BucketSpecial extends SpecialPage {
         $request = $this->getRequest();
 		$out = $this->getOutput();
 		$this->setHeaders();
-
         $out->enableOOUI();
-
         $out->setPageTitle( "Bucket browse" );
 
         $bucket = $request->getText("bucket", '');
@@ -125,9 +123,6 @@ class BucketSpecial extends SpecialPage {
         $offset = $request->getInt( "offset", 0 );
 
 		$out->addHTML($this->getQueryBuilder($request, $bucket, $select, $where, $limit, $offset));
-
-        $dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
-
         $table_name = Bucket::getValidFieldName($bucket);
 
         if ($table_name == false) {
@@ -135,6 +130,7 @@ class BucketSpecial extends SpecialPage {
             return;
         }
 
+        $dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
         $res = $dbw->newSelectQueryBuilder()
         ->from('bucket_schemas')
         ->select(['table_name', 'schema_json'])

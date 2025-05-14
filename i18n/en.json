@@ -3,7 +3,7 @@
     "bucket-description": "Store things.",
     "bucket-view-help-bucket-name": "The current bucket name",
     "bucket-view-help-select": "Names of columns to select, seperated by a space. Such as page_name uses_material",
-    "bucket-view-help-where": "A valid lua string to be run inside bucket.where()",
+    "bucket-view-help-where": "A valid lua string to be run inside mw.ext.bucket.where()",
     "bucket-view-help-limit": "The number of results to return per page. Maximum 500.",
     "bucket-view-help-offset": "How far to offset the returned values",
     "bucket-view-submit": "Submit",
@@ -19,7 +19,7 @@
     "bucket-api-help-query": "Invalidates all other params. Must be a fully valid lua Bucket call.",
     "bucket-api-help-bucket": "A valid Bucket name. Required if query param is not set.",
     "bucket-api-help-select": "A list of columns to select, seperated by spaces.",
-    "bucket-api-help-where": "A lua string that goes inside of Bucket.where().",
+    "bucket-api-help-where": "A lua string that goes inside of mw.ext.bucket.where().",
 
     "bucket-page-redirect-here-warning": "Warning: Bucket $1 redirects to this Bucket.",
     "bucket-page-redirects-to-warning": "Warning: This Bucket redirects to $1. All puts should be updated to use the new name.",
@@ -39,7 +39,7 @@
     "bucket-redirect-write-update-warning": "Bucket $1 redirects to $2. Please update to the new Bucket name.",
     "bucket-no-exist-error": "Bucket doesn't exist.",
     "bucket-double-write-redirect-error": "Cannot write to $1, already writing to $2",
-    "bucket-put-syntax-error": "Bucket.put argument must be a table.",
+    "bucket-put-syntax-error": "mw.ext.bucket.put() argument must be a table.",
     "bucket-put-key-missing-warning": "Key '$1' does not exist in $2.",
     "bucket-schema-no-columns-error": "Need at least one column in the schema.",
     "bucket-schema-must-be-strings": "All field names must be strings: $1.",
@@ -58,9 +58,9 @@
     "bucket-query-bucket-invalid": "Invalid Bucket name: $1",
     "bucket-query-bucket-not-found": "Bucket $1 not found in query",
     "bucket-query-where-missing-cond": "Missing condition: $1",
-    "bucket-query-where-invalid-op": "Invalid operand for Bucket.where: $1",
+    "bucket-query-where-invalid-op": "Invalid operand for mw.ext.bucket.where(): $1",
     "bucket-query-where-confused": "Did not understand where condition: $1",
-    "bucket-query-select-duplicate-join": "Bucket $1 is already used in Bucket.Join and cannot be used again.",
-    "bucket-query-invalid-join": "Invalid Bucket.Join condition: $1",
-    "bucket-query-invalid-join-two-repeated": "Cannot use Bucket.Join on two repeated fields: $1, $2"
+    "bucket-query-select-duplicate-join": "Bucket $1 is already used in mw.ext.bucket.join() and cannot be used again.",
+    "bucket-query-invalid-join": "Invalid mw.ext.bucket.join() condition: $1",
+    "bucket-query-invalid-join-two-repeated": "Cannot use mw.ext.bucket.join() on two repeated fields: $1, $2"
 }
