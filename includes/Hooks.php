@@ -2,33 +2,32 @@
 
 namespace MediaWiki\Extension\Bucket;
 
-use JsonContent;
 use Exception;
+use JsonContent;
 use ManualLogEntry;
 use MediaWiki\Content\Hook\ContentModelCanBeUsedOnHook;
-use MediaWiki\Extension\Bucket\BucketPage;
-use MediaWiki\Extension\Scribunto\Hooks\ScribuntoExternalLibrariesHook;
-use MediaWiki\Hook\LinksUpdateCompleteHook;
-use MediaWiki\Hook\SkinBuildSidebarHook;
-use MediaWiki\Installer\Hook\LoadExtensionSchemaUpdatesHook;
-use MediaWiki\Page\Hook\ArticleFromTitleHook;
-use MediaWiki\Storage\Hook\MultiContentSaveHook;
-use MediaWiki\Revision\SlotRecord;
-use MediaWiki\Title\Title;
-use MediaWiki\Page\Article;
 use MediaWiki\Context\IContextSource;
 use MediaWiki\Deferred\LinksUpdate\LinksUpdate;
+use MediaWiki\Extension\Scribunto\Hooks\ScribuntoExternalLibrariesHook;
+use MediaWiki\Hook\LinksUpdateCompleteHook;
 use MediaWiki\Hook\MovePageIsValidMoveHook;
 use MediaWiki\Hook\PageMoveCompleteHook;
+use MediaWiki\Hook\SkinBuildSidebarHook;
+use MediaWiki\Installer\Hook\LoadExtensionSchemaUpdatesHook;
+use MediaWiki\Page\Article;
+use MediaWiki\Page\Hook\ArticleFromTitleHook;
 use MediaWiki\Page\Hook\PageDeleteCompleteHook;
 use MediaWiki\Page\Hook\PageDeleteHook;
 use MediaWiki\Page\Hook\PageUndeleteCompleteHook;
 use MediaWiki\Page\Hook\PageUndeleteHook;
 use MediaWiki\Page\ProperPageIdentity;
 use MediaWiki\Permissions\Authority;
-use MediaWiki\Status\Status;
 use MediaWiki\Revision\RenderedRevision;
 use MediaWiki\Revision\RevisionRecord;
+use MediaWiki\Revision\SlotRecord;
+use MediaWiki\Status\Status;
+use MediaWiki\Storage\Hook\MultiContentSaveHook;
+use MediaWiki\Title\Title;
 use StatusValue;
 
 class Hooks implements
@@ -70,30 +69,30 @@ class Hooks implements
 		if ( $bucketPuts !== null ) {
 			// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "HOOK " . print_r($bucketPuts, true) . "\n", FILE_APPEND);
 			$titleText = $linksUpdate->getTitle()->getPrefixedText();
-			Bucket::writePuts($pageId, $titleText, $bucketPuts);
+			Bucket::writePuts( $pageId, $titleText, $bucketPuts );
 		} else {
-			Bucket::clearOrphanedData($pageId);
+			Bucket::clearOrphanedData( $pageId );
 		}
 	}
-	
+
 	/**
 	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/PageUndelete
 	 */
-	public function onPageUndelete(ProperPageIdentity $page, Authority $performer, string $reason, bool $unsuppress, array $timestamps, array $fileVersions, StatusValue $status) {
+	public function onPageUndelete( ProperPageIdentity $page, Authority $performer, string $reason, bool $unsuppress, array $timestamps, array $fileVersions, StatusValue $status ) {
 		if ( $page->getNamespace() !== NS_BUCKET ) {
 			return;
 		}
 		$title = $page->getDBkey();
 		try {
-			if (Bucket::canCreateTable($title)) {
+			if ( Bucket::canCreateTable( $title ) ) {
 				return true;
 			} else {
-				$status->fatal("bucket-undelete-error");
+				$status->fatal( 'bucket-undelete-error' );
 				return false;
 			}
 		} catch ( Exception $e ) {
-			//TODO check if we need to tell the DB to revert if the error is a DB error
-			$status->fatal($e->getMessage());
+			// TODO check if we need to tell the DB to revert if the error is a DB error
+			$status->fatal( $e->getMessage() );
 			return false;
 		}
 	}
@@ -101,7 +100,7 @@ class Hooks implements
 	/**
 	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/PageUndeleteComplete
 	 */
-	public function onPageUndeleteComplete(ProperPageIdentity $page, Authority $restorer, string $reason, RevisionRecord $restoredRev, ManualLogEntry $logEntry, int $restoredRevisionCount, bool $created, array $restoredPageIds): void {
+	public function onPageUndeleteComplete( ProperPageIdentity $page, Authority $restorer, string $reason, RevisionRecord $restoredRev, ManualLogEntry $logEntry, int $restoredRevisionCount, bool $created, array $restoredPageIds ): void {
 		$revRecord = $restoredRev;
 		$page = $revRecord->getPage();
 		if ( $page->getNamespace() !== NS_BUCKET ) {
@@ -115,9 +114,8 @@ class Hooks implements
 		$jsonSchema = $content->getData()->value;
 		$title = $page->getDBkey();
 		$parentId = $revRecord->getParentId() ?? 0;
-		Bucket::createOrModifyTable($title, $jsonSchema, $parentId);
+		Bucket::createOrModifyTable( $title, $jsonSchema, $parentId );
 	}
-
 
 	/**
 	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/MultiContentSave
@@ -144,10 +142,10 @@ class Hooks implements
 		$title = $page->getDBkey();
 		$parentId = $revRecord->getParentId() ?? 0;
 		try {
-			Bucket::createOrModifyTable($title, $jsonSchema, $parentId);
+			Bucket::createOrModifyTable( $title, $jsonSchema, $parentId );
 		} catch ( Exception $e ) {
-			//TODO check if we need to tell the DB to revert if the error is a DB error
-			$status->fatal($e->getMessage());
+			// TODO check if we need to tell the DB to revert if the error is a DB error
+			$status->fatal( $e->getMessage() );
 			return false;
 		}
 	}
@@ -167,13 +165,13 @@ class Hooks implements
 
 	/**
 	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/SidebarBeforeOutput
-	 * 
+	 *
 	 * @param Skin $skin
-	 * @param array $bar
+	 * @param array &$bar
 	 * @return void
 	 */
 	public function onSkinBuildSidebar( $skin, &$bar ) {
-		//TODO check namespace
+		// TODO check namespace
 		//TODO this should be TOOLBOX but that makes the entry not show up
 		$bar['toolbox'][] = [
 			'text' => 'View Bucket',
@@ -185,12 +183,12 @@ class Hooks implements
 
 	/**
 	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/ArticleFromTitle
-	 * 
+	 *
 	 * @param Title $title
-	 * @param Article|null $article
+	 * @param Article|null &$article
 	 * @param IContextSource $context
 	 */
-	public function onArticleFromTitle( $title, &$article, $context) {
+	public function onArticleFromTitle( $title, &$article, $context ) {
 		if ( $title->getNamespace() !== NS_BUCKET ) {
 			return;
 		}
@@ -200,48 +198,48 @@ class Hooks implements
 	/**
 	 * @see http://mediawiki.org/wiki/Manual:Hooks/PageMoveComplete
 	 */
-	public function onPageMoveComplete($oldTitle, $newTitle, $user, $pageid, $redirid, $reason, $revision) {
-		if ( $oldTitle->getNamespace() !== NS_BUCKET  && $newTitle->getNamespace() !== NS_BUCKET ) {
+	public function onPageMoveComplete( $oldTitle, $newTitle, $user, $pageid, $redirid, $reason, $revision ) {
+		if ( $oldTitle->getNamespace() !== NS_BUCKET && $newTitle->getNamespace() !== NS_BUCKET ) {
 			return;
 		}
-		file_put_contents(MW_INSTALL_PATH . '/cook.txt', "MOVING " . $oldTitle->getDBkey() . " \n", FILE_APPEND);
-		Bucket::moveBucket($oldTitle->getDBkey(), $newTitle->getDBkey());
+		file_put_contents( MW_INSTALL_PATH . '/cook.txt', 'MOVING ' . $oldTitle->getDBkey() . " \n", FILE_APPEND );
+		Bucket::moveBucket( $oldTitle->getDBkey(), $newTitle->getDBkey() );
 	}
 
-	/** 
+	/**
 	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/MovePageIsValidMove
 	 */
 	public function onMovePageIsValidMove( $oldTitle, $newTitle, $status ) {
-		if ( $oldTitle->getNamespace() !== NS_BUCKET  && $newTitle->getNamespace() !== NS_BUCKET ) {
+		if ( $oldTitle->getNamespace() !== NS_BUCKET && $newTitle->getNamespace() !== NS_BUCKET ) {
 			return;
 		}
 
 		if ( $oldTitle->getNamespace() !== NS_BUCKET ) {
-			$status->fatal("bucket-namespace-move-into");
+			$status->fatal( 'bucket-namespace-move-into' );
 		}
 		if ( $newTitle->getNamespace() !== NS_BUCKET ) {
-			$status->fatal("bucket-namespace-move-outof");
+			$status->fatal( 'bucket-namespace-move-outof' );
 		}
 
-		$result = Bucket::canMoveBucket($oldTitle->getBaseText(), $newTitle->getBaseText());
-		if (getType($result) !== "boolean") {
-			$status->fatal($result);
+		$result = Bucket::canMoveBucket( $oldTitle->getBaseText(), $newTitle->getBaseText() );
+		if ( getType( $result ) !== 'boolean' ) {
+			$status->fatal( $result );
 		}
-	} 
+	}
 
 	/**
 	 * $see https://www.mediawiki.org/wiki/Manual:Hooks/PageDelete
 	 */
-	public function onPageDelete(ProperPageIdentity $page, Authority $deleter, string $reason, StatusValue $status, bool $suppress) {
+	public function onPageDelete( ProperPageIdentity $page, Authority $deleter, string $reason, StatusValue $status, bool $suppress ) {
 		if ( $page->getNamespace() !== NS_BUCKET ) {
 			return true;
 		}
-		file_put_contents(MW_INSTALL_PATH . '/cook.txt', "TRYING TO DELETE " . $page->getDBkey() . " \n", FILE_APPEND);
+		file_put_contents( MW_INSTALL_PATH . '/cook.txt', 'TRYING TO DELETE ' . $page->getDBkey() . " \n", FILE_APPEND );
 
-		if ( Bucket::canDeleteBucketPage($page->getDBkey()) ) {
+		if ( Bucket::canDeleteBucketPage( $page->getDBkey() ) ) {
 			return true;
 		} else {
-			$status->fatal("bucket-delete-fail-in-use");
+			$status->fatal( 'bucket-delete-fail-in-use' );
 			return false;
 		}
 	}
@@ -249,24 +247,23 @@ class Hooks implements
 	/**
 	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/PageDeleteComplete
 	 */
-	public function onPageDeleteComplete(ProperPageIdentity $page, Authority $deleter, string $reason, int $pageID, RevisionRecord $deletedRev, ManualLogEntry $logEntry, int $archivedRevisionCount) {
+	public function onPageDeleteComplete( ProperPageIdentity $page, Authority $deleter, string $reason, int $pageID, RevisionRecord $deletedRev, ManualLogEntry $logEntry, int $archivedRevisionCount ) {
 		if ( $page->getNamespace() !== NS_BUCKET ) {
-			Bucket::clearOrphanedData($page->getId());
+			Bucket::clearOrphanedData( $page->getId() );
 			return;
 		}
-		Bucket::deleteTable($page->getDBkey());
+		Bucket::deleteTable( $page->getDBkey() );
 	}
 
 	/**
 	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/ContentModelCanBeUsedOn
 	 */
-	public function onContentModelCanBeUsedOn($contentModel, $title, &$ok) {
+	public function onContentModelCanBeUsedOn( $contentModel, $title, &$ok ) {
 		if ( $title->getNamespace() !== NS_BUCKET ) {
 			return;
-		} else if ($contentModel != 'json') {
+		} elseif ( $contentModel != 'json' ) {
 			$ok = false;
 			return false;
 		}
-		
 	}
 }
