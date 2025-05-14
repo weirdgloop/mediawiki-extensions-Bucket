@@ -65,7 +65,6 @@ class BucketApi extends ApiBase {
 		}
 
 		$this->getResult()->addValue( null, 'bucketQuery', $questionString );
-		file_put_contents( MW_INSTALL_PATH . '/cook.txt', "$questionString\n", FILE_APPEND );
 
 		$parser = MediaWikiServices::getInstance()->getParser();
 		$options = new ParserOptions( $this->getUser() );

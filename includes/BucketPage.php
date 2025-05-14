@@ -56,7 +56,6 @@ class BucketPage extends Article {
 		$fullResult = BucketPageHelper::runQuery( $this->getContext()->getRequest(), $table_name, $select, $where, $limit, $offset );
 
 		if ( isset( $fullResult['error'] ) ) {
-			file_put_contents( MW_INSTALL_PATH . '/cook.txt', 'ERROR ' . print_r( $fullResult['error'], true ) . "\n", FILE_APPEND );
 			$out->addHTML( $fullResult['error'] );
 			return;
 		}

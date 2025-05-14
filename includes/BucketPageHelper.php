@@ -52,7 +52,6 @@ class BucketPageHelper {
 	}
 
 	public static function getResultTable( $schema, $columns, $result ) {
-		file_put_contents( MW_INSTALL_PATH . '/cook.txt', 'RESULT TABLE ' . print_r( $columns, true ) . "\n", FILE_APPEND );
 		if ( isset( $columns ) && count( $columns ) > 0 ) {
 			$output[] = '<table class="wikitable"><tr>';
 			$keys = [];

@@ -62,7 +62,6 @@ class Bucket {
 	Called when a page is saved containing a bucket.put
 	*/
 	public static function writePuts( int $pageId, string $titleText, array $puts, bool $writingLogs = false ) {
-		// file_put_contents( MW_INSTALL_PATH . '/cook.txt', "writePuts start " . print_r($puts, true) . "\n" , FILE_APPEND);
 		$logs = [];
 		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
 
@@ -157,7 +156,6 @@ class Bucket {
 				$singlePut = [];
 				foreach ( $fields as $key => $_ ) {
 					$value = isset( $singleData[$key] ) ? $singleData[$key] : null;
-					// file_put_contents(MW_INSTALL_PATH . '/cook.txt', print_r($value, true) . " ==========$key===========\n", FILE_APPEND);
 					#TODO JSON relies on forcing utf8 transmission in DatabaseMySQL.php line 829
 					$singlePut[$dbw->addIdentifierQuotes( $key )] = self::castToDbType( $value, self::getDbType( $fieldName, $schemas[$tableName][$key] ) );
 				}
@@ -176,16 +174,13 @@ class Bucket {
 			sort( $schemas[$tableName] );
 			$newHash = hash( 'sha256', json_encode( $tablePuts ) . json_encode( $schemas[$tableName] ) );
 			if ( isset( $bucket_hash[ $tableName ] ) && $bucket_hash[ $tableName ] == $newHash ) {
-				file_put_contents( MW_INSTALL_PATH . '/cook.txt', "HASH MATCH SKIPPING WRITING $tableName $titleText =====================\n", FILE_APPEND );
 				unset( $bucket_hash[ $tableName ] );
 				continue;
 			}
-			file_put_contents( MW_INSTALL_PATH . '/cook.txt', "WRITING $tableName $titleText \n", FILE_APPEND );
 
 			// Remove the bucket_hash entry so we can it as a list of removed buckets at the end.
 			unset( $bucket_hash[ $tableName ] );
 
-			// file_put_contents( MW_INSTALL_PATH . '/cook.txt', "writePuts puts " . print_r(json_encode($tablePuts, JSON_PRETTY_PRINT), true) . "\n" , FILE_APPEND);
 			// TODO: does behavior here depend on DBO_TRX?
 			$dbw->begin();
 			$dbw->newDeleteQueryBuilder()
@@ -210,7 +205,6 @@ class Bucket {
 				->execute();
 
 			$dbw->commit();
-			// file_put_contents( MW_INSTALL_PATH . '/cook.txt', "commited\n", FILE_APPEND );
 		}
 
 		if ( !$writingLogs ) {
@@ -253,7 +247,6 @@ class Bucket {
 								->caller( __METHOD__ )
 								->execute();
 							$dbw->query( 'DROP VIEW IF EXISTS ' . $dbw->addIdentifierQuotes( 'bucket__' . $name ) );
-							file_put_contents( MW_INSTALL_PATH . '/cook.txt', "DROPPING VIEW $name with $viewUses \n", FILE_APPEND );
 						}
 					}
 				}
@@ -325,7 +318,6 @@ class Bucket {
 							->caller( __METHOD__ )
 							->execute();
 						$dbw->query( 'DROP VIEW IF EXISTS ' . $dbw->addIdentifierQuotes( 'bucket__' . $name ) );
-						file_put_contents( MW_INSTALL_PATH . '/cook.txt', "DROPPING VIEW $name with $viewUses \n", FILE_APPEND );
 					}
 				}
 			}
@@ -409,7 +401,6 @@ class Bucket {
 			if ( self::isBucketWithPuts( $bucketName, $dbw ) ) {
 				throw new SchemaException( wfMessage( 'bucket-schema-create-over-redirect-error' ) );
 			}
-			file_put_contents( MW_INSTALL_PATH . '/cook.txt', "OVERWRITING SCHEMA FOR UNUSED VIEW \n", FILE_APPEND );
 			$dbw->query( "DROP VIEW IF EXISTS `bucket__$bucketName`" );
 			$oldSchema = false;
 		}
@@ -501,12 +492,10 @@ class Bucket {
 		$existingBuckets = [];
 		foreach ( $res as $row ) {
 			$existingBuckets[$row->table_name] = $row;
-			file_put_contents( MW_INSTALL_PATH . '/cook.txt', 'CAN MOVE BUCKET? ' . print_r( $row, true ) . " \n", FILE_APPEND );
 		}
 
 		// The only way we have more than 1 is if theres a view pointing to this bucket we are trying to move.
 		if ( count( $existingBuckets ) > 1 ) {
-			file_put_contents( MW_INSTALL_PATH . '/cook.txt', ' ASDFASDF ' . print_r( $existingBuckets, true ) . " \n", FILE_APPEND );
 			if ( !isset( $existingBuckets[$bucketName] ) || !isset( $existingBuckets[$newBucketName] ) ) {
 				return wfMessage( 'bucket-move-existing-redirect-error' );
 			}
@@ -520,7 +509,6 @@ class Bucket {
 		//OR if it exists and is a view and no buckets write to it then we are good
 		$needToDropView = false;
 		if ( array_key_exists( $newBucketName, $existingBuckets ) ) {
-			file_put_contents( MW_INSTALL_PATH . '/cook.txt', ' ASDFASDF ' . print_r( $existingBuckets[$newBucketName], true ) . " \n", FILE_APPEND );
 			// If there is a result and its a view(view has backing_table_name set), and either its no longer written to or it has the same backing table.
 			if ( $existingBuckets[$newBucketName]->backing_table_name != null
 				&& ( !self::isBucketWithPuts( $newBucketName, $dbw ) || $existingBuckets[$newBucketName]->backing_table_name == $bucketName ) ) {
@@ -652,12 +640,10 @@ class Bucket {
 				# Handle type changes
 				$oldDbType = self::getDbType( $fieldName, $oldSchema[$fieldName] );
 				$newDbType = self::getDbType( $fieldName, $fieldData );
-				file_put_contents( MW_INSTALL_PATH . '/cook.txt', "OLD: $oldDbType, NEW: $newDbType \n", FILE_APPEND );
 				if ( $oldDbType !== $newDbType ) {
 					$needNewIndex = false;
 					if ( $oldSchema[$fieldName]['repeated'] || $fieldData['repeated']
 						|| strpos( self::getIndexStatement( $fieldName, $oldSchema[$fieldName] ), '(' ) != strpos( self::getIndexStatement( $fieldName, $fieldData ), '(' ) ) {
-						file_put_contents( MW_INSTALL_PATH . '/cook.txt', "DROPPING INDEX $fieldName \n", FILE_APPEND );
 						# We cannot MODIFY from a column that doesn't need key length to a column that does need key length
 						$alterTableFragments[] = "DROP INDEX `$fieldName`"; # Repeated types cannot reuse the existing index
 						$needNewIndex = true;
@@ -681,7 +667,6 @@ class Bucket {
 		// Drop unused columns
 		foreach ( $oldSchema as $deletedColumn => $val ) {
 			# TODO performance test this
-			file_put_contents( MW_INSTALL_PATH . '/cook.txt', 'del column ' . print_r( $deletedColumn, true ) . "\n", FILE_APPEND );
 			$alterTableFragments[] = "DROP `$deletedColumn`";
 		}
 
@@ -849,7 +834,6 @@ class Bucket {
 	 * 		unnamed -> scalar value or array of scalar values
 	 */
 	public static function getWhereCondition( $condition, $fieldNamesToTables, $schemas, $dbw, &$categoryJoins ) {
-		// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "Condition: " . print_r($condition, true) . "\n", FILE_APPEND);
 		if ( self::isOrAnd( $condition ) ) {
 			if ( empty( $condition['operands'] ) ) {
 				throw new QueryException( wfMessage( 'bucket-query-where-missing-cond', json_encode( $condition ) ) );
@@ -860,19 +844,16 @@ class Bucket {
 					if ( !isset( $operand['op'] ) && isset( $condition['op'] ) && isset( $operand[0] ) && is_array( $operand[0] ) && count( $operand[0] ) > 0 ) {
 						$operand['op'] = $condition['op']; // Set child op to parent
 					}
-					// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "Calling getWhereCondition 1: " . print_r($operand, true) . "\n", FILE_APPEND);
 					$children[] = self::getWhereCondition( $operand, $fieldNamesToTables, $schemas, $dbw, $categoryJoins );
 				}
 			}
 			$children = implode( " {$condition['op']} ", $children );
 			return "($children)";
 		} elseif ( self::isNot( $condition ) ) {
-			// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "Calling getWhereCondition for NOT: " . print_r($condition, true) . "\n", FILE_APPEND);
 			$child = self::getWhereCondition( $condition['operand'], $fieldNamesToTables, $schemas, $dbw, $categoryJoins );
 			return "(NOT $child)";
 		} elseif ( is_array( $condition ) && is_array( $condition[0] ) ) {
 			// .where{{"a", ">", 0}, {"b", "=", "5"}})
-			// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "Calling getWhereCondition 2 with overriding op: " . print_r($condition, true) . "\n", FILE_APPEND);
 			return self::getWhereCondition( [ 'op' => isset( $condition[ 'op' ] ) ? $condition[ 'op' ] : 'AND', 'operands' => $condition ], $fieldNamesToTables, $schemas, $dbw, $categoryJoins );
 		} elseif ( is_array( $condition ) && !empty( $condition ) && !isset( $condition[0] ) ) {
 			// .where({a = 1, b = 2})
@@ -880,7 +861,6 @@ class Bucket {
 			foreach ( $condition as $key => $value ) {
 				$operands[] = [ $key, '=', $value ];
 			}
-			// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "Calling getWhereCondition 3 with overriding op = AND: " . print_r($operands, true) . "\n", FILE_APPEND);
 			return self::getWhereCondition( [ 'op' => 'AND', 'operands' => $operands ], $fieldNamesToTables, $schemas, $dbw, $categoryJoins );
 		} elseif ( is_array( $condition ) && isset( $condition[0] ) && isset( $condition[1] ) ) {
 			if ( count( $condition ) === 2 ) {
@@ -894,8 +874,6 @@ class Bucket {
 			$value = $condition[2];
 
 			$columnName = $columnNameData['fullName'];
-			// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "DATA " . print_r($fieldNamesToTables, true) . "\n", FILE_APPEND);
-			// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "COLUMNS " . print_r($columnNameData, true) . "\n", FILE_APPEND);
 			if ( $value == '&&NULL&&' ) {
 				// TODO if op is something other than equals throw warning?
 				return "($columnName IS NULL)";
@@ -1080,11 +1058,6 @@ class Bucket {
 		}
 
 		$rows = [];
-		// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "TABLES " . print_r($TABLES, true) . "\n", FILE_APPEND);
-		// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "SELECTS " . print_r($SELECTS, true) . "\n", FILE_APPEND);
-		// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "WHERES " . print_r($WHERES, true) . "\n", FILE_APPEND);
-		// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "OPTIONS " . print_r($OPTIONS, true) . "\n", FILE_APPEND);
-		// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "LEFT_JOINS " . print_r($LEFT_JOINS, true) . "\n", FILE_APPEND);
 		$tmp = $dbw->newSelectQueryBuilder()
 			->from( 'bucket__' . $primaryTableName )
 			->select( $SELECTS )
@@ -1104,10 +1077,8 @@ class Bucket {
 				// TODO throw warning
 			}
 		}
-		// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "SQL " . print_r($tmp->getSQL(), true) . "\n", FILE_APPEND);
 		$res = $tmp->fetchResultSet();
 		foreach ( $res as $row ) {
-			// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "ROWS " . print_r($row, true) . "\n", FILE_APPEND);
 			$row = (array)$row;
 			foreach ( $row as $columnName => $value ) {
 				$defaultTableName = null;

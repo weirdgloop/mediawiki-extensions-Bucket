@@ -67,7 +67,6 @@ class Hooks implements
 		$bucketPuts = $linksUpdate->getParserOutput()->getExtensionData( Bucket::EXTENSION_DATA_KEY );
 		$pageId = $linksUpdate->getTitle()->getArticleID();
 		if ( $bucketPuts !== null ) {
-			// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "HOOK " . print_r($bucketPuts, true) . "\n", FILE_APPEND);
 			$titleText = $linksUpdate->getTitle()->getPrefixedText();
 			Bucket::writePuts( $pageId, $titleText, $bucketPuts );
 		} else {
@@ -202,7 +201,6 @@ class Hooks implements
 		if ( $oldTitle->getNamespace() !== NS_BUCKET && $newTitle->getNamespace() !== NS_BUCKET ) {
 			return;
 		}
-		file_put_contents( MW_INSTALL_PATH . '/cook.txt', 'MOVING ' . $oldTitle->getDBkey() . " \n", FILE_APPEND );
 		Bucket::moveBucket( $oldTitle->getDBkey(), $newTitle->getDBkey() );
 	}
 
@@ -234,7 +232,6 @@ class Hooks implements
 		if ( $page->getNamespace() !== NS_BUCKET ) {
 			return true;
 		}
-		file_put_contents( MW_INSTALL_PATH . '/cook.txt', 'TRYING TO DELETE ' . $page->getDBkey() . " \n", FILE_APPEND );
 
 		if ( Bucket::canDeleteBucketPage( $page->getDBkey() ) ) {
 			return true;
