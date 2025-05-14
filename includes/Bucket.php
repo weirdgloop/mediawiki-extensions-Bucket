@@ -156,7 +156,7 @@ class Bucket {
 				$singlePut = [];
 				foreach ( $fields as $key => $_ ) {
 					$value = isset( $singleData[$key] ) ? $singleData[$key] : null;
-					#TODO JSON relies on forcing utf8 transmission in DatabaseMySQL.php line 829
+					# TODO JSON relies on forcing utf8 transmission in DatabaseMySQL.php line 829
 					$singlePut[$dbw->addIdentifierQuotes( $key )] = self::castToDbType( $value, self::getDbType( $fieldName, $schemas[$tableName][$key] ) );
 				}
 				$singlePut[$dbw->addIdentifierQuotes( '_page_id' )] = $pageId;
@@ -581,7 +581,12 @@ class Bucket {
 		}
 	}
 
-	private static function getDbType( $fieldName, $fieldData ) {
+	/**
+	 * @param string $fieldName
+	 * @param array $fieldData
+	 * @return string
+	 */
+	private static function getDbType( string $fieldName, array $fieldData ) {
 		if ( isset( self::$requiredColumns[$fieldName] ) ) {
 			return self::$dataTypes[self::$requiredColumns[$fieldName]['type']];
 		} else {
@@ -594,7 +599,12 @@ class Bucket {
 		return 'TEXT';
 	}
 
-	private static function getIndexStatement( $fieldName, $fieldData ) {
+	/**
+	 * @param string $fieldName
+	 * @param array $fieldData
+	 * @return string
+	 */
+	private static function getIndexStatement( string $fieldName, array $fieldData ) {
 		switch ( self::getDbType( $fieldName, $fieldData ) ) {
 			case 'JSON':
 				$fieldData['repeated'] = false;
@@ -606,7 +616,7 @@ class Bucket {
 					case 'INTEGER':
 						$subType = 'DECIMAL';
 						break;
-					case 'DOUBLE': // CAST doesn't support double
+					case 'DOUBLE': // CAST doesn't have a double type
 						$subType = 'CHAR(255)';
 						break;
 					case 'BOOLEAN':
@@ -874,11 +884,31 @@ class Bucket {
 			$value = $condition[2];
 
 			$columnName = $columnNameData['fullName'];
+			$columnData = $fieldNamesToTables[$columnNameData['columnName']][$columnNameData['tableName']];
 			if ( $value == '&&NULL&&' ) {
+				if ( $op == '!=' ) {
+					return "($columnName IS NOT NULL)";
+				}
 				// TODO if op is something other than equals throw warning?
 				return "($columnName IS NULL)";
-			} elseif ( $fieldNamesToTables[$columnNameData['columnName']][$columnNameData['tableName']]['repeated'] == true ) {
-				return "\"$value\" MEMBER OF($columnName)";
+			} elseif ( $columnData['repeated'] == true ) {
+				if ( !is_numeric( $value ) ) {
+					$value = '"' . $dbw->strencode( $value ) . '"';
+				}
+				if ( $op == '=' ) {
+					return "$value MEMBER OF($columnName)";
+				}
+				if ( $op == '!=' ) {
+					return "NOT $value MEMBER OF($columnName)";
+				}
+				// > < >= <=
+				//TODO this is very expensive
+				$columnData['repeated'] = false; // Set repeated to false to get the underlying type
+				$dbType = self::getDbType( $columnName, $columnData );
+				// We have to reverse the direction of < > <= >= because SQL requires this condition to be $value $op $column
+				//and user input is in order $column $op $value
+				$op = strtr( $op, [ '<' => '>', '>' => '<' ] );
+				return "($value $op ANY(SELECT json_col FROM JSON_TABLE($columnName, '$[*]' COLUMNS(json_col $dbType PATH '$')) AS json_tab))";
 			} else {
 				if ( is_numeric( $value ) ) {
 					return "($columnName $op $value)";
@@ -1077,6 +1107,7 @@ class Bucket {
 				// TODO throw warning
 			}
 		}
+		file_put_contents( MW_INSTALL_PATH . '/cook.txt', 'Query: ' . print_r( $tmp->getSQL(), true ) . "\n", FILE_APPEND );
 		$res = $tmp->fetchResultSet();
 		foreach ( $res as $row ) {
 			$row = (array)$row;
