@@ -78,5 +78,13 @@
 			"styles": "resources/bucket-json.css"
 		}
 	},
+	"config": {
+		"BucketWriteEnabledNamespaces": {
+			"value": {
+				"0": true,
+				"4": true
+			}
+		}
+	},
 	"manifest_version": 2
 }
