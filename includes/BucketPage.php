@@ -5,6 +5,7 @@ namespace Mediawiki\Extension\Bucket;
 use Article;
 use MediaWiki\Extension\Bucket\Bucket;
 use MediaWiki\Extension\Bucket\BucketPageHelper;
+use MediaWiki\Html\Html;
 use MediaWiki\MediaWikiServices;
 use Mediawiki\Title\Title;
 use MediaWiki\Title\TitleValue;
@@ -44,7 +45,7 @@ class BucketPage extends Article {
 			// Buckets pointing to this bucket
 			if ( $row->table_name != $table_name ) {
 				$link = $linkRenderer->makeKnownLink( new TitleValue( NS_BUCKET, $row->table_name ) );
-				$out->addHTML( '<h3>' . wfMessage( 'bucket-page-redirect-here-warning', $link )->text() . '</h3>' );
+				$out->addHTML( HTML::warningBox( wfMessage( 'bucket-page-redirect-here-warning', $link )->text() ) );
 			}
 		}
 
@@ -67,7 +68,7 @@ class BucketPage extends Article {
 
 		if ( $backingBucketName[$table_name] !== null ) {
 			$link = $linkRenderer->makeKnownLink( new TitleValue( NS_BUCKET, $backingBucketName[$table_name] ) );
-			$out->addHTML( '<h3>' . wfMessage( 'bucket-page-redirects-to-warning', $link )->text() . '</h3>' );
+			$out->addHTML( HTML::warningBox( wfMessage( 'bucket-page-redirects-to-warning', $link )->text() ) );
 		}
 
 		$resultCount = count( $queryResult );
