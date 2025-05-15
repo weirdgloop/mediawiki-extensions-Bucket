@@ -68,6 +68,7 @@ class Bucket {
 		$res = $dbw->newSelectQueryBuilder()
 				->from( 'bucket_pages' )
 				->select( [ '_page_id', 'table_name', 'put_hash' ] )
+				->forUpdate()
 				->where( [ '_page_id' => $pageId ] )
 				->caller( __METHOD__ )
 				->fetchResultSet();
@@ -81,6 +82,7 @@ class Bucket {
 		$res = $dbw->newSelectQueryBuilder()
 				->from( 'bucket_schemas' )
 				->select( [ 'table_name', 'backing_table_name', 'schema_json' ] )
+				->lockInShareMode()
 				->where( [ 'table_name' => $relevantBuckets ] )
 				->caller( __METHOD__ )
 				->fetchResultSet();
@@ -131,6 +133,7 @@ class Bucket {
 			$res = $dbw->newSelectQueryBuilder()
 				->from( $dbw->addIdentifierQuotes( $dbTableName ) )
 				->select( '*' )
+				->forUpdate()
 				->where( [ '_page_id' => $pageId ] )
 				->caller( __METHOD__ )
 				->fetchResultSet();
@@ -182,7 +185,6 @@ class Bucket {
 			unset( $bucket_hash[ $tableName ] );
 
 			// TODO: does behavior here depend on DBO_TRX?
-			$dbw->begin();
 			$dbw->newDeleteQueryBuilder()
 				->deleteFrom( $dbw->addIdentifierQuotes( $dbTableName ) )
 				->where( [ '_page_id' => $pageId ] )
@@ -203,8 +205,6 @@ class Bucket {
 				->rows( [ '_page_id' => $pageId, 'table_name' => $tableName, 'put_hash' => $newHash ] )
 				->caller( __METHOD__ )
 				->execute();
-
-			$dbw->commit();
 		}
 
 		if ( !$writingLogs ) {
@@ -217,7 +217,6 @@ class Bucket {
 			}
 
 			if ( count( $tablesToDelete ) > 0 ) {
-				$dbw->begin( __METHOD__ );
 				$dbw->newDeleteQueryBuilder()
 					->deleteFrom( 'bucket_pages' )
 					->where( [ '_page_id' => $pageId, 'table_name' => $tablesToDelete ] )
@@ -226,6 +225,7 @@ class Bucket {
 				foreach ( $tablesToDelete as $name ) {
 					$isView = isset( $backingBucketName[$name] );
 					// If we aren't a view and we aren't a backing bucket, or we are a view and our backing bucket isn't also written to
+					// This prevents us from deleting data when a page switches from writing a view to writing the new bucket.
 					$shouldDelete = ( !$isView && !in_array( $name, $backingBucketName ) ) || ( $isView && !array_key_exists( $backingBucketName[$name], $schemas ) );
 					if ( $shouldDelete ) {
 						$dbw->newDeleteQueryBuilder()
@@ -237,6 +237,7 @@ class Bucket {
 					if ( $isView ) {
 						$viewUses = $dbw->newSelectQueryBuilder()
 							->from( 'bucket_pages' )
+							->forUpdate()
 							->where( [ 'table_name' => $name ] )
 							->caller( __METHOD__ )
 							->fetchRowCount();
@@ -250,7 +251,6 @@ class Bucket {
 						}
 					}
 				}
-				$dbw->commit( __METHOD__ );
 			}
 
 			if ( count( $logs ) > 0 ) {
@@ -269,6 +269,7 @@ class Bucket {
 		$res = $dbw->newSelectQueryBuilder()
 				->from( 'bucket_pages' )
 				->select( [ 'table_name' ] )
+				->forUpdate()
 				->where( [ '_page_id' => $pageId ] )
 				->groupBy( 'table_name' )
 				->caller( __METHOD__ )
@@ -288,6 +289,7 @@ class Bucket {
 			$res = $dbw->newSelectQueryBuilder()
 				->from( 'bucket_schemas' )
 				->select( [ 'table_name', 'backing_table_name' ] )
+				->forUpdate()
 				->where( [ 'table_name' => array_unique( $table ) ] )
 				->caller( __METHOD__ )
 				->fetchResultSet();
@@ -309,6 +311,7 @@ class Bucket {
 					$viewUses = $dbw->newSelectQueryBuilder()
 						->from( 'bucket_pages' )
 						->where( [ 'table_name' => $name ] )
+						->forUpdate()
 						->caller( __METHOD__ )
 						->fetchRowCount();
 					if ( $viewUses == 0 ) {
@@ -345,7 +348,14 @@ class Bucket {
 	public static function canCreateTable( string $bucketName ) {
 		$bucketName = self::getValidBucketName( $bucketName );
 		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
-		if ( !$dbw->selectField( 'bucket_schemas', [ 'schema_json' ], [ 'table_name' => $bucketName ] ) ) {
+		$schema = $dbw->newSelectQueryBuilder()
+			->from( 'bucket_schemas' )
+			->where( [ 'table_name' => $bucketName ] )
+			->forUpdate()
+			->caller( __METHOD__ )
+			->field( 'schema_json' )
+			->fetchField();
+		if ( !$schema ) {
 			return true;
 		} else {
 			return false;
@@ -395,7 +405,13 @@ class Bucket {
 		$dbTableName = 'bucket__' . $bucketName;
 		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
 
-		$oldSchema = $dbw->selectField( 'bucket_schemas', [ 'schema_json' ], [ 'table_name' => $bucketName ] );
+		$oldSchema = $dbw->newSelectQueryBuilder()
+			->from( 'bucket_schemas' )
+			->where( [ 'table_name' => $bucketName ] )
+			->forUpdate()
+			->caller( __METHOD__ )
+			->field( 'schema_json' )
+			->fetchField();
 		if ( $oldSchema && $parentId == 0 ) {
 			// An existing bucket json with a parent id of 0 means we are trying to create a new bucket at a location with an active view.
 			if ( self::isBucketWithPuts( $bucketName, $dbw ) ) {
@@ -446,22 +462,18 @@ class Bucket {
 	public static function canDeleteBucketPage( $bucketName ) {
 		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
 		$bucketName = self::getValidBucketName( $bucketName );
-		$tableName = 'bucket__' . $bucketName;
-		// Check that table actually exists
-		$res = $dbw->query( "SHOW FULL TABLES LIKE {$dbw->addQuotes($tableName)}" );
-		if ( $res->count() == 0 ) {
-			return true;
-		}
 		// Get all bucket names that point to this table
 		//TODO: Probably doesn't matter much, but surely this can be a subquery or something
 		$bucketNames = $dbw->newSelectQueryBuilder()
 							->table( 'bucket_schemas' )
 							->select( 'table_name' )
+							->forUpdate()
 							->where( $dbw->makeList( [ 'table_name' => $bucketName, 'backing_table_name' => $bucketName ], LIST_OR ) )
 							->caller( __METHOD__ )
 							->fetchFieldValues();
 		$putCount = $dbw->newSelectQueryBuilder()
 						->table( 'bucket_pages' )
+						->lockInShareMode()
 						->where( [ 'table_name' => $bucketNames ] )
 						->fetchRowCount();
 		if ( $putCount > 0 ) {
@@ -471,7 +483,11 @@ class Bucket {
 	}
 
 	public static function isBucketWithPuts( $cleanBucketName, IDatabase $dbw ) {
-		return $dbw->newSelectQueryBuilder()->table( 'bucket_pages' )->where( [ 'table_name' => $cleanBucketName ] )->fetchRowCount() !== 0;
+		return $dbw->newSelectQueryBuilder()
+			->table( 'bucket_pages' )
+			->lockInShareMode()
+			->where( [ 'table_name' => $cleanBucketName ] )
+			->fetchRowCount() !== 0;
 	}
 
 	/**
@@ -486,6 +502,7 @@ class Bucket {
 		$res = $dbw->newSelectQueryBuilder()
 			->table( 'bucket_schemas' )
 			->select( [ 'table_name', 'backing_table_name', 'schema_json' ] )
+			->forUpdate()
 			->where( $dbw->makeList( [ 'table_name' => [ $bucketName, $newBucketName ], 'backing_table_name' => [ $bucketName, $newBucketName ] ], LIST_OR ) )
 			->fetchResultSet();
 
@@ -542,7 +559,9 @@ class Bucket {
 		$existing_schema = $dbw->newSelectQueryBuilder()
 			->table( 'bucket_schemas' )
 			->select( 'schema_json' )
+			->forUpdate()
 			->where( [ 'table_name' => $bucketName ] )
+			->caller( __METHOD__ )
 			->fetchField();
 		// Create a new entry for the moved bucket
 		$dbw->newInsertQueryBuilder()
@@ -969,7 +988,13 @@ class Bucket {
 		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
 		$missingTableNames = array_keys( $tableNames );
 		if ( !empty( $missingTableNames ) ) {
-			$res = $dbw->select( 'bucket_schemas', [ 'table_name', 'schema_json' ], [ 'table_name' => $missingTableNames ] );
+			$res = $dbw->newSelectQueryBuilder()
+				->from( 'bucket_schemas')
+				->select(['table_name', 'schema_json'])
+				->lockInShareMode()
+				->where(['table_name' => $missingTableNames])
+				->caller(__METHOD__)
+				->fetchResultSet();
 
 			$schemas = [];
 			foreach ( $res as $row ) {
