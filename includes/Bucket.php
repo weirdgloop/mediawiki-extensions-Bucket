@@ -755,6 +755,9 @@ class Bucket {
 		if ( $fieldData['repeated'] ) {
 			$ret = [];
 			$fieldData['repeated'] = false;
+			if ( $value == null ) {
+				$value = "";
+			}
 			$jsonData = json_decode( $value, true );
 			if ( !is_array( $jsonData ) ) { // If we are in a repeated field but only holding a scalar, make it an array anyway.
 				$jsonData = [ $jsonData ];
