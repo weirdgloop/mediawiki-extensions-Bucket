@@ -989,11 +989,11 @@ class Bucket {
 		$missingTableNames = array_keys( $tableNames );
 		if ( !empty( $missingTableNames ) ) {
 			$res = $dbw->newSelectQueryBuilder()
-				->from( 'bucket_schemas')
-				->select(['table_name', 'schema_json'])
+				->from( 'bucket_schemas' )
+				->select( [ 'table_name', 'schema_json' ] )
 				->lockInShareMode()
-				->where(['table_name' => $missingTableNames])
-				->caller(__METHOD__)
+				->where( [ 'table_name' => $missingTableNames ] )
+				->caller( __METHOD__ )
 				->fetchResultSet();
 
 			$schemas = [];
