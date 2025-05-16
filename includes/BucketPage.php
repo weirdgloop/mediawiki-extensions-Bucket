@@ -5,7 +5,6 @@ namespace Mediawiki\Extension\Bucket;
 use Article;
 use MediaWiki\Extension\Bucket\Bucket;
 use MediaWiki\Extension\Bucket\BucketPageHelper;
-use MediaWiki\Html\Html;
 use MediaWiki\MediaWikiServices;
 use Mediawiki\Title\Title;
 use MediaWiki\Title\TitleValue;
@@ -33,20 +32,13 @@ class BucketPage extends Article {
 
 		$res = $dbw->newSelectQueryBuilder()
 					->from( 'bucket_schemas' )
-					->select( [ 'table_name', 'backing_table_name', 'schema_json' ] )
-					->where( $dbw->makeList( [ 'table_name' => $table_name, 'backing_table_name' => $table_name ], LIST_OR ) )
+					->select( [ 'table_name', 'schema_json' ] )
+					->where( [ 'table_name' => $table_name ] )
 					->caller( __METHOD__ )
 					->fetchResultSet();
 		$schemas = [];
-		$backingBucketName = [];
 		foreach ( $res as $row ) {
 			$schemas[$row->table_name] = json_decode( $row->schema_json, true );
-			$backingBucketName[$row->table_name] = $row->backing_table_name;
-			// Buckets pointing to this bucket
-			if ( $row->table_name != $table_name ) {
-				$link = $linkRenderer->makeKnownLink( new TitleValue( NS_BUCKET, $row->table_name ) );
-				$out->addHTML( HTML::warningBox( wfMessage( 'bucket-page-redirect-here-warning', $link )->text() ) );
-			}
 		}
 
 		$select = $context->getRequest()->getText( 'select', '*' );
@@ -64,11 +56,6 @@ class BucketPage extends Article {
 		$queryResult = [];
 		if ( isset( $fullResult['bucket'] ) ) {
 			$queryResult = $fullResult['bucket'];
-		}
-
-		if ( $backingBucketName[$table_name] !== null ) {
-			$link = $linkRenderer->makeKnownLink( new TitleValue( NS_BUCKET, $backingBucketName[$table_name] ) );
-			$out->addHTML( HTML::warningBox( wfMessage( 'bucket-page-redirects-to-warning', $link )->text() ) );
 		}
 
 		$resultCount = count( $queryResult );

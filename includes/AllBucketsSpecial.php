@@ -19,29 +19,22 @@ class AllBucketsSpecial extends SpecialPage {
 		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
 		$res = $dbw->newSelectQueryBuilder()
 			->from( 'bucket_schemas' )
-			->select( [ 'table_name', 'backing_table_name', 'schema_json' ] )
+			->select( [ 'table_name', 'schema_json' ] )
 			->caller( __METHOD__ )
 			->fetchResultSet();
 
 		$schemas = [];
-		$backingBucketName = [];
 		foreach ( $res as $row ) {
 			$schemas[$row->table_name] = json_decode( $row->schema_json, true );
-			$backingBucketName[$row->table_name] = $row->backing_table_name;
 		}
 
 		$output = [];
 
 		$output[] = '<table class="wikitable"><tr>';
-		$output[] = '<th>Bucket</th><th>Redirect target</th>';
+		$output[] = '<th>Bucket</th>';
 		foreach ( $schemas as $row => $val ) {
 			$output[] = '<tr>';
 			$output[] = "<td>[[Bucket:$row]]</td>";
-			if ( $backingBucketName[$row] != null ) {
-				$output[] = "<td>[[Bucket:$backingBucketName[$row]]]</td>";
-			} else {
-				$output[] = '<td></td>';
-			}
 			$output[] = '</tr>';
 		}
 		$output[] = '</table>';

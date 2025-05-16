@@ -11,7 +11,6 @@ use MediaWiki\Deferred\LinksUpdate\LinksUpdate;
 use MediaWiki\Extension\Scribunto\Hooks\ScribuntoExternalLibrariesHook;
 use MediaWiki\Hook\LinksUpdateCompleteHook;
 use MediaWiki\Hook\MovePageIsValidMoveHook;
-use MediaWiki\Hook\PageMoveCompleteHook;
 use MediaWiki\Hook\SkinBuildSidebarHook;
 use MediaWiki\Installer\Hook\LoadExtensionSchemaUpdatesHook;
 use MediaWiki\Page\Article;
@@ -39,7 +38,6 @@ class Hooks implements
 	ScribuntoExternalLibrariesHook,
 	SkinBuildSidebarHook,
 	ArticleFromTitleHook,
-	PageMoveCompleteHook,
 	MovePageIsValidMoveHook,
 	PageDeleteHook,
 	PageDeleteCompleteHook,
@@ -199,16 +197,6 @@ class Hooks implements
 	}
 
 	/**
-	 * @see http://mediawiki.org/wiki/Manual:Hooks/PageMoveComplete
-	 */
-	public function onPageMoveComplete( $oldTitle, $newTitle, $user, $pageid, $redirid, $reason, $revision ) {
-		if ( $oldTitle->getNamespace() !== NS_BUCKET && $newTitle->getNamespace() !== NS_BUCKET ) {
-			return;
-		}
-		Bucket::moveBucket( $oldTitle->getDBkey(), $newTitle->getDBkey() );
-	}
-
-	/**
 	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/MovePageIsValidMove
 	 */
 	public function onMovePageIsValidMove( $oldTitle, $newTitle, $status ) {
@@ -218,14 +206,8 @@ class Hooks implements
 
 		if ( $oldTitle->getNamespace() !== NS_BUCKET ) {
 			$status->fatal( 'bucket-namespace-move-into' );
-		}
-		if ( $newTitle->getNamespace() !== NS_BUCKET ) {
-			$status->fatal( 'bucket-namespace-move-outof' );
-		}
-
-		$result = Bucket::canMoveBucket( $oldTitle->getBaseText(), $newTitle->getBaseText() );
-		if ( getType( $result ) !== 'boolean' ) {
-			$status->fatal( $result );
+		} else {
+			$status->fatal( 'bucket-namespace-move' );
 		}
 	}
 

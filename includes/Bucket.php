@@ -81,26 +81,14 @@ class Bucket {
 		$relevantBuckets = array_merge( array_keys( $puts ), array_keys( $bucket_hash ) );
 		$res = $dbw->newSelectQueryBuilder()
 				->from( 'bucket_schemas' )
-				->select( [ 'table_name', 'backing_table_name', 'schema_json' ] )
+				->select( [ 'table_name', 'schema_json' ] )
 				->lockInShareMode()
 				->where( [ 'table_name' => $relevantBuckets ] )
 				->caller( __METHOD__ )
 				->fetchResultSet();
 		$schemas = [];
-		$backingBucketName = []; // Used to generate warning messages when writing to a view
-		$backingBuckets = []; // Used to generate error when a written view and bucket are pointing to the same location
 		foreach ( $res as $row ) {
 			$schemas[$row->table_name] = json_decode( $row->schema_json, true );
-			$backingBucketName[$row->table_name] = $row->backing_table_name;
-			$realTable = $row->backing_table_name ?? $row->table_name;
-			if ( isset( $puts[$row->table_name] ) ) {
-				if ( array_key_exists( $realTable, $backingBuckets ) ) {
-					self::logMessage( $row->table_name, '', 'bucket-general-error', wfMessage( 'bucket-double-write-redirect-error', $row->table_name, $backingBuckets[$realTable] ), $logs );
-					unset( $puts[$row->table_name] );
-				} else {
-					$backingBuckets[$realTable] = $row->table_name;
-				}
-			}
 		}
 
 		foreach ( $puts as $tableName => $tableData ) {
@@ -118,10 +106,6 @@ class Bucket {
 				self::logMessage( $tableName, '', 'bucket-general-warning', wfMessage( 'bucket-capital-name-warning' ), $logs );
 			}
 			$tableName = $tableNameTmp;
-
-			if ( array_key_exists( $tableName, $backingBucketName ) && $backingBucketName[$tableName] != null ) {
-				self::logMessage( $tableName, '', 'bucket-general-warning', wfMessage( 'bucket-redirect-write-update-warning', $tableName, $backingBucketName[$tableName] ), $logs );
-			}
 
 			if ( !array_key_exists( $tableName, $schemas ) ) {
 				self::logMessage( $tableName, '', 'bucket-general-error', wfMessage( 'bucket-no-exist-error' ), $logs );
@@ -223,33 +207,11 @@ class Bucket {
 					->caller( __METHOD__ )
 					->execute();
 				foreach ( $tablesToDelete as $name ) {
-					$isView = isset( $backingBucketName[$name] );
-					// If we aren't a view and we aren't a backing bucket, or we are a view and our backing bucket isn't also written to
-					// This prevents us from deleting data when a page switches from writing a view to writing the new bucket.
-					$shouldDelete = ( !$isView && !in_array( $name, $backingBucketName ) ) || ( $isView && !array_key_exists( $backingBucketName[$name], $schemas ) );
-					if ( $shouldDelete ) {
-						$dbw->newDeleteQueryBuilder()
-							->deleteFrom( $dbw->addIdentifierQuotes( 'bucket__' . $name ) )
-							->where( [ '_page_id' => $pageId ] )
-							->caller( __METHOD__ )
-							->execute();
-					}
-					if ( $isView ) {
-						$viewUses = $dbw->newSelectQueryBuilder()
-							->from( 'bucket_pages' )
-							->forUpdate()
-							->where( [ 'table_name' => $name ] )
-							->caller( __METHOD__ )
-							->fetchRowCount();
-						if ( $viewUses == 0 ) {
-							$dbw->newDeleteQueryBuilder()
-								->table( 'bucket_schemas' )
-								->where( [ 'table_name' => $name ] )
-								->caller( __METHOD__ )
-								->execute();
-							$dbw->query( 'DROP VIEW IF EXISTS ' . $dbw->addIdentifierQuotes( 'bucket__' . $name ) );
-						}
-					}
+					$dbw->newDeleteQueryBuilder()
+						->deleteFrom( $dbw->addIdentifierQuotes( 'bucket__' . $name ) )
+						->where( [ '_page_id' => $pageId ] )
+						->caller( __METHOD__ )
+						->execute();
 				}
 			}
 
@@ -286,17 +248,6 @@ class Bucket {
 			foreach ( $res as $row ) {
 				$table[] = $row->table_name;
 			}
-			$res = $dbw->newSelectQueryBuilder()
-				->from( 'bucket_schemas' )
-				->select( [ 'table_name', 'backing_table_name' ] )
-				->forUpdate()
-				->where( [ 'table_name' => array_unique( $table ) ] )
-				->caller( __METHOD__ )
-				->fetchResultSet();
-			$isView = [];
-			foreach ( $res as $row ) {
-				$isView[$row->table_name] = $row->backing_table_name;
-			}
 
 			foreach ( $table as $name ) {
 				// Clear this pages data from the bucket
@@ -305,24 +256,6 @@ class Bucket {
 					->where( [ '_page_id' => $pageId ] )
 					->caller( __METHOD__ )
 					->execute();
-
-				// If the bucket is a view and now empty, delete the view
-				if ( isset( $isView[$name] ) ) {
-					$viewUses = $dbw->newSelectQueryBuilder()
-						->from( 'bucket_pages' )
-						->where( [ 'table_name' => $name ] )
-						->forUpdate()
-						->caller( __METHOD__ )
-						->fetchRowCount();
-					if ( $viewUses == 0 ) {
-						$dbw->newDeleteQueryBuilder()
-							->table( 'bucket_schemas' )
-							->where( [ 'table_name' => $name ] )
-							->caller( __METHOD__ )
-							->execute();
-						$dbw->query( 'DROP VIEW IF EXISTS ' . $dbw->addIdentifierQuotes( 'bucket__' . $name ) );
-					}
-				}
 			}
 		}
 	}
@@ -355,6 +288,7 @@ class Bucket {
 			->caller( __METHOD__ )
 			->field( 'schema_json' )
 			->fetchField();
+		// TODO also check if bucket__$bucketName exists
 		if ( !$schema ) {
 			return true;
 		} else {
@@ -412,14 +346,6 @@ class Bucket {
 			->caller( __METHOD__ )
 			->field( 'schema_json' )
 			->fetchField();
-		if ( $oldSchema && $parentId == 0 ) {
-			// An existing bucket json with a parent id of 0 means we are trying to create a new bucket at a location with an active view.
-			if ( self::isBucketWithPuts( $bucketName, $dbw ) ) {
-				throw new SchemaException( wfMessage( 'bucket-schema-create-over-redirect-error' ) );
-			}
-			$dbw->query( "DROP VIEW IF EXISTS `bucket__$bucketName`" );
-			$oldSchema = false;
-		}
 		if ( !$oldSchema ) {
 			// We are a new bucket json
 			$statement = self::getCreateTableStatement( $dbTableName, $newSchema );
@@ -462,19 +388,10 @@ class Bucket {
 	public static function canDeleteBucketPage( $bucketName ) {
 		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
 		$bucketName = self::getValidBucketName( $bucketName );
-		// Get all bucket names that point to this table
-		//TODO: Probably doesn't matter much, but surely this can be a subquery or something
-		$bucketNames = $dbw->newSelectQueryBuilder()
-							->table( 'bucket_schemas' )
-							->select( 'table_name' )
-							->forUpdate()
-							->where( $dbw->makeList( [ 'table_name' => $bucketName, 'backing_table_name' => $bucketName ], LIST_OR ) )
-							->caller( __METHOD__ )
-							->fetchFieldValues();
 		$putCount = $dbw->newSelectQueryBuilder()
 						->table( 'bucket_pages' )
 						->lockInShareMode()
-						->where( [ 'table_name' => $bucketNames ] )
+						->where( [ 'table_name' => $bucketName ] )
 						->fetchRowCount();
 		if ( $putCount > 0 ) {
 			return false;
@@ -488,116 +405,6 @@ class Bucket {
 			->lockInShareMode()
 			->where( [ 'table_name' => $cleanBucketName ] )
 			->fetchRowCount() !== 0;
-	}
-
-	/**
-	 * @return string|bool - String if the move will fail. True if the move is good and on top of a view, false if the move is good but there is no view.
-	 */
-	public static function canMoveBucket( $bucketName, $newBucketName ) {
-		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
-
-		$bucketName = self::getValidBucketName( $bucketName );
-		$newBucketName = self::getValidBucketName( $newBucketName );
-
-		$res = $dbw->newSelectQueryBuilder()
-			->table( 'bucket_schemas' )
-			->select( [ 'table_name', 'backing_table_name', 'schema_json' ] )
-			->forUpdate()
-			->where( $dbw->makeList( [ 'table_name' => [ $bucketName, $newBucketName ], 'backing_table_name' => [ $bucketName, $newBucketName ] ], LIST_OR ) )
-			->fetchResultSet();
-
-		$existingBuckets = [];
-		foreach ( $res as $row ) {
-			$existingBuckets[$row->table_name] = $row;
-		}
-
-		// The only way we have more than 1 is if theres a view pointing to this bucket we are trying to move.
-		if ( count( $existingBuckets ) > 1 ) {
-			if ( !isset( $existingBuckets[$bucketName] ) || !isset( $existingBuckets[$newBucketName] ) ) {
-				return wfMessage( 'bucket-move-existing-redirect-error' );
-			}
-		}
-
-		// Check that old table actually exists
-		if ( !array_key_exists( $bucketName, $existingBuckets ) ) {
-			return wfMessage( 'bucket-no-exist', $bucketName );
-		}
-		// Check that new table doesn't already exist
-		//OR if it exists and is a view and no buckets write to it then we are good
-		$needToDropView = false;
-		if ( array_key_exists( $newBucketName, $existingBuckets ) ) {
-			// If there is a result and its a view(view has backing_table_name set), and either its no longer written to or it has the same backing table.
-			if ( $existingBuckets[$newBucketName]->backing_table_name != null
-				&& ( !self::isBucketWithPuts( $newBucketName, $dbw ) || $existingBuckets[$newBucketName]->backing_table_name == $bucketName ) ) {
-					$needToDropView = true;
-			} else {
-				return wfMessage( 'bucket-move-already-exists', $newBucketName );
-			}
-		}
-		return $needToDropView;
-	}
-
-	public static function moveBucket( $bucketName, $newBucketName ) {
-		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
-
-		$bucketName = self::getValidBucketName( $bucketName );
-		$newBucketName = self::getValidBucketName( $newBucketName );
-
-		$tableName = 'bucket__' . $bucketName;
-		$newTableName = 'bucket__' . $newBucketName;
-		$needToDropView = self::canMoveBucket( $bucketName, $newBucketName );
-		$needView = self::isBucketWithPuts( $bucketName, $dbw );
-		if ( $needToDropView ) { // TODO this weird multi return thing is no good. Just always try and drop it I think
-			$dbw->query( "DROP VIEW IF EXISTS $newTableName;" );
-		}
-		$dbw->query( "RENAME TABLE $tableName TO $newTableName;" );
-		if ( $needView ) {
-			$dbw->query( "CREATE OR REPLACE VIEW $tableName AS SELECT * FROM $newTableName;" );
-		}
-
-		// Update bucket_schemas to have a reference to the moved table
-		$existing_schema = $dbw->newSelectQueryBuilder()
-			->table( 'bucket_schemas' )
-			->select( 'schema_json' )
-			->forUpdate()
-			->where( [ 'table_name' => $bucketName ] )
-			->caller( __METHOD__ )
-			->fetchField();
-		// Create a new entry for the moved bucket
-		$dbw->newInsertQueryBuilder()
-			->insert( 'bucket_schemas' )
-			->row( [
-				'table_name' => $newBucketName,
-				'backing_table_name' => null,
-				'schema_json' => $existing_schema
-			] )
-			->onDuplicateKeyUpdate()
-			->uniqueIndexFields( 'table_name' )
-			->set( [
-				'backing_table_name' => null,
-				'schema_json' => $existing_schema
-			] )
-			->caller( __METHOD__ )
-			->execute();
-		if ( $needView ) {
-			// Update the old entry, which is now representing a view, to point to new bucket
-			$dbw->newUpdateQueryBuilder()
-				->update( 'bucket_schemas' )
-				->set( [
-					'table_name' => $bucketName,
-					'backing_table_name' => $newBucketName,
-					'schema_json' => $existing_schema
-				] )
-				->where( [ 'table_name' => $bucketName ] )
-				->caller( __METHOD__ )
-				->execute();
-		} else {
-			$dbw->newDeleteQueryBuilder()
-				->delete( 'bucket_schemas' )
-				->where( [ 'table_name' => $bucketName ] )
-				->caller( __METHOD__ )
-				->execute();
-		}
 	}
 
 	/**
@@ -699,8 +506,8 @@ class Bucket {
 			$alterTableFragments[] = "DROP `$deletedColumn`";
 		}
 
-		//TODO this is a test for keeping the schema in sync
-		$schemaString = json_encode($newSchema);
+		// TODO this is a test for keeping the schema in sync
+		$schemaString = json_encode( $newSchema );
 		$alterTableFragments[] = "COMMENT='$schemaString'";
 
 		return "ALTER TABLE $dbTableName " . implode( ', ', $alterTableFragments ) . ';';
@@ -760,7 +567,7 @@ class Bucket {
 			$ret = [];
 			$fieldData['repeated'] = false;
 			if ( $value == null ) {
-				$value = "";
+				$value = '';
 			}
 			$jsonData = json_decode( $value, true );
 			if ( !is_array( $jsonData ) ) { // If we are in a repeated field but only holding a scalar, make it an array anyway.
