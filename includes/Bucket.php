@@ -339,36 +339,36 @@ class Bucket {
 		$dbTableName = 'bucket__' . $bucketName;
 		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
 
-		$dbw->onTransactionCommitOrIdle(function () use ($dbw, $dbTableName, $newSchema, $parentId, $bucketName) {
-			file_put_contents(MW_INSTALL_PATH . '/cook.txt', "POST TRANSACTION COMMIT\n", FILE_APPEND);
-			if (!$dbw->tableExists($dbTableName, __METHOD__)) {
+		$dbw->onTransactionCommitOrIdle( function () use ( $dbw, $dbTableName, $newSchema, $parentId, $bucketName ) {
+			file_put_contents( MW_INSTALL_PATH . '/cook.txt', "POST TRANSACTION COMMIT\n", FILE_APPEND );
+			if ( !$dbw->tableExists( $dbTableName, __METHOD__ ) ) {
 				// We are a new bucket json
-				$statement = self::getCreateTableStatement($dbTableName, $newSchema);
-				file_put_contents(MW_INSTALL_PATH . '/cook.txt', "CREATE TABLE STATEMENT $statement \n", FILE_APPEND);
-				$dbw->query($statement);
+				$statement = self::getCreateTableStatement( $dbTableName, $newSchema );
+				file_put_contents( MW_INSTALL_PATH . '/cook.txt', "CREATE TABLE STATEMENT $statement \n", FILE_APPEND );
+				$dbw->query( $statement );
 			} else {
 				// We are an existing bucket json
-				$oldSchema = $dbw->query("SHOW TABLE STATUS LIKE '$dbTableName';", __METHOD__)->fetchObject()->Comment;
-				$oldSchema = json_decode($oldSchema, true);
-				$statement = self::getAlterTableStatement($dbTableName, $newSchema, $oldSchema, $dbw);
-				file_put_contents(MW_INSTALL_PATH . '/cook.txt', "ALTER TABLE STATEMENT $statement \n", FILE_APPEND);
-				$dbw->query($statement);
+				$oldSchema = $dbw->query( "SHOW TABLE STATUS LIKE '$dbTableName';", __METHOD__ )->fetchObject()->Comment;
+				$oldSchema = json_decode( $oldSchema, true );
+				$statement = self::getAlterTableStatement( $dbTableName, $newSchema, $oldSchema, $dbw );
+				file_put_contents( MW_INSTALL_PATH . '/cook.txt', "ALTER TABLE STATEMENT $statement \n", FILE_APPEND );
+				$dbw->query( $statement );
 			}
 
-			//At this point is is possible that another transaction has changed the table
+			// At this point is is possible that another transaction has changed the table
 			//So we start a transaction, read the table comment (which is the schema), and write that to bucket_schemas
-			$dbw->begin(__METHOD__);
-			$schemaJson = $dbw->query("SHOW TABLE STATUS LIKE '$dbTableName';", __METHOD__)->fetchObject()->Comment;
-			file_put_contents(MW_INSTALL_PATH . '/cook.txt', "================Schema in table comment $currentSchema\n", FILE_APPEND);
+			$dbw->begin( __METHOD__ );
+			$schemaJson = $dbw->query( "SHOW TABLE STATUS LIKE '$dbTableName';", __METHOD__ )->fetchObject()->Comment;
+			file_put_contents( MW_INSTALL_PATH . '/cook.txt', "================Schema in table comment $currentSchema\n", FILE_APPEND );
 			// $currentSchema['_parent_rev_id'] = $parentId; //TODO with the new DDL approach this doesn't work anymore, we could just use a timestamp or something
 			$dbw->upsert(
 				'bucket_schemas',
-				['table_name' => $bucketName, 'schema_json' => $schemaJson],
+				[ 'table_name' => $bucketName, 'schema_json' => $schemaJson ],
 				'table_name',
-				['schema_json' => $schemaJson]
+				[ 'schema_json' => $schemaJson ]
 			);
-			$dbw->commit(__METHOD__);
-		}, __METHOD__);
+			$dbw->commit( __METHOD__ );
+		}, __METHOD__ );
 	}
 
 	public static function deleteTable( $bucketName ) {
@@ -488,9 +488,9 @@ class Bucket {
 						$needNewIndex = true;
 					}
 					if ( $oldDbType == 'TEXT' && $newDbType == 'JSON' ) { # Update string types to be valid JSON
-						$dbw->onTransactionCommitOrIdle(function () use ( $dbw, $dbTableName, $fieldName ) {
-							$dbw->query("UPDATE $dbTableName SET `$fieldName` = JSON_ARRAY(`$fieldName`) WHERE NOT JSON_VALID(`$fieldName`) AND _page_id >= 0;");
-						}, __METHOD__);
+						$dbw->onTransactionCommitOrIdle( static function () use ( $dbw, $dbTableName, $fieldName ) {
+							$dbw->query( "UPDATE $dbTableName SET `$fieldName` = JSON_ARRAY(`$fieldName`) WHERE NOT JSON_VALID(`$fieldName`) AND _page_id >= 0;" );
+						}, __METHOD__ );
 					}
 					$alterTableFragments[] = "MODIFY `$fieldName` " . self::getDbType( $fieldName, $fieldData );
 					if ( $fieldData['index'] && $needNewIndex ) {
