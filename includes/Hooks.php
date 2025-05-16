@@ -13,6 +13,7 @@ use MediaWiki\Hook\LinksUpdateCompleteHook;
 use MediaWiki\Hook\MovePageIsValidMoveHook;
 use MediaWiki\Hook\SkinBuildSidebarHook;
 use MediaWiki\Installer\Hook\LoadExtensionSchemaUpdatesHook;
+use MediaWiki\MediaWikiServices;
 use MediaWiki\Page\Article;
 use MediaWiki\Page\Hook\ArticleFromTitleHook;
 use MediaWiki\Page\Hook\PageDeleteCompleteHook;
@@ -64,16 +65,15 @@ class Hooks implements
 	public function onLinksUpdateComplete( $linksUpdate, $ticket ) {
 		$bucketPuts = $linksUpdate->getParserOutput()->getExtensionData( Bucket::EXTENSION_DATA_KEY );
 		$pageId = $linksUpdate->getTitle()->getArticleID();
-		// TODO Figure this out
-		// $config = MediaWikiServices::getInstance()->getConfigFactory()->makeConfig( 'bucket' );
-		// if ( $linksUpdate->getTitle()->inNamespaces( $config->get( 'BucketWriteEnabledNamespaces' ) ) ) {
-		if ( $bucketPuts !== null ) {
-			$titleText = $linksUpdate->getTitle()->getPrefixedText();
-			Bucket::writePuts( $pageId, $titleText, $bucketPuts );
-		} else {
-			Bucket::clearOrphanedData( $pageId );
+		$config = MediaWikiServices::getInstance()->getMainConfig();
+		if ( $linksUpdate->getTitle()->inNamespaces( array_keys( $config->get( 'BucketWriteEnabledNamespaces' ) ) ) ) {
+			if ( $bucketPuts !== null ) {
+				$titleText = $linksUpdate->getTitle()->getPrefixedText();
+				Bucket::writePuts( $pageId, $titleText, $bucketPuts );
+			} else {
+				Bucket::clearOrphanedData( $pageId );
+			}
 		}
-		// }
 	}
 
 	/**
