@@ -699,6 +699,10 @@ class Bucket {
 			$alterTableFragments[] = "DROP `$deletedColumn`";
 		}
 
+		//TODO this is a test for keeping the schema in sync
+		$schemaString = json_encode($newSchema);
+		$alterTableFragments[] = "COMMENT='$schemaString'";
+
 		return "ALTER TABLE $dbTableName " . implode( ', ', $alterTableFragments ) . ';';
 	}
 
