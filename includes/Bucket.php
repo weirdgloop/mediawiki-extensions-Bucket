@@ -40,7 +40,6 @@ class Bucket {
 	];
 
 	public static function logMessage( string $bucket, string $property, string $type, string $message, &$logs ) {
-		// TODO need to create the correct bucket on plugin install
 		if ( !array_key_exists( self::MESSAGE_BUCKET, $logs ) ) {
 			$logs[self::MESSAGE_BUCKET] = [];
 		}
