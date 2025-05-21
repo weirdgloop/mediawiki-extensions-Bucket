@@ -3,6 +3,8 @@
 namespace MediaWiki\Extension\Bucket;
 
 use MediaWiki\Extension\Scribunto\Engines\LuaCommon\LibraryBase;
+use MediaWiki\MediaWikiServices;
+use MediaWiki\Title\MalformedTitleException;
 
 class LuaLibrary extends LibraryBase {
 	public function register() {

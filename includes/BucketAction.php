@@ -47,12 +47,12 @@ class BucketAction extends Action {
 			$schemas[$row->table_name] = json_decode( $row->schema_json, true );
 		}
 
+		$title = $dbw->addQuotes( $title );
 		foreach ( $tables as $table_name ) {
 			$bucket_page_name = str_replace( '_', ' ', $table_name );
 
 			$out->addWikiTextAsContent( "<h2>[[Bucket:$bucket_page_name]]</h2>" );
 
-			$title = $dbw->addQuotes($title);
 			$fullResult = BucketPageHelper::runQuery( $this->getRequest(), $table_name, '*', "{'page_name', $title}", 500, 0 );
 
 			$out->addWikiTextAsContent( BucketPageHelper::getResultTable( $schemas[$table_name], $fullResult['columns'], $fullResult['bucket'] ) );

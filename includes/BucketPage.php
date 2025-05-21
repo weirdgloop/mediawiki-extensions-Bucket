@@ -60,7 +60,12 @@ class BucketPage extends Article {
 
 		$resultCount = count( $queryResult );
 		$endResult = $offset + $resultCount;
-		// TODO: I really want to show the total row count for the table
+
+		$maxCount = $dbw->newSelectQueryBuilder()
+			->from( Bucket::getBucketTableName( $table_name ) )
+			->fetchRowCount();
+		$out->addWikiTextAsContent( 'Bucket entries: ' . $maxCount );
+
 		$out->addHTML( wfMessage( 'bucket-page-result-counter', $resultCount, $offset, $endResult ) );
 
 		$specialQueryValues = $context->getRequest()->getQueryValues();

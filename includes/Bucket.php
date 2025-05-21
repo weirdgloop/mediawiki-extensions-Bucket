@@ -112,7 +112,7 @@ class Bucket {
 			}
 
 			$tablePuts = [];
-			$dbTableName = 'bucket__' . $tableName;
+			$dbTableName = self::getBucketTableName( $tableName );
 			$res = $dbw->newSelectQueryBuilder()
 				->from( $dbw->addIdentifierQuotes( $dbTableName ) )
 				->select( '*' )
@@ -206,7 +206,7 @@ class Bucket {
 					->execute();
 				foreach ( $tablesToDelete as $name ) {
 					$dbw->newDeleteQueryBuilder()
-						->deleteFrom( $dbw->addIdentifierQuotes( 'bucket__' . $name ) )
+						->deleteFrom( self::getBucketTableName( $name ) )
 						->where( [ '_page_id' => $pageId ] )
 						->caller( __METHOD__ )
 						->execute();
@@ -250,7 +250,7 @@ class Bucket {
 			foreach ( $table as $name ) {
 				// Clear this pages data from the bucket
 				$dbw->newDeleteQueryBuilder()
-					->deleteFrom( $dbw->addIdentifierQuotes( 'bucket__' . $name ) )
+					->deleteFrom( self::getBucketTableName( $name ) )
 					->where( [ '_page_id' => $pageId ] )
 					->caller( __METHOD__ )
 					->execute();
@@ -334,7 +334,7 @@ class Bucket {
 
 			$newSchema[$lcFieldName] = [ 'type' => $fieldData->type, 'index' => $index, 'repeated' => $repeated ];
 		}
-		$dbTableName = 'bucket__' . $bucketName;
+		$dbTableName = self::getBucketTableName( $bucketName );
 		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
 
 		$dbw->onTransactionCommitOrIdle( function () use ( $dbw, $dbTableName, $newSchema, $parentId, $bucketName ) {
@@ -357,8 +357,7 @@ class Bucket {
 			//So we start a transaction, read the table comment (which is the schema), and write that to bucket_schemas
 			$dbw->begin( __METHOD__ );
 			$schemaJson = $dbw->query( "SHOW TABLE STATUS LIKE '$dbTableName';", __METHOD__ )->fetchObject()->Comment;
-			file_put_contents( MW_INSTALL_PATH . '/cook.txt', "================Schema in table comment $currentSchema\n", FILE_APPEND );
-			// $currentSchema['_parent_rev_id'] = $parentId; //TODO with the new DDL approach this doesn't work anymore, we could just use a timestamp or something
+			$currentSchema['_parent_rev_id'] = $parentId;
 			$dbw->upsert(
 				'bucket_schemas',
 				[ 'table_name' => $bucketName, 'schema_json' => $schemaJson ],
@@ -372,7 +371,7 @@ class Bucket {
 	public static function deleteTable( $bucketName ) {
 		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
 		$bucketName = self::getValidBucketName( $bucketName );
-		$tableName = 'bucket__' . $bucketName;
+		$tableName = self::getBucketTableName( $bucketName );
 
 		if ( self::canDeleteBucketPage( $bucketName ) ) {
 			$dbw->newDeleteQueryBuilder()
@@ -502,7 +501,6 @@ class Bucket {
 		}
 		// Drop unused columns
 		foreach ( $oldSchema as $deletedColumn => $val ) {
-			# TODO performance test this
 			$alterTableFragments[] = "DROP `$deletedColumn`";
 		}
 
@@ -598,8 +596,9 @@ class Bucket {
 		if ( self::isCategory( $column ) ) {
 			$tableName = 'category';
 			$columnName = explode( ':', $column )[1];
+			$bucketName = self::getBucketTableName( $tableName );
 			return [
-				'fullName' => "`bucket__$tableName`.`$columnName`",
+				'fullName' => "`$bucketName`.`$columnName`",
 				'tableName' => $tableName,
 				'columnName' => $columnName,
 				'schema' => [
@@ -645,8 +644,9 @@ class Bucket {
 		if ( !isset( $schemas[$tableName][$columnName] ) ) {
 			throw new QueryException( wfMessage( 'bucket-query-column-not-found-in-bucket', $columnName, $tableName ) );
 		}
+		$bucketName = self::getBucketTableName( $tableName );
 		return [
-			'fullName' => "`bucket__$tableName`.`$columnName`",
+			'fullName' => "`$bucketName`.`$columnName`",
 			'tableName' => $tableName,
 			'columnName' => $columnName,
 			'schema' => $schemas[$tableName][$columnName]
@@ -763,6 +763,10 @@ class Bucket {
 		throw new QueryException( wfMessage( 'bucket-query-where-confused', json_encode( $condition ) ) );
 	}
 
+	public static function getBucketTableName( $bucketName ): string {
+		return 'bucket__' . $bucketName;
+	}
+
 	public static function runSelect( $data ) {
 		$SELECTS = [];
 		$LEFT_JOINS = [];
@@ -778,7 +782,7 @@ class Bucket {
 			throw new QueryException( wfMessage( 'bucket-invalid-name-warning', $data['tableName'] ) );
 		}
 		$tableNames[ $primaryTableName ] = true;
-		$TABLES['bucket__' . $primaryTableName] = 'bucket__' . $primaryTableName;
+		$TABLES[self::getBucketTableName( $primaryTableName )] = self::getBucketTableName( $primaryTableName );
 
 		foreach ( $data['joins'] as $join ) {
 			$tableName = self::getValidFieldName( $join['tableName'] );
@@ -789,7 +793,7 @@ class Bucket {
 				throw new QueryException( wfMessage( 'bucket-select-duplicate-join', $tableName ) );
 			}
 			$tableNames[$tableName] = true;
-			$TABLES['bucket__' . $tableName] = 'bucket__' . $tableName;
+			$TABLES[self::getBucketTableName( $tableName )] = self::getBucketTableName( $tableName );
 			$join['tableName'] = $tableName;
 		}
 
@@ -874,8 +878,9 @@ class Bucket {
 
 			foreach ( $categoryJoins as $categoryName => $alias ) {
 				$TABLES[$alias] = 'categorylinks';
+				$bucketName = self::getBucketTableName( $primaryTableName );
 				$LEFT_JOINS[$alias] = [
-					"`$alias`.cl_from = `bucket__$primaryTableName`.`_page_id`", // Must be all in one string to avoid the table name being treated as a string value.
+					"`$alias`.cl_from = `$bucketName`.`_page_id`", // Must be all in one string to avoid the table name being treated as a string value.
 					"`$alias`.cl_to" => str_replace( ' ', '_', $categoryName )
 				];
 			}
@@ -905,11 +910,11 @@ class Bucket {
 					$isRightRepeated = $isTmp;
 				}
 
-				$LEFT_JOINS['bucket__' . $join['tableName']] = [
+				$LEFT_JOINS[self::getBucketTableName( $join['tableName'] )] = [
 					"{$rightField['fullName']} MEMBER OF({$leftField['fullName']})"
 				];
 			} else {
-				$LEFT_JOINS['bucket__' . $join['tableName']] = [
+				$LEFT_JOINS[self::getBucketTableName( $join['tableName'] )] = [
 					"{$leftField['fullName']} = {$rightField['fullName']}"
 				];
 			}
@@ -929,7 +934,7 @@ class Bucket {
 
 		$rows = [];
 		$tmp = $dbw->newSelectQueryBuilder()
-			->from( 'bucket__' . $primaryTableName )
+			->from( self::getBucketTableName( $primaryTableName ) )
 			->select( $SELECTS )
 			->where( $WHERES )
 			->options( $OPTIONS )
