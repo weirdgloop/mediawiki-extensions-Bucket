@@ -52,8 +52,8 @@ class BucketAction extends Action {
 
 			$out->addWikiTextAsContent( "<h2>[[Bucket:$bucket_page_name]]</h2>" );
 
-			// TODO properly escape title
-			$fullResult = BucketPageHelper::runQuery( $this->getRequest(), $table_name, '*', "{'page_name', \"$title\"}", 500, 0 );
+			$title = $dbw->addQuotes($title);
+			$fullResult = BucketPageHelper::runQuery( $this->getRequest(), $table_name, '*', "{'page_name', $title}", 500, 0 );
 
 			$out->addWikiTextAsContent( BucketPageHelper::getResultTable( $schemas[$table_name], $fullResult['columns'], $fullResult['bucket'] ) );
 		}

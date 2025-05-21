@@ -1,5 +1,6 @@
 {
-    "bucket": "Bucket",
+    "bucket": "Bucket browse",
+    "allbuckets": "All Buckets",
     "bucket-description": "Store things.",
     "bucket-view-help-bucket-name": "The current bucket name",
     "bucket-view-help-select": "Names of columns to select, seperated by a space. Such as page_name uses_material",

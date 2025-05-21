@@ -92,7 +92,6 @@ class Hooks implements
 				return false;
 			}
 		} catch ( Exception $e ) {
-			// TODO check if we need to tell the DB to revert if the error is a DB error
 			$status->fatal( $e->getMessage() );
 			return false;
 		}
@@ -145,7 +144,6 @@ class Hooks implements
 		try {
 			Bucket::createOrModifyTable( $title, $jsonSchema, $parentId );
 		} catch ( Exception $e ) {
-			// TODO check if we need to tell the DB to revert if the error is a DB error
 			$status->fatal( $e->getMessage() );
 			return false;
 		}

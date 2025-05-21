@@ -26,7 +26,7 @@ local QueryBuilder = {}
 function QueryBuilder:new(tableName)
     -- set everything up here...
     local queryBuilder = {
-        tableName = tableName, --TODO Force lower case and replace spaces with underscores
+        tableName = tableName,
         selects = {},
         wheres = {op = "AND", operands = {}},
         categories = {op = "AND", operands = {}},
@@ -72,7 +72,6 @@ function QueryBuilder:offset(arg)
 end
 
 function QueryBuilder:orderBy(fieldName, direction)
-    -- TODO throw an error if we set order by twice?
     self.orderBy = {fieldName = fieldName, direction = direction}
     return self
 end
