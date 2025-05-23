@@ -11,6 +11,7 @@ use MediaWiki\Deferred\LinksUpdate\LinksUpdate;
 use MediaWiki\Extension\Scribunto\Hooks\ScribuntoExternalLibrariesHook;
 use MediaWiki\Hook\LinksUpdateCompleteHook;
 use MediaWiki\Hook\MovePageIsValidMoveHook;
+use MediaWiki\Hook\SidebarBeforeOutputHook;
 use MediaWiki\Hook\SkinBuildSidebarHook;
 use MediaWiki\Installer\Hook\LoadExtensionSchemaUpdatesHook;
 use MediaWiki\MediaWikiServices;
@@ -37,7 +38,7 @@ class Hooks implements
 	PageUndeleteHook,
 	PageUndeleteCompleteHook,
 	ScribuntoExternalLibrariesHook,
-	SkinBuildSidebarHook,
+	SidebarBeforeOutputHook,
 	ArticleFromTitleHook,
 	MovePageIsValidMoveHook,
 	PageDeleteHook,
@@ -164,20 +165,17 @@ class Hooks implements
 
 	/**
 	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/SidebarBeforeOutput
-	 *
-	 * @param Skin $skin
-	 * @param array &$bar
-	 * @return void
 	 */
-	public function onSkinBuildSidebar( $skin, &$bar ) {
-		// TODO check namespace
-		// this should be TOOLBOX but that makes the entry not show up
-		$bar['toolbox'][] = [
-			'text' => 'View Bucket',
-			'href' => '?action=bucket',
-			'title' => 'Bucket',
-			'id' => 'n-bucket'
-		];
+	public function onSidebarBeforeOutput($skin, &$sidebar): void {
+		$config = MediaWikiServices::getInstance()->getMainConfig();
+		if ($skin->getTitle()->inNamespaces(array_keys($config->get('BucketWriteEnabledNamespaces')))) {
+			$sidebar['TOOLBOX'][] = [
+				'text' => 'View Bucket',
+				'href' => '?action=bucket',
+				'title' => 'Bucket',
+				'id' => 'n-bucket'
+			];
+		}
 	}
 
 	/**

@@ -41,7 +41,7 @@
 		"PageUndelete": "BucketHookHandler",
 		"PageUndeleteComplete": "BucketHookHandler",
 		"ScribuntoExternalLibraries": "BucketHookHandler",
-		"SkinBuildSidebar": "BucketHookHandler",
+		"SidebarBeforeOutput": "BucketHookHandler",
 		"ArticleFromTitle": "BucketHookHandler",
 		"MovePageIsValidMove": "BucketHookHandler",
 		"PageDelete": "BucketHookHandler",
