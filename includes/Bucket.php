@@ -368,6 +368,77 @@ class Bucket {
 		}, __METHOD__ );
 	}
 
+		private static function getAlterTableStatement( $dbTableName, $newSchema, $oldSchema, IDatabase $dbw ) {
+		$alterTableFragments = [];
+
+		unset( $oldSchema['_parent_rev_id'] ); // _parent_rev_id is not a column, its just metadata
+		foreach ( $newSchema as $fieldName => $fieldData ) {
+			# Handle new columns
+			if ( !isset( $oldSchema[$fieldName] ) ) {
+				$alterTableFragments[] = "ADD `$fieldName` " . self::getDbType( $fieldName, $fieldData );
+				if ( $fieldData['index'] ) {
+					$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $fieldName, $fieldData );
+				}
+			# Handle deleted columns
+			} elseif ( $oldSchema[$fieldName]['index'] === true && $fieldData['index'] === false ) {
+				$alterTableFragments[] = "DROP INDEX `$fieldName`";
+			} else {
+				# Handle type changes
+				$oldDbType = self::getDbType( $fieldName, $oldSchema[$fieldName] );
+				$newDbType = self::getDbType( $fieldName, $fieldData );
+				if ( $oldDbType !== $newDbType ) {
+					$needNewIndex = false;
+					if ( $oldSchema[$fieldName]['repeated'] || $fieldData['repeated']
+						|| strpos( self::getIndexStatement( $fieldName, $oldSchema[$fieldName] ), '(' ) != strpos( self::getIndexStatement( $fieldName, $fieldData ), '(' ) ) {
+						# We cannot MODIFY from a column that doesn't need key length to a column that does need key length
+						$alterTableFragments[] = "DROP INDEX `$fieldName`"; # Repeated types cannot reuse the existing index
+						$needNewIndex = true;
+					}
+					if ( $oldDbType == 'TEXT' && $newDbType == 'JSON' ) { # Update string types to be valid JSON
+						$dbw->onTransactionCommitOrIdle( static function () use ( $dbw, $dbTableName, $fieldName ) {
+							$dbw->query( "UPDATE $dbTableName SET `$fieldName` = JSON_ARRAY(`$fieldName`) WHERE NOT JSON_VALID(`$fieldName`) AND _page_id >= 0;" );
+						}, __METHOD__ );
+					}
+					$alterTableFragments[] = "MODIFY `$fieldName` " . self::getDbType( $fieldName, $fieldData );
+					if ( $fieldData['index'] && $needNewIndex ) {
+						$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $fieldName, $fieldData );
+					}
+				}
+				# Handle index changes
+				if ( ( $oldSchema[$fieldName]['index'] === false && $fieldData['index'] === true ) ) {
+					$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $fieldName, $fieldData );
+				}
+			}
+			unset( $oldSchema[$fieldName] );
+		}
+		// Drop unused columns
+		foreach ( $oldSchema as $deletedColumn => $val ) {
+			$alterTableFragments[] = "DROP `$deletedColumn`";
+		}
+
+		$schemaString = json_encode( $newSchema );
+		$alterTableFragments[] = "COMMENT='$schemaString'";
+
+		return "ALTER TABLE $dbTableName " . implode( ', ', $alterTableFragments ) . ';';
+	}
+
+	private static function getCreateTableStatement( $dbTableName, $newSchema ) {
+		$createTableFragments = [];
+
+		foreach ( $newSchema as $fieldName => $fieldData ) {
+			$dbType = self::getDbType( $fieldName, $fieldData );
+			$createTableFragments[] = "`$fieldName` {$dbType}";
+			if ( $fieldData['index'] ) {
+				$createTableFragments[] = self::getIndexStatement( $fieldName, $fieldData );
+			}
+		}
+		$createTableFragments[] = 'PRIMARY KEY (`_page_id`, `_index`)';
+
+		$schemaString = json_encode( $newSchema );
+
+		return "CREATE TABLE $dbTableName (" . implode( ', ', $createTableFragments ) . ') COMMENT=\'' . $schemaString . '\';';
+	}
+
 	public static function deleteTable( $bucketName ) {
 		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
 		$bucketName = self::getValidBucketName( $bucketName );
@@ -454,77 +525,6 @@ class Bucket {
 			default:
 				return "INDEX `$fieldName` (`$fieldName`)";
 		}
-	}
-
-	private static function getAlterTableStatement( $dbTableName, $newSchema, $oldSchema, IDatabase $dbw ) {
-		$alterTableFragments = [];
-
-		unset( $oldSchema['_parent_rev_id'] ); // _parent_rev_id is not a column, its just metadata
-		foreach ( $newSchema as $fieldName => $fieldData ) {
-			# Handle new columns
-			if ( !isset( $oldSchema[$fieldName] ) ) {
-				$alterTableFragments[] = "ADD `$fieldName` " . self::getDbType( $fieldName, $fieldData );
-				if ( $fieldData['index'] ) {
-					$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $fieldName, $fieldData );
-				}
-			# Handle deleted columns
-			} elseif ( $oldSchema[$fieldName]['index'] === true && $fieldData['index'] === false ) {
-				$alterTableFragments[] = "DROP INDEX `$fieldName`";
-			} else {
-				# Handle type changes
-				$oldDbType = self::getDbType( $fieldName, $oldSchema[$fieldName] );
-				$newDbType = self::getDbType( $fieldName, $fieldData );
-				if ( $oldDbType !== $newDbType ) {
-					$needNewIndex = false;
-					if ( $oldSchema[$fieldName]['repeated'] || $fieldData['repeated']
-						|| strpos( self::getIndexStatement( $fieldName, $oldSchema[$fieldName] ), '(' ) != strpos( self::getIndexStatement( $fieldName, $fieldData ), '(' ) ) {
-						# We cannot MODIFY from a column that doesn't need key length to a column that does need key length
-						$alterTableFragments[] = "DROP INDEX `$fieldName`"; # Repeated types cannot reuse the existing index
-						$needNewIndex = true;
-					}
-					if ( $oldDbType == 'TEXT' && $newDbType == 'JSON' ) { # Update string types to be valid JSON
-						$dbw->onTransactionCommitOrIdle( static function () use ( $dbw, $dbTableName, $fieldName ) {
-							$dbw->query( "UPDATE $dbTableName SET `$fieldName` = JSON_ARRAY(`$fieldName`) WHERE NOT JSON_VALID(`$fieldName`) AND _page_id >= 0;" );
-						}, __METHOD__ );
-					}
-					$alterTableFragments[] = "MODIFY `$fieldName` " . self::getDbType( $fieldName, $fieldData );
-					if ( $fieldData['index'] && $needNewIndex ) {
-						$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $fieldName, $fieldData );
-					}
-				}
-				# Handle index changes
-				if ( ( $oldSchema[$fieldName]['index'] === false && $fieldData['index'] === true ) ) {
-					$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $fieldName, $fieldData );
-				}
-			}
-			unset( $oldSchema[$fieldName] );
-		}
-		// Drop unused columns
-		foreach ( $oldSchema as $deletedColumn => $val ) {
-			$alterTableFragments[] = "DROP `$deletedColumn`";
-		}
-
-		$schemaString = json_encode( $newSchema );
-		$alterTableFragments[] = "COMMENT='$schemaString'";
-
-		return "ALTER TABLE $dbTableName " . implode( ', ', $alterTableFragments ) . ';';
-	}
-
-	private static function getCreateTableStatement( $dbTableName, $newSchema ) {
-		$createTableFragments = [];
-
-		foreach ( $newSchema as $fieldName => $fieldData ) {
-			$dbType = self::getDbType( $fieldName, $fieldData );
-			$createTableFragments[] = "`$fieldName` {$dbType}";
-			if ( $fieldData['index'] ) {
-				$createTableFragments[] = self::getIndexStatement( $fieldName, $fieldData );
-			}
-		}
-		$createTableFragments[] = 'PRIMARY KEY (`_page_id`, `_index`)';
-
-		$schemaString = json_encode( $newSchema );
-
-		return "CREATE TABLE $dbTableName (" . implode( ', ', $createTableFragments ) . ') COMMENT=\'' . $schemaString . '\';';
 	}
 
 	public static function castToDbType( $value, $type ) {
