@@ -171,7 +171,7 @@ class Hooks implements
 	 */
 	public function onSkinBuildSidebar( $skin, &$bar ) {
 		// TODO check namespace
-		//TODO this should be TOOLBOX but that makes the entry not show up
+		// this should be TOOLBOX but that makes the entry not show up
 		$bar['toolbox'][] = [
 			'text' => 'View Bucket',
 			'href' => '?action=bucket',

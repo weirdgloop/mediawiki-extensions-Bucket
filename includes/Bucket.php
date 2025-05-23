@@ -265,7 +265,7 @@ class Bucket {
 		return false;
 	}
 
-	private static function getValidBucketName( string $bucketName ) {
+	public static function getValidBucketName( string $bucketName ) {
 		if ( ucfirst( $bucketName ) != ucfirst( strtolower( $bucketName ) ) ) {
 			throw new SchemaException( wfMessage( 'bucket-capital-name-error' ) );
 		}

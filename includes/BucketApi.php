@@ -30,8 +30,19 @@ class BucketApi extends ApiBase {
 
 			$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
 
-			$res = $dbw->select( 'bucket_schemas', [ 'table_name', 'schema_json' ], [ 'table_name' => $bucket ] );
-			// TODO: Early error return if bucket isn't valid
+			try {
+				$bucket = Bucket::getValidBucketName($bucket);
+			} catch (SchemaException $e) { 
+				$this->getResult()->addValue(null, 'error', $e->getMessage());
+				return;
+			}
+
+			$res = $dbw->newSelectQueryBuilder()
+				->from( 'bucket_schemas' )
+				->select( [ 'table_name', 'schema_json' ] )
+				->where( [ 'table_name' => $bucket ] )
+				->caller( __METHOD__ )
+				->fetchResultSet();
 			$schemas = [];
 			foreach ( $res as $row ) {
 				$schemas[$row->table_name] = json_decode( $row->schema_json, true );
@@ -46,7 +57,7 @@ class BucketApi extends ApiBase {
 					}
 				}
 			} else {
-				$selectNames = explode( ' ', $select ); // TODO this breaks if given categories with spaces in them
+				$selectNames = explode( ' ', $select );
 			}
 			$this->getResult()->addValue( null, 'columns', $selectNames );
 			foreach ( $selectNames as $idx => $name ) {
@@ -79,7 +90,6 @@ class BucketApi extends ApiBase {
 			] );
 
 		} catch ( ScribuntoException $e ) {
-			// TODO this ends up being a message like "Lua error in mw.ext.bucket.lua at line 86: Bucket aaaaaa does not exist.." which is kinda uggo
 			$this->getResult()->addValue( null, 'error', $e->getMessage() );
 		}
 

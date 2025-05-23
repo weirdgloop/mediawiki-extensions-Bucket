@@ -36,8 +36,7 @@ class BucketPageHelper {
 			foreach ( $json as $val ) {
 				$formatted_val = self::formatValue( $val, $dataType, false );
 				if ( $formatted_val != '' ) {
-					# TODO: Move this to a css file
-					$returns[] = '<li style="text-wrap-mode: nowrap;">' . $formatted_val;
+					$returns[] = '<li class="bucket-list">' . $formatted_val;
 				}
 			}
 			return implode( '', $returns );

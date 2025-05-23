@@ -16,3 +16,7 @@
 #mw-content-text > .mw-json > tbody > tr > th {
     display: table-caption;
 }
+
+.bucket-list {
+    text-wrap-mode: nowrap;
+}
