@@ -36,6 +36,8 @@
     "bucket-capital-name-warning": "Bucket name should be all lower case.",
     "bucket-capital-name-error": "Bucket name must be all lower case.",
     "bucket-no-exist-error": "Bucket doesn't exist.",
+    "bucket-already-exist-error": "The Bucket database table already exists.",
+    "bucket-cannot-create-system-page": "Cannot create pages for System Buckets.",
     "bucket-put-syntax-error": "mw.ext.bucket.put() argument must be a table.",
     "bucket-put-key-missing-warning": "Key '$1' does not exist in $2.",
     "bucket-schema-no-columns-error": "Need at least one column in the schema.",

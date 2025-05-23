@@ -279,15 +279,15 @@ class Bucket {
 	public static function canCreateTable( string $bucketName ) {
 		$bucketName = self::getValidBucketName( $bucketName );
 		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
-		$schema = $dbw->newSelectQueryBuilder()
+		$schemaExists = $dbw->newSelectQueryBuilder()
 			->from( 'bucket_schemas' )
 			->where( [ 'table_name' => $bucketName ] )
 			->forUpdate()
 			->caller( __METHOD__ )
 			->field( 'schema_json' )
 			->fetchField();
-		// TODO also check if bucket__$bucketName exists
-		if ( !$schema ) {
+		$tableExists = $dbw->tableExists( self::getBucketTableName( $bucketName ) );
+		if ( !$schemaExists && !$tableExists ) {
 			return true;
 		} else {
 			return false;
@@ -296,12 +296,19 @@ class Bucket {
 
 	public static function createOrModifyTable( string $bucketName, object $jsonSchema, int $parentId ) {
 		$newSchema = array_merge( [], self::$requiredColumns );
+		$bucketName = self::getValidBucketName( $bucketName );
+
+		if ( $bucketName == self::MESSAGE_BUCKET) {
+			throw new SchemaException( wfMessage('bucket-cannot-create-system-page'));
+		}
+
+		if ( $parentId == 0 && !self::canCreateTable( $bucketName ) ) {
+			throw new SchemaException( wfMessage( 'bucket-already-exist-error' ) );
+		}
 
 		if ( empty( (array)$jsonSchema ) ) {
 			throw new SchemaException( wfMessage( 'bucket-schema-no-columns-error' ) );
 		}
-
-		$bucketName = self::getValidBucketName( $bucketName );
 
 		foreach ( $jsonSchema as $fieldName => $fieldData ) {
 			if ( gettype( $fieldName ) !== 'string' ) {
@@ -368,7 +375,7 @@ class Bucket {
 		}, __METHOD__ );
 	}
 
-		private static function getAlterTableStatement( $dbTableName, $newSchema, $oldSchema, IDatabase $dbw ) {
+	private static function getAlterTableStatement( $dbTableName, $newSchema, $oldSchema, IDatabase $dbw ) {
 		$alterTableFragments = [];
 
 		unset( $oldSchema['_parent_rev_id'] ); // _parent_rev_id is not a column, its just metadata
