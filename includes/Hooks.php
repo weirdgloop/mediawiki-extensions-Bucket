@@ -12,7 +12,6 @@ use MediaWiki\Extension\Scribunto\Hooks\ScribuntoExternalLibrariesHook;
 use MediaWiki\Hook\LinksUpdateCompleteHook;
 use MediaWiki\Hook\MovePageIsValidMoveHook;
 use MediaWiki\Hook\SidebarBeforeOutputHook;
-use MediaWiki\Hook\SkinBuildSidebarHook;
 use MediaWiki\Installer\Hook\LoadExtensionSchemaUpdatesHook;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Page\Article;
@@ -166,9 +165,9 @@ class Hooks implements
 	/**
 	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/SidebarBeforeOutput
 	 */
-	public function onSidebarBeforeOutput($skin, &$sidebar): void {
+	public function onSidebarBeforeOutput( $skin, &$sidebar ): void {
 		$config = MediaWikiServices::getInstance()->getMainConfig();
-		if ($skin->getTitle()->inNamespaces(array_keys($config->get('BucketWriteEnabledNamespaces')))) {
+		if ( $skin->getTitle()->inNamespaces( array_keys( $config->get( 'BucketWriteEnabledNamespaces' ) ) ) ) {
 			$sidebar['TOOLBOX'][] = [
 				'text' => 'View Bucket',
 				'href' => '?action=bucket',

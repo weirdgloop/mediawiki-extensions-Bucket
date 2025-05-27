@@ -31,9 +31,9 @@ class BucketApi extends ApiBase {
 			$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
 
 			try {
-				$bucket = Bucket::getValidBucketName($bucket);
-			} catch (SchemaException $e) { 
-				$this->getResult()->addValue(null, 'error', $e->getMessage());
+				$bucket = Bucket::getValidBucketName( $bucket );
+			} catch ( SchemaException $e ) {
+				$this->getResult()->addValue( null, 'error', $e->getMessage() );
 				return;
 			}
 

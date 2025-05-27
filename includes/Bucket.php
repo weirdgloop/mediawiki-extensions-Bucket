@@ -143,7 +143,7 @@ class Bucket {
 				foreach ( $fields as $key => $_ ) {
 					$value = isset( $singleData[$key] ) ? $singleData[$key] : null;
 					# TODO JSON relies on forcing utf8 transmission in DatabaseMySQL.php line 829
-					$singlePut[$dbw->addIdentifierQuotes( $key )] = self::castToDbType( $value, self::getDbType( $fieldName, $schemas[$tableName][$key] ) );
+					$singlePut[$dbw->addIdentifierQuotes( $key )] = self::castToDbType( $value, self::getDbType( $key, $schemas[$tableName][$key] ) );
 				}
 				$singlePut[$dbw->addIdentifierQuotes( '_page_id' )] = $pageId;
 				$singlePut[$dbw->addIdentifierQuotes( '_index' )] = $idx;
@@ -298,8 +298,8 @@ class Bucket {
 		$newSchema = array_merge( [], self::$requiredColumns );
 		$bucketName = self::getValidBucketName( $bucketName );
 
-		if ( $bucketName == self::MESSAGE_BUCKET) {
-			throw new SchemaException( wfMessage('bucket-cannot-create-system-page'));
+		if ( $bucketName == self::MESSAGE_BUCKET ) {
+			throw new SchemaException( wfMessage( 'bucket-cannot-create-system-page' ) );
 		}
 
 		if ( $parentId == 0 && !self::canCreateTable( $bucketName ) ) {
@@ -595,7 +595,7 @@ class Bucket {
 		}
 	}
 
-	public static function sanitizeColumnName( $column, $fieldNamesToTables, $schemas, $tableName = null ) {
+	public static function sanitizeColumnName( $column, $fieldNamesToTables, $schemas, IDatabase $dbw, $tableName = null ) {
 		if ( !is_string( $column ) ) {
 			throw new QueryException( wfMessage( 'bucket-query-column-interpret-error', $column ) );
 		}
@@ -605,7 +605,7 @@ class Bucket {
 			$columnName = explode( ':', $column )[1];
 			$bucketName = self::getBucketTableName( $tableName );
 			return [
-				'fullName' => "`$bucketName`.`$columnName`",
+				'fullName' => $dbw->addIdentifierQuotes( $bucketName ) . '.' . $dbw->addIdentifierQuotes( $columnName ),
 				'tableName' => $tableName,
 				'columnName' => $columnName,
 				'schema' => [
@@ -653,11 +653,19 @@ class Bucket {
 		}
 		$bucketName = self::getBucketTableName( $tableName );
 		return [
-			'fullName' => "`$bucketName`.`$columnName`",
+			'fullName' => $dbw->addIdentifierQuotes( $bucketName ) . '.' . $dbw->addIdentifierQuotes( $columnName ),
 			'tableName' => $tableName,
 			'columnName' => $columnName,
 			'schema' => $schemas[$tableName][$columnName]
 		];
+	}
+
+	private static function sanitizeValue( $value, IDatabase $dbw ) {
+		if ( is_numeric( $value ) ) {
+			return $value;
+		} else {
+			return $dbw->addQuotes( $value );
+		}
 	}
 
 	public static function isNot( $condition ) {
@@ -685,7 +693,7 @@ class Bucket {
 	 * 		(optional)op -> AND | OR | NOT
 	 * 		unnamed -> scalar value or array of scalar values
 	 */
-	public static function getWhereCondition( $condition, $fieldNamesToTables, $schemas, $dbw, &$categoryJoins ) {
+	public static function getWhereCondition( $condition, $fieldNamesToTables, $schemas, IDatabase $dbw, &$categoryJoins ) {
 		if ( self::isOrAnd( $condition ) ) {
 			if ( empty( $condition['operands'] ) ) {
 				throw new QueryException( wfMessage( 'bucket-query-where-missing-cond', json_encode( $condition ) ) );
@@ -699,8 +707,11 @@ class Bucket {
 					$children[] = self::getWhereCondition( $operand, $fieldNamesToTables, $schemas, $dbw, $categoryJoins );
 				}
 			}
-			$children = implode( " {$condition['op']} ", $children );
-			return "($children)";
+			if ( $condition['op'] == 'OR' ) {
+				return $dbw->makeList( $children, IDatabase::LIST_OR );
+			} else {
+				return $dbw->makeList( $children, IDatabase::LIST_AND );
+			}
 		} elseif ( self::isNot( $condition ) ) {
 			$child = self::getWhereCondition( $condition['operand'], $fieldNamesToTables, $schemas, $dbw, $categoryJoins );
 			return "(NOT $child)";
@@ -718,12 +729,12 @@ class Bucket {
 			if ( count( $condition ) === 2 ) {
 				$condition = [ $condition[0], '=', $condition[1] ];
 			}
-			$columnNameData = self::sanitizeColumnName( $condition[0], $fieldNamesToTables, $schemas );
+			$columnNameData = self::sanitizeColumnName( $condition[0], $fieldNamesToTables, $schemas, $dbw );
 			if ( !isset( self::$WHERE_OPS[$condition[1]] ) ) {
 				throw new QueryException( wfMessage( 'bucket-query-where-invalid-op', $condition[1] ) );
 			}
 			$op = $condition[1];
-			$value = $condition[2];
+			$value = self::sanitizeValue( $condition[2], $dbw );
 
 			$columnName = $columnNameData['fullName'];
 			$columnData = $fieldNamesToTables[$columnNameData['columnName']][$columnNameData['tableName']];
@@ -733,9 +744,6 @@ class Bucket {
 				}
 				return "($columnName IS NULL)";
 			} elseif ( $columnData['repeated'] == true ) {
-				if ( !is_numeric( $value ) ) {
-					$value = '"' . $dbw->strencode( $value ) . '"';
-				}
 				if ( $op == '=' ) {
 					return "$value MEMBER OF($columnName)";
 				}
@@ -745,18 +753,20 @@ class Bucket {
 				// > < >= <=
 				//TODO this is very expensive
 				$columnData['repeated'] = false; // Set repeated to false to get the underlying type
-				$dbType = self::getDbType( $columnName, $columnData );
+				$dbType = self::getDbType( $columnNameData['fullName'], $columnData );
 				// We have to reverse the direction of < > <= >= because SQL requires this condition to be $value $op $column
 				//and user input is in order $column $op $value
 				$op = strtr( $op, [ '<' => '>', '>' => '<' ] );
 				return "($value $op ANY(SELECT json_col FROM JSON_TABLE($columnName, '$[*]' COLUMNS(json_col $dbType PATH '$')) AS json_tab))";
 			} else {
-				if ( is_numeric( $value ) ) {
+				if ( in_array( $op, [ '>', '>=', '<', '<=' ] ) ) {
+					return $dbw->buildComparison( $op, [ $columnName => $value ] );
+				} elseif ( $op == '=' ) {
+					return $dbw->makeList( [ $columnName => $value ], IDatabase::LIST_AND );
+				} elseif ( $op == '!=' ) {
 					return "($columnName $op $value)";
-				} elseif ( is_string( $value ) ) {
-					// TODO: really don't like this
-					$value = $dbw->strencode( $value );
-					return "($columnName $op \"$value\")";
+				} else {
+					throw new QueryException( wfMessage( 'bucket-query-where-confused', json_encode( $condition ) ) );
 				}
 			}
 		} elseif ( is_string( $condition ) && self::isCategory( $condition ) || ( is_array( $condition ) && self::isCategory( $condition[0] ) ) ) {
@@ -866,7 +876,7 @@ class Bucket {
 					$selectTableName = $primaryTableName;
 				}
 
-				$colData = self::sanitizeColumnName( $selectColumn, $fieldNamesToTables, $schemas, $selectTableName );
+				$colData = self::sanitizeColumnName( $selectColumn, $fieldNamesToTables, $schemas, $dbw, $selectTableName );
 
 				if ( $colData['tableName'] != $primaryTableName ) {
 					$SELECTS[$selectColumn] = 'JSON_ARRAY(' . $colData['fullName'] . ')';
@@ -897,9 +907,9 @@ class Bucket {
 			if ( !is_array( $join['cond'] ) || !count( $join['cond'] ) == 2 ) {
 				throw new QueryException( wfMessage( 'bucket-query-invalid-join', json_encode( $join ) ) );
 			}
-			$leftField = self::sanitizeColumnName( $join['cond'][0], $fieldNamesToTables, $schemas );
+			$leftField = self::sanitizeColumnName( $join['cond'][0], $fieldNamesToTables, $schemas, $dbw );
 			$isLeftRepeated = $leftField['schema']['repeated'];
-			$rightField = self::sanitizeColumnName( $join['cond'][1], $fieldNamesToTables, $schemas );
+			$rightField = self::sanitizeColumnName( $join['cond'][1], $fieldNamesToTables, $schemas, $dbw );
 			$isRightRepeated = $rightField['schema']['repeated'];
 
 			if ( $isLeftRepeated && $isRightRepeated ) {
@@ -951,7 +961,7 @@ class Bucket {
 			$tmp->leftJoin( $TABLES[$alias], $alias, $conds );
 		}
 		if ( isset( $data['orderBy'] ) ) {
-			$orderName = self::sanitizeColumnName( $data['orderBy']['fieldName'], $fieldNamesToTables, $schemas )['fullName'];
+			$orderName = self::sanitizeColumnName( $data['orderBy']['fieldName'], $fieldNamesToTables, $schemas, $dbw )['fullName'];
 			if ( $orderName != false ) {
 				$tmp->orderBy( $orderName, $data['orderBy']['direction'] );
 			}
@@ -966,7 +976,7 @@ class Bucket {
 				if ( count( explode( '.', $columnName ) ) == 1 ) {
 					$defaultTableName = $primaryTableName;
 				}
-				$schema = self::sanitizeColumnName( $columnName, $fieldNamesToTables, $schemas, $defaultTableName )['schema'];
+				$schema = self::sanitizeColumnName( $columnName, $fieldNamesToTables, $schemas, $dbw, $defaultTableName )['schema'];
 				$row[$columnName] = self::cast( $value, $schema );
 			}
 			$rows[] = $row;
