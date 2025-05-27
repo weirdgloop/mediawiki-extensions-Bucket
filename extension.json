@@ -83,6 +83,12 @@
 				"0": true,
 				"4": true
 			}
+		},
+		"BucketDBuser": {
+			"value": null
+		},
+		"BucketDBpassword": {
+			"value": null
 		}
 	},
 	"ConfigRegistry": {

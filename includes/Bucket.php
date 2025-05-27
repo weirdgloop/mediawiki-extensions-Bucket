@@ -5,6 +5,7 @@ namespace MediaWiki\Extension\Bucket;
 use LogicException;
 use MediaWiki\MediaWikiServices;
 use Wikimedia\Rdbms\IDatabase;
+use Wikimedia\Rdbms\IMaintainableDatabase;
 
 class Bucket {
 	public const EXTENSION_DATA_KEY = 'bucket:puts';
@@ -12,6 +13,8 @@ class Bucket {
 	public const MAX_LIMIT = 5000;
 	public const DEFAULT_LIMIT = 500;
 	public const MESSAGE_BUCKET = 'bucket_message';
+
+	private static $db = null;
 
 	private static $dataTypes = [
 		'BOOLEAN' => 'BOOLEAN',
@@ -39,6 +42,30 @@ class Bucket {
 		'<'  => true,
 	];
 
+	public static function getDB(): IMaintainableDatabase {
+		if ( self::$db != null && self::$db->isOpen() ) {
+			return self::$db;
+		}
+		$config = MediaWikiServices::getInstance()->getMainConfig();
+		$bucketDBuser = $config->get( 'BucketDBuser' );
+		$bucketDBpassword = $config->get( 'BucketDBpassword' );
+
+		$mainDB = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnection( DB_PRIMARY );
+		if ( $bucketDBuser == null || $bucketDBpassword == null ) {
+			return $mainDB;
+		}
+
+		$params = [
+			'host' => $mainDB->getServer(),
+			'user' => $bucketDBuser,
+			'password' => $bucketDBpassword,
+			'dbname' => $mainDB->getDBname()
+		];
+
+		self::$db = MediaWikiServices::getInstance()->getDatabaseFactory()->create( $mainDB->getType(), $params );
+		return self::$db;
+	}
+
 	public static function logMessage( string $bucket, string $property, string $type, string $message, &$logs ) {
 		if ( !array_key_exists( self::MESSAGE_BUCKET, $logs ) ) {
 			$logs[self::MESSAGE_BUCKET] = [];
@@ -62,7 +89,7 @@ class Bucket {
 	*/
 	public static function writePuts( int $pageId, string $titleText, array $puts, bool $writingLogs = false ) {
 		$logs = [];
-		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
+		$dbw = self::getDB();
 
 		$res = $dbw->newSelectQueryBuilder()
 				->from( 'bucket_pages' )
@@ -223,7 +250,7 @@ class Bucket {
 	 * Called for any page save that doesn't have bucket puts
 	 */
 	public static function clearOrphanedData( int $pageId ) {
-		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
+		$dbw = self::getDB();
 
 		// Check if any buckets are storing data for this page
 		$res = $dbw->newSelectQueryBuilder()
@@ -278,7 +305,7 @@ class Bucket {
 
 	public static function canCreateTable( string $bucketName ) {
 		$bucketName = self::getValidBucketName( $bucketName );
-		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
+		$dbw = self::getDB();
 		$schemaExists = $dbw->newSelectQueryBuilder()
 			->from( 'bucket_schemas' )
 			->where( [ 'table_name' => $bucketName ] )
@@ -342,7 +369,7 @@ class Bucket {
 			$newSchema[$lcFieldName] = [ 'type' => $fieldData->type, 'index' => $index, 'repeated' => $repeated ];
 		}
 		$dbTableName = self::getBucketTableName( $bucketName );
-		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
+		$dbw = self::getDB();
 
 		$dbw->onTransactionCommitOrIdle( function () use ( $dbw, $dbTableName, $newSchema, $parentId, $bucketName ) {
 			file_put_contents( MW_INSTALL_PATH . '/cook.txt', "POST TRANSACTION COMMIT\n", FILE_APPEND );
@@ -447,7 +474,7 @@ class Bucket {
 	}
 
 	public static function deleteTable( $bucketName ) {
-		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
+		$dbw = self::getDB();
 		$bucketName = self::getValidBucketName( $bucketName );
 		$tableName = self::getBucketTableName( $bucketName );
 
@@ -462,7 +489,7 @@ class Bucket {
 	}
 
 	public static function canDeleteBucketPage( $bucketName ) {
-		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
+		$dbw = self::getDB();
 		$bucketName = self::getValidBucketName( $bucketName );
 		$putCount = $dbw->newSelectQueryBuilder()
 						->table( 'bucket_pages' )
@@ -726,7 +753,7 @@ class Bucket {
 		} elseif ( self::isNot( $condition ) ) {
 			$child = self::getWhereCondition( $condition['operand'], $fieldNamesToTables, $schemas, $dbw, $categoryJoins );
 			return "(NOT $child)";
-		} elseif ( is_array( $condition ) && is_array( $condition[0] ) ) {
+		} elseif ( is_array( $condition ) && isset( $condition[0] ) && is_array( $condition[0] ) ) {
 			// .where{{"a", ">", 0}, {"b", "=", "5"}})
 			return self::getWhereCondition( [ 'op' => isset( $condition[ 'op' ] ) ? $condition[ 'op' ] : 'AND', 'operands' => $condition ], $fieldNamesToTables, $schemas, $dbw, $categoryJoins );
 		} elseif ( is_array( $condition ) && !empty( $condition ) && !isset( $condition[0] ) ) {
@@ -833,7 +860,7 @@ class Bucket {
 			}
 		}
 
-		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
+		$dbw = self::getDB();
 		$missingTableNames = array_keys( $tableNames );
 		if ( !empty( $missingTableNames ) ) {
 			$res = $dbw->newSelectQueryBuilder()
