@@ -662,10 +662,21 @@ class Bucket {
 
 	private static function sanitizeValue( $value, IDatabase $dbw ) {
 		if ( is_numeric( $value ) ) {
-			return $value;
-		} else {
-			return $dbw->addQuotes( $value );
+			if ( is_int( $value ) ) {
+				return intval( $value );
+			}
+			if ( is_float( $value ) ) { // Float and double
+				return floatval( $value );
+			}
+			throw new QueryException( wfMessage( 'bucket-query-cast-fail', $value ) );
 		}
+		if ( is_bool( $value ) ) {
+			return boolval( $value );
+		}
+		if ( is_string( $value ) ) {
+			return $dbw->addQuotes( strval( $value ) );
+		}
+		throw new QueryException( wfMessage( 'bucket-query-cast-fail', $value ) );
 	}
 
 	public static function isNot( $condition ) {
@@ -734,7 +745,8 @@ class Bucket {
 				throw new QueryException( wfMessage( 'bucket-query-where-invalid-op', $condition[1] ) );
 			}
 			$op = $condition[1];
-			$value = self::sanitizeValue( $condition[2], $dbw );
+			$valueUnescaped = $condition[2]; // Use this only to pass value to functions that will escape it themselves.
+			$value = self::sanitizeValue( $valueUnescaped, $dbw );
 
 			$columnName = $columnNameData['fullName'];
 			$columnData = $fieldNamesToTables[$columnNameData['columnName']][$columnNameData['tableName']];
@@ -760,9 +772,9 @@ class Bucket {
 				return "($value $op ANY(SELECT json_col FROM JSON_TABLE($columnName, '$[*]' COLUMNS(json_col $dbType PATH '$')) AS json_tab))";
 			} else {
 				if ( in_array( $op, [ '>', '>=', '<', '<=' ] ) ) {
-					return $dbw->buildComparison( $op, [ $columnName => $value ] );
+					return $dbw->buildComparison( $op, [ $columnName => $valueUnescaped ] );
 				} elseif ( $op == '=' ) {
-					return $dbw->makeList( [ $columnName => $value ], IDatabase::LIST_AND );
+					return $dbw->makeList( [ $columnName => $valueUnescaped ], IDatabase::LIST_AND );
 				} elseif ( $op == '!=' ) {
 					return "($columnName $op $value)";
 				} else {
@@ -868,23 +880,20 @@ class Bucket {
 				$categoryJoins[$categoryName] = $selectColumn;
 				continue;
 			} else {
-				// TODO: don't like this
-				$selectColumn = strtolower( trim( $selectColumn ) );
 				$selectTableName = null;
 				// If we don't have a period then we must be the primary column.
 				if ( count( explode( '.', $selectColumn ) ) == 1 ) {
 					$selectTableName = $primaryTableName;
 				}
-
 				$colData = self::sanitizeColumnName( $selectColumn, $fieldNamesToTables, $schemas, $dbw, $selectTableName );
 
 				if ( $colData['tableName'] != $primaryTableName ) {
-					$SELECTS[$selectColumn] = 'JSON_ARRAY(' . $colData['fullName'] . ')';
+					$SELECTS[$colData['tableName'] . '.' . $colData['columnName']] = 'JSON_ARRAY(' . $colData['fullName'] . ')';
 				} else {
-					$SELECTS[$selectColumn] = $colData['fullName'];
+					$SELECTS[$colData['columnName']] = $colData['fullName'];
 				}
 			}
-			$ungroupedColumns[$dbw->addIdentifierQuotes( $selectColumn )] = true;
+			$ungroupedColumns[$colData['fullName']] = true;
 		}
 
 		if ( !empty( $data['wheres']['operands'] ) ) {

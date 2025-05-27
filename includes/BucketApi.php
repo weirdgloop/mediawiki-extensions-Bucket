@@ -90,7 +90,9 @@ class BucketApi extends ApiBase {
 			] );
 
 		} catch ( ScribuntoException $e ) {
-			$this->getResult()->addValue( null, 'error', $e->getMessage() );
+			$errorMsg = $e->getMessage();
+			$errorMsg = preg_replace( '/Lua error in .+: /U', '', $errorMsg ); // Remove the "Lua error in mw.ext.bucket.ua at line 85" text to clean up the error a little bit.
+			$this->getResult()->addValue( null, 'error', $errorMsg );
 		}
 
 		$this->getResult()->addValue( null, 'bucket', json_decode( $result['return'] ) );

@@ -58,5 +58,6 @@
     "bucket-query-where-confused": "Did not understand where condition: $1",
     "bucket-query-select-duplicate-join": "Bucket $1 is already used in mw.ext.bucket.join() and cannot be used again.",
     "bucket-query-invalid-join": "Invalid mw.ext.bucket.join() condition: $1",
-    "bucket-query-invalid-join-two-repeated": "Cannot use mw.ext.bucket.join() on two repeated fields: $1, $2"
+    "bucket-query-invalid-join-two-repeated": "Cannot use mw.ext.bucket.join() on two repeated fields: $1, $2",
+    "bucket-query-cast-fail": "Invalid query value: $1"
 }
