@@ -45,8 +45,8 @@ class SetupDBPermission extends Maintenance {
 
 		$query = [];
 
-		// We only need to be able to select from the category table.
-		$query[] = "GRANT SELECT ON `category` TO $fullUserName;";
+		// We only need to be able to select from the categorylinks table.
+		$query[] = "GRANT SELECT ON `categorylinks` TO $fullUserName;";
 
 		// These tables we want to select, insert, and delete rows.
 		$specialTables = [ 'bucket_pages', 'bucket_schemas' ];
