@@ -28,7 +28,7 @@ class BucketApi extends ApiBase {
 			$limit = $params['limit'];
 			$offset = $params['offset'];
 
-			$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
+			$dbw = Bucket::getDB();
 
 			try {
 				$bucket = Bucket::getValidBucketName( $bucket );

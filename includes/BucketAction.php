@@ -1,7 +1,10 @@
 <?php
 
-use MediaWiki\Extension\Bucket\BucketPageHelper;
+namespace MediaWiki\Extension\Bucket;
+
+use Action;
 use MediaWiki\MediaWikiServices;
+use MediaWiki\Title\TitleValue;
 
 class BucketAction extends Action {
 
@@ -17,7 +20,7 @@ class BucketAction extends Action {
 		$pageId = $this->getArticle()->getPage()->getId();
 		$out->setPageTitle( "Bucket View: $title" );
 
-		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
+		$dbw = Bucket::getDB();
 
 		$res = $dbw->newSelectQueryBuilder()
 			->from( 'bucket_pages' )
@@ -48,10 +51,11 @@ class BucketAction extends Action {
 		}
 
 		$title = $dbw->addQuotes( $title );
+		$linkRenderer = MediaWikiServices::getInstance()->getLinkRenderer();
 		foreach ( $tables as $table_name ) {
 			$bucket_page_name = str_replace( '_', ' ', $table_name );
 
-			$out->addWikiTextAsContent( "<h2>[[Bucket:$bucket_page_name]]</h2>" );
+			$out->addHTML( '<h2>' . $linkRenderer->makePreloadedLink( new TitleValue( NS_BUCKET, $bucket_page_name ) ) . '</h2>' );
 
 			$fullResult = BucketPageHelper::runQuery( $this->getRequest(), $table_name, '*', "{'page_name', $title}", 500, 0 );
 

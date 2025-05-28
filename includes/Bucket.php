@@ -52,7 +52,7 @@ class Bucket {
 		$bucketDBuser = $config->get( 'BucketDBuser' );
 		$bucketDBpassword = $config->get( 'BucketDBpassword' );
 
-		$mainDB = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnection( DB_PRIMARY );
+		$mainDB = self::getMainDB();
 		if ( $bucketDBuser == null || $bucketDBpassword == null ) {
 			self::$db = $mainDB;
 			self::$specialBucketUser = false;
@@ -559,12 +559,7 @@ class Bucket {
 			->fetchRowCount() !== 0;
 	}
 
-	/**
-	 * @param string $fieldName
-	 * @param array $fieldData
-	 * @return string
-	 */
-	private static function getDbType( string $fieldName, array $fieldData ) {
+	private static function getDbType( string $fieldName, ?array $fieldData ): string {
 		if ( isset( self::$requiredColumns[$fieldName] ) ) {
 			return self::$dataTypes[self::$requiredColumns[$fieldName]['type']];
 		} else {
@@ -574,7 +569,6 @@ class Bucket {
 				return self::$dataTypes[self::$dataTypes[$fieldData['type']]];
 			}
 		}
-		return 'TEXT';
 	}
 
 	/**

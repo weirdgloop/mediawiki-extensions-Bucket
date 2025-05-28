@@ -2,7 +2,6 @@
 
 namespace MediaWiki\Extension\Bucket;
 
-use MediaWiki\MediaWikiServices;
 use MediaWiki\SpecialPage\SpecialPage;
 use OOUI;
 
@@ -130,7 +129,7 @@ class BucketSpecial extends SpecialPage {
 			return;
 		}
 
-		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
+		$dbw = Bucket::getDB();
 		$res = $dbw->newSelectQueryBuilder()
 		->from( 'bucket_schemas' )
 		->select( [ 'table_name', 'schema_json' ] )

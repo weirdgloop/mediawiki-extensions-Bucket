@@ -24,7 +24,7 @@ class BucketPage extends Article {
 		$title = $this->getTitle();
 		$out->setPageTitle( $title );
 
-		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
+		$dbw = Bucket::getDB();
 		$linkRenderer = MediaWikiServices::getInstance()->getLinkRenderer();
 
 		$table_name = Bucket::getValidFieldName( $title->getRootText() );

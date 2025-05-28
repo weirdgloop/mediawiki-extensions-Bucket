@@ -4,6 +4,7 @@ namespace MediaWiki\Extension\Bucket;
 
 use MediaWiki\MediaWikiServices;
 use MediaWiki\SpecialPage\SpecialPage;
+use MediaWiki\Title\TitleValue;
 
 class AllBucketsSpecial extends SpecialPage {
 	public function __construct() {
@@ -16,7 +17,7 @@ class AllBucketsSpecial extends SpecialPage {
 
 		$out->setPageTitle( wfMessage( 'bucket-specialpage-all-buckets-title' ) );
 
-		$dbw = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY );
+		$dbw = Bucket::getDB();
 		$res = $dbw->newSelectQueryBuilder()
 			->from( 'bucket_schemas' )
 			->select( [ 'table_name', 'schema_json' ] )
@@ -28,18 +29,13 @@ class AllBucketsSpecial extends SpecialPage {
 			$schemas[$row->table_name] = json_decode( $row->schema_json, true );
 		}
 
-		$output = [];
-
-		$output[] = '<table class="wikitable"><tr>';
-		$output[] = '<th>Bucket</th>';
+		$out->addHTML( '<table class="wikitable">' );
+		$out->addHTML( '<tr><th>Bucket</th></tr>' );
+		$linkRenderer = MediaWikiServices::getInstance()->getLinkRenderer();
 		foreach ( $schemas as $row => $val ) {
-			$output[] = '<tr>';
-			$output[] = "<td>[[Bucket:$row]]</td>";
-			$output[] = '</tr>';
+			$out->addHTML( '<tr><td>' . $linkRenderer->makePreloadedLink( new TitleValue( NS_BUCKET, $row ) ) . '</td></tr>' );
 		}
-		$output[] = '</table>';
-
-		$out->addWikiTextAsContent( implode( '', $output ) );
+		$out->addHTML( '</table>' );
 	}
 
 	function getGroupName() {

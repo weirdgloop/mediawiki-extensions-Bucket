@@ -54,7 +54,7 @@
 		}
 	},
 	"Actions": {
-		"bucket": "BucketAction"
+		"bucket": "MediaWiki\\Extension\\Bucket\\BucketAction"
 	},
 	"APIModules": {
 		"bucket": "MediaWiki\\Extension\\Bucket\\BucketApi"
