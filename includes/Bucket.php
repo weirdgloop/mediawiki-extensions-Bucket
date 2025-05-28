@@ -15,6 +15,7 @@ class Bucket {
 	public const MESSAGE_BUCKET = 'bucket_message';
 
 	private static $db = null;
+	private static $specialBucketUser = false;
 
 	private static $dataTypes = [
 		'BOOLEAN' => 'BOOLEAN',
@@ -52,7 +53,9 @@ class Bucket {
 
 		$mainDB = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnection( DB_PRIMARY );
 		if ( $bucketDBuser == null || $bucketDBpassword == null ) {
-			return $mainDB;
+			self::$db = $mainDB;
+			self::$specialBucketUser = false;
+			return self::$db;
 		}
 
 		$params = [
@@ -63,7 +66,17 @@ class Bucket {
 		];
 
 		self::$db = MediaWikiServices::getInstance()->getDatabaseFactory()->create( $mainDB->getType(), $params );
+		self::$specialBucketUser = true;
 		return self::$db;
+	}
+
+	private static function getMainDB(): IMaintainableDatabase {
+		return MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnection( DB_PRIMARY );
+	}
+
+	private static function getBucketDBUser() {
+		$config = MediaWikiServices::getInstance()->getMainConfig();
+		return $config->get( 'BucketDBuser' );
 	}
 
 	public static function logMessage( string $bucket, string $property, string $type, string $message, &$logs ) {
@@ -369,7 +382,7 @@ class Bucket {
 			$newSchema[$lcFieldName] = [ 'type' => $fieldData->type, 'index' => $index, 'repeated' => $repeated ];
 		}
 		$dbTableName = self::getBucketTableName( $bucketName );
-		$dbw = self::getDB();
+		$dbw = self::getMainDB(); // Use main DB so we can grant the Bucket user perms.
 
 		$dbw->onTransactionCommitOrIdle( function () use ( $dbw, $dbTableName, $newSchema, $parentId, $bucketName ) {
 			file_put_contents( MW_INSTALL_PATH . '/cook.txt', "POST TRANSACTION COMMIT\n", FILE_APPEND );
@@ -378,6 +391,13 @@ class Bucket {
 				$statement = self::getCreateTableStatement( $dbTableName, $newSchema );
 				file_put_contents( MW_INSTALL_PATH . '/cook.txt', "CREATE TABLE STATEMENT $statement \n", FILE_APPEND );
 				$dbw->query( $statement );
+				// Grant perms to the new table
+				if ( self::$specialBucketUser ) {
+					$bucketDBuser = self::getBucketDBUser();
+					if ( $bucketDBuser ) {
+						$dbw->query( "GRANT ALL ON $dbTableName TO $bucketDBuser@{$dbw->getServer()};" );
+					}
+				}
 			} else {
 				// We are an existing bucket json
 				$oldSchema = $dbw->query( "SHOW TABLE STATUS LIKE '$dbTableName';", __METHOD__ )->fetchObject()->Comment;
@@ -389,6 +409,7 @@ class Bucket {
 
 			// At this point is is possible that another transaction has changed the table
 			//So we start a transaction, read the table comment (which is the schema), and write that to bucket_schemas
+			//TODO technicall we can be bigger than what MySQL says is allowed for comments. We can do comments per column though.
 			$dbw->begin( __METHOD__ );
 			$schemaJson = $dbw->query( "SHOW TABLE STATUS LIKE '$dbTableName';", __METHOD__ )->fetchObject()->Comment;
 			$currentSchema['_parent_rev_id'] = $parentId;

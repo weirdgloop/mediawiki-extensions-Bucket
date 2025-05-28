@@ -214,11 +214,17 @@ class Hooks implements
 			return true;
 		}
 
-		if ( Bucket::canDeleteBucketPage( $page->getDBkey() ) ) {
+		try {
+			if ( Bucket::canDeleteBucketPage( $page->getDBkey() ) ) {
+				return true;
+			} else {
+				$status->fatal( 'bucket-delete-fail-in-use' );
+				return false;
+			}
+		// If we somehow get a page that isn't a valid Bucket name, it will throw a schema exception.
+		} catch ( SchemaException $e ) {
+			$status->warning( $e->getMessage() );
 			return true;
-		} else {
-			$status->fatal( 'bucket-delete-fail-in-use' );
-			return false;
 		}
 	}
 
@@ -230,7 +236,12 @@ class Hooks implements
 			Bucket::clearOrphanedData( $page->getId() );
 			return;
 		}
-		Bucket::deleteTable( $page->getDBkey() );
+		try {
+			Bucket::deleteTable( $page->getDBkey() );
+		// If we somehow get a page that isn't a valid Bucket name, it will throw a schema exception.
+		} catch ( SchemaException $e ) {
+			return;
+		}
 	}
 
 	/**
