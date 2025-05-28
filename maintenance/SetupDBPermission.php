@@ -51,7 +51,7 @@ class SetupDBPermission extends Maintenance {
 		// These tables we want to select, insert, and delete rows.
 		$specialTables = [ 'bucket_pages', 'bucket_schemas' ];
 		foreach ( $specialTables as $table ) {
-			$query[] = "GRANT SELECT, INSERT, DELETE ON `$table` TO $fullUserName;";
+			$query[] = "GRANT SELECT, INSERT, UPDATE, DELETE ON `$table` TO $fullUserName;";
 		}
 
 		// Grab existing Bucket tables, in case we are migrating an existing install to a new account.
@@ -63,7 +63,7 @@ class SetupDBPermission extends Maintenance {
 					->fetchResultSet();
 		foreach ( $res as $row ) {
 			$table = $dbw->addIdentifierQuotes( 'bucket__' . $row->table_name );
-			$query[] = "GRANT SELECT, INSERT, DELETE, CREATE, ALTER, DROP ON $table TO $fullUserName;";
+			$query[] = "GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, DROP ON $table TO $fullUserName;";
 		}
 
 		foreach ( $query as $singleQuery ) {

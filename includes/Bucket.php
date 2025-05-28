@@ -164,7 +164,6 @@ class Bucket {
 			$fields = [];
 			$fieldNames = $res->getFieldNames();
 			foreach ( $fieldNames as $fieldName ) {
-				// TODO: match on type, not just existence, what do we do if its wrong? The DB will coerce it if it can, or it'll be a default value.
 				$fields[ $fieldName ] = true;
 			}
 			foreach ( $tableData as $idx => $singleData ) {
@@ -382,21 +381,24 @@ class Bucket {
 			$newSchema[$lcFieldName] = [ 'type' => $fieldData->type, 'index' => $index, 'repeated' => $repeated ];
 		}
 		$dbTableName = self::getBucketTableName( $bucketName );
-		$dbw = self::getMainDB(); // Use main DB so we can grant the Bucket user perms.
+		$dbw = self::getDB();
 
 		$dbw->onTransactionCommitOrIdle( function () use ( $dbw, $dbTableName, $newSchema, $parentId, $bucketName ) {
 			file_put_contents( MW_INSTALL_PATH . '/cook.txt', "POST TRANSACTION COMMIT\n", FILE_APPEND );
 			if ( !$dbw->tableExists( $dbTableName, __METHOD__ ) ) {
 				// We are a new bucket json
-				$statement = self::getCreateTableStatement( $dbTableName, $newSchema );
+				$statement = self::getCreateTableStatement( $dbTableName, $newSchema, $dbw );
 				file_put_contents( MW_INSTALL_PATH . '/cook.txt', "CREATE TABLE STATEMENT $statement \n", FILE_APPEND );
-				$dbw->query( $statement );
 				// Grant perms to the new table
 				if ( self::$specialBucketUser ) {
 					$bucketDBuser = self::getBucketDBUser();
-					if ( $bucketDBuser ) {
-						$dbw->query( "GRANT ALL ON $dbTableName TO $bucketDBuser@{$dbw->getServer()};" );
-					}
+					$mainDB = self::getMainDB();
+					$mainDB->query( $statement );
+					$escapedTableName = $mainDB->addIdentifierQuotes( $dbTableName );
+					$escapedFullUser = $bucketDBuser . '@' . $mainDB->getServer();
+					$mainDB->query( "GRANT ALL ON $escapedTableName TO $escapedFullUser;" );
+				} else {
+					$dbw->query( $statement );
 				}
 			} else {
 				// We are an existing bucket json
@@ -428,15 +430,16 @@ class Bucket {
 
 		unset( $oldSchema['_parent_rev_id'] ); // _parent_rev_id is not a column, its just metadata
 		foreach ( $newSchema as $fieldName => $fieldData ) {
+			$escapedFieldName = $dbw->addIdentifierQuotes( $fieldName );
 			# Handle new columns
 			if ( !isset( $oldSchema[$fieldName] ) ) {
-				$alterTableFragments[] = "ADD `$fieldName` " . self::getDbType( $fieldName, $fieldData );
+				$alterTableFragments[] = "ADD $escapedFieldName " . self::getDbType( $fieldName, $fieldData );
 				if ( $fieldData['index'] ) {
-					$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $fieldName, $fieldData );
+					$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $fieldName, $fieldData, $dbw );
 				}
 			# Handle deleted columns
 			} elseif ( $oldSchema[$fieldName]['index'] === true && $fieldData['index'] === false ) {
-				$alterTableFragments[] = "DROP INDEX `$fieldName`";
+				$alterTableFragments[] = "DROP INDEX $escapedFieldName";
 			} else {
 				# Handle type changes
 				$oldDbType = self::getDbType( $fieldName, $oldSchema[$fieldName] );
@@ -444,31 +447,31 @@ class Bucket {
 				if ( $oldDbType !== $newDbType ) {
 					$needNewIndex = false;
 					if ( $oldSchema[$fieldName]['repeated'] || $fieldData['repeated']
-						|| strpos( self::getIndexStatement( $fieldName, $oldSchema[$fieldName] ), '(' ) != strpos( self::getIndexStatement( $fieldName, $fieldData ), '(' ) ) {
+						|| strpos( self::getIndexStatement( $fieldName, $oldSchema[$fieldName], $dbw ), '(' ) != strpos( self::getIndexStatement( $fieldName, $fieldData, $dbw ), '(' ) ) {
 						# We cannot MODIFY from a column that doesn't need key length to a column that does need key length
-						$alterTableFragments[] = "DROP INDEX `$fieldName`"; # Repeated types cannot reuse the existing index
+						$alterTableFragments[] = "DROP INDEX $escapedFieldName"; # Repeated types cannot reuse the existing index
 						$needNewIndex = true;
 					}
 					if ( $oldDbType == 'TEXT' && $newDbType == 'JSON' ) { # Update string types to be valid JSON
-						$dbw->onTransactionCommitOrIdle( static function () use ( $dbw, $dbTableName, $fieldName ) {
-							$dbw->query( "UPDATE $dbTableName SET `$fieldName` = JSON_ARRAY(`$fieldName`) WHERE NOT JSON_VALID(`$fieldName`) AND _page_id >= 0;" );
+						$dbw->onTransactionCommitOrIdle( static function () use ( $dbw, $dbTableName, $escapedFieldName ) {
+							$dbw->query( "UPDATE $dbTableName SET $escapedFieldName = JSON_ARRAY($escapedFieldName) WHERE NOT JSON_VALID($escapedFieldName) AND _page_id >= 0;" );
 						}, __METHOD__ );
 					}
-					$alterTableFragments[] = "MODIFY `$fieldName` " . self::getDbType( $fieldName, $fieldData );
+					$alterTableFragments[] = "MODIFY $escapedFieldName " . self::getDbType( $fieldName, $fieldData );
 					if ( $fieldData['index'] && $needNewIndex ) {
-						$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $fieldName, $fieldData );
+						$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $fieldName, $fieldData, $dbw );
 					}
 				}
 				# Handle index changes
 				if ( ( $oldSchema[$fieldName]['index'] === false && $fieldData['index'] === true ) ) {
-					$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $fieldName, $fieldData );
+					$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $fieldName, $fieldData, $dbw );
 				}
 			}
 			unset( $oldSchema[$fieldName] );
 		}
 		// Drop unused columns
 		foreach ( $oldSchema as $deletedColumn => $val ) {
-			$alterTableFragments[] = "DROP `$deletedColumn`";
+			$alterTableFragments[] = "DROP {$dbw->addIdentifierQuotes($deletedColumn)}";
 		}
 
 		$schemaString = json_encode( $newSchema );
@@ -477,20 +480,21 @@ class Bucket {
 		return "ALTER TABLE $dbTableName " . implode( ', ', $alterTableFragments ) . ';';
 	}
 
-	private static function getCreateTableStatement( $dbTableName, $newSchema ) {
+	private static function getCreateTableStatement( $dbTableName, $newSchema, IDatabase $dbw ) {
 		$createTableFragments = [];
 
 		foreach ( $newSchema as $fieldName => $fieldData ) {
 			$dbType = self::getDbType( $fieldName, $fieldData );
-			$createTableFragments[] = "`$fieldName` {$dbType}";
+			$createTableFragments[] = "{$dbw->addIdentifierQuotes($fieldName)} {$dbType}";
 			if ( $fieldData['index'] ) {
-				$createTableFragments[] = self::getIndexStatement( $fieldName, $fieldData );
+				$createTableFragments[] = self::getIndexStatement( $fieldName, $fieldData, $dbw );
 			}
 		}
-		$createTableFragments[] = 'PRIMARY KEY (`_page_id`, `_index`)';
+		$createTableFragments[] = "PRIMARY KEY ({$dbw->addIdentifierQuotes('_page_id')}, {$dbw->addIdentifierQuotes('_index')})";
 
 		$schemaString = json_encode( $newSchema );
 
+		$dbTableName = $dbw->addIdentifierQuotes( $dbTableName );
 		return "CREATE TABLE $dbTableName (" . implode( ', ', $createTableFragments ) . ') COMMENT=\'' . $schemaString . '\';';
 	}
 
@@ -554,11 +558,13 @@ class Bucket {
 	 * @param array $fieldData
 	 * @return string
 	 */
-	private static function getIndexStatement( string $fieldName, array $fieldData ) {
-		switch ( self::getDbType( $fieldName, $fieldData ) ) {
+	private static function getIndexStatement( string $fieldName, array $fieldData, IDatabase $dbw ) {
+		$unescapedFieldName = $fieldName;
+		$fieldName = $dbw->addIdentifierQuotes( $fieldName );
+		switch ( self::getDbType( $unescapedFieldName, $fieldData ) ) {
 			case 'JSON':
 				$fieldData['repeated'] = false;
-				$subType = self::getDbType( $fieldName, $fieldData );
+				$subType = self::getDbType( $unescapedFieldName, $fieldData );
 				switch ( $subType ) {
 					case 'TEXT':
 						$subType = 'CHAR(255)';
@@ -573,12 +579,12 @@ class Bucket {
 						$subType = 'CHAR(255)'; // CAST doesn't have a boolean option
 						break;
 				}
-				return "INDEX `$fieldName`((CAST(`$fieldName` AS $subType ARRAY)))";
+				return "INDEX $fieldName((CAST($fieldName AS $subType ARRAY)))";
 			case 'TEXT':
 			case 'PAGE':
-				return "INDEX `$fieldName`(`$fieldName`(255))";
+				return "INDEX $fieldName($fieldName(255))";
 			default:
-				return "INDEX `$fieldName` (`$fieldName`)";
+				return "INDEX $fieldName($fieldName)";
 		}
 	}
 
@@ -835,7 +841,7 @@ class Bucket {
 			}
 			$categoryName = explode( ':', $condition )[1];
 			$categoryJoins[$categoryName] = $condition;
-			return "(`$condition`.cl_to IS NOT NULL)";
+			return "({$dbw->addIdentifierQuotes($condition)}.cl_to IS NOT NULL)";
 		}
 		throw new QueryException( wfMessage( 'bucket-query-where-confused', json_encode( $condition ) ) );
 	}
@@ -923,7 +929,7 @@ class Bucket {
 		$ungroupedColumns = [];
 		foreach ( $data['selects'] as $selectColumn ) {
 			if ( self::isCategory( $selectColumn ) ) {
-				$SELECTS[$selectColumn] = "{$dbw->addIdentifierQuotes($selectColumn)}.`cl_to` IS NOT NULL";
+				$SELECTS[$selectColumn] = "{$dbw->addIdentifierQuotes($selectColumn)}.cl_to IS NOT NULL";
 				$categoryName = explode( ':', $selectColumn )[1];
 				$categoryJoins[$categoryName] = $selectColumn;
 				continue;
@@ -954,8 +960,8 @@ class Bucket {
 				$TABLES[$alias] = 'categorylinks';
 				$bucketName = self::getBucketTableName( $primaryTableName );
 				$LEFT_JOINS[$alias] = [
-					"`$alias`.cl_from = `$bucketName`.`_page_id`", // Must be all in one string to avoid the table name being treated as a string value.
-					"`$alias`.cl_to" => str_replace( ' ', '_', $categoryName )
+					"{$dbw->addIdentifierQuotes($alias)}.cl_from = {$dbw->addIdentifierQuotes($bucketName)}._page_id", // Must be all in one string to avoid the table name being treated as a string value.
+					"{$dbw->addIdentifierQuotes($alias)}.cl_to" => str_replace( ' ', '_', $categoryName )
 				];
 			}
 		}
