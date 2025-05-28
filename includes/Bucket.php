@@ -399,6 +399,11 @@ class Bucket {
 
 			$newSchema[$lcFieldName] = [ 'type' => $fieldData->type, 'index' => $index, 'repeated' => $repeated ];
 		}
+
+		if ( count( $newSchema ) > 64 ) {
+			throw new SchemaException( wfMessage( 'bucket-schema-too-many-fields' ) );
+		}
+
 		$dbTableName = self::getBucketTableName( $bucketName );
 		$dbw = self::getDB();
 

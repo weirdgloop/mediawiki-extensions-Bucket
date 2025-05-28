@@ -46,6 +46,7 @@
     "bucket-schema-duplicated-field-name": "Duplicated field name: $1",
     "bucket-schema-invalid-data-type": "Invalid data type for field $1: $2",
     "bucket-schema-repeated-must-be-indexed": "The repeated field $1 must be indexed.",
+    "bucket-schema-too-many-fields": "A maximum of 60 fields can be in a Bucket.",
     "bucket-no-exist": "Bucket $1 does not exist.",
     "bucket-query-column-interpret-error": "Cannot interpret column: $1",
     "bucket-query-column-name-invalid": "Invalid column name: $1",
