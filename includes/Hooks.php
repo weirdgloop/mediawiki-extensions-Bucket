@@ -2,7 +2,6 @@
 
 namespace MediaWiki\Extension\Bucket;
 
-use Exception;
 use JsonContent;
 use ManualLogEntry;
 use MediaWiki\Content\Hook\ContentModelCanBeUsedOnHook;
@@ -91,8 +90,8 @@ class Hooks implements
 				$status->fatal( 'bucket-undelete-error' );
 				return false;
 			}
-		} catch ( Exception $e ) {
-			$status->fatal( $e->getMessage() );
+		} catch ( BucketException $e ) {
+			$status->fatal( $e->getWfMessage() );
 			return false;
 		}
 	}
@@ -143,8 +142,8 @@ class Hooks implements
 		$parentId = $revRecord->getParentId() ?? 0;
 		try {
 			Bucket::createOrModifyTable( $title, $jsonSchema, $parentId );
-		} catch ( Exception $e ) {
-			$status->fatal( $e->getMessage() );
+		} catch ( BucketException $e ) {
+			$status->fatal( $e->getWfMessage() );
 			return false;
 		}
 	}
@@ -223,7 +222,7 @@ class Hooks implements
 			}
 		// If we somehow get a page that isn't a valid Bucket name, it will throw a schema exception.
 		} catch ( SchemaException $e ) {
-			$status->warning( $e->getMessage() );
+			$status->warning( $e->getWfMessage() );
 			return true;
 		}
 	}

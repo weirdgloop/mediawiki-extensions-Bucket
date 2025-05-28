@@ -4,6 +4,7 @@ namespace MediaWiki\Extension\Bucket;
 
 use LogicException;
 use MediaWiki\MediaWikiServices;
+use Message;
 use Wikimedia\Rdbms\IDatabase;
 use Wikimedia\Rdbms\IMaintainableDatabase;
 
@@ -299,7 +300,11 @@ class Bucket {
 
 	public static function getValidFieldName( string $fieldName ) {
 		if ( preg_match( '/^[a-zA-Z0-9_ ]+$/', $fieldName ) ) {
-			return str_replace( ' ', '_', strtolower( trim( $fieldName ) ) );
+			$cleanName = str_replace( ' ', '_', strtolower( trim( $fieldName ) ) );
+			// MySQL has a maximum of 64, lets limit it to 60 in case we need to append to columns for some reason later
+			if ( strlen( $cleanName ) <= 60 ) {
+				return $cleanName;
+			}
 		}
 		return false;
 	}
@@ -389,7 +394,7 @@ class Bucket {
 			}
 
 			if ( $repeated == true && $index == false ) {
-				throw new SchemaException( wfMessage( 'bucket-schema-repeated-must-be-indexed', $fieldName, $fieldData->type ) );
+				throw new SchemaException( wfMessage( 'bucket-schema-repeated-must-be-indexed', $fieldName ) );
 			}
 
 			$newSchema[$lcFieldName] = [ 'type' => $fieldData->type, 'index' => $index, 'repeated' => $repeated ];
@@ -1062,14 +1067,27 @@ class Bucket {
 	}
 }
 
-class SchemaException extends LogicException {
+class BucketException extends LogicException {
+	private ?Message $wfMessage = null;
+
+	public function getWfMessage(): Message {
+		return $this->wfMessage;
+	}
+
+	function __construct( $msg ) {
+		$this->wfMessage = $msg;
+		parent::__construct( $msg );
+	}
+}
+
+class SchemaException extends BucketException {
 	function __construct( $msg ) {
 		file_put_contents( MW_INSTALL_PATH . '/cook.txt', 'SCHEMA EXCEPTION ' . print_r( $msg, true ) . "\n", FILE_APPEND );
 		parent::__construct( $msg );
 	}
 }
 
-class QueryException extends LogicException {
+class QueryException extends BucketException {
 	function __construct( $msg ) {
 		file_put_contents( MW_INSTALL_PATH . '/cook.txt', 'QUERY EXCEPTION ' . print_r( $msg, true ) . "\n", FILE_APPEND );
 		parent::__construct( $msg );
