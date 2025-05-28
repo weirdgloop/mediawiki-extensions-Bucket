@@ -333,6 +333,16 @@ class Bucket {
 		}
 	}
 
+	private static function buildSchemaFromComments( string $dbTableName, IDatabase $dbw ): array {
+		$jsonObject = [];
+		$res = $dbw->query( "SHOW FULL COLUMNS FROM $dbTableName;", __METHOD__ );
+
+		foreach ( $res as $row => $val ) {
+			$jsonObject[] = json_decode( $val->Comment, true );
+		}
+		return array_merge( ...$jsonObject ); // The ... operator passes each array element as its own parameter.
+	}
+
 	public static function createOrModifyTable( string $bucketName, object $jsonSchema, int $parentId ) {
 		$newSchema = array_merge( [], self::$requiredColumns );
 		$bucketName = self::getValidBucketName( $bucketName );
@@ -378,6 +388,10 @@ class Bucket {
 				$repeated = boolval( $fieldData->repeated );
 			}
 
+			if ( $repeated == true && $index == false ) {
+				throw new SchemaException( wfMessage( 'bucket-schema-repeated-must-be-indexed', $fieldName, $fieldData->type ) );
+			}
+
 			$newSchema[$lcFieldName] = [ 'type' => $fieldData->type, 'index' => $index, 'repeated' => $repeated ];
 		}
 		$dbTableName = self::getBucketTableName( $bucketName );
@@ -402,19 +416,17 @@ class Bucket {
 				}
 			} else {
 				// We are an existing bucket json
-				$oldSchema = $dbw->query( "SHOW TABLE STATUS LIKE '$dbTableName';", __METHOD__ )->fetchObject()->Comment;
-				$oldSchema = json_decode( $oldSchema, true );
+				$oldSchema = self::buildSchemaFromComments( $dbTableName, $dbw );
 				$statement = self::getAlterTableStatement( $dbTableName, $newSchema, $oldSchema, $dbw );
 				file_put_contents( MW_INSTALL_PATH . '/cook.txt', "ALTER TABLE STATEMENT $statement \n", FILE_APPEND );
 				$dbw->query( $statement );
 			}
 
 			// At this point is is possible that another transaction has changed the table
-			//So we start a transaction, read the table comment (which is the schema), and write that to bucket_schemas
-			//TODO technicall we can be bigger than what MySQL says is allowed for comments. We can do comments per column though.
+			//So we start a transaction, read the column comments (which are the schema), and write that to bucket_schemas
 			$dbw->begin( __METHOD__ );
-			$schemaJson = $dbw->query( "SHOW TABLE STATUS LIKE '$dbTableName';", __METHOD__ )->fetchObject()->Comment;
-			$currentSchema['_parent_rev_id'] = $parentId;
+			$schemaJson = self::buildSchemaFromComments( $dbTableName, $dbw );
+			$schemaJson = json_encode( $schemaJson );
 			$dbw->upsert(
 				'bucket_schemas',
 				[ 'table_name' => $bucketName, 'schema_json' => $schemaJson ],
@@ -431,14 +443,16 @@ class Bucket {
 		unset( $oldSchema['_parent_rev_id'] ); // _parent_rev_id is not a column, its just metadata
 		foreach ( $newSchema as $fieldName => $fieldData ) {
 			$escapedFieldName = $dbw->addIdentifierQuotes( $fieldName );
+			$fieldJson = $dbw->addQuotes( json_encode( [ $fieldName => $fieldData ] ) );
 			# Handle new columns
 			if ( !isset( $oldSchema[$fieldName] ) ) {
-				$alterTableFragments[] = "ADD $escapedFieldName " . self::getDbType( $fieldName, $fieldData );
+				$alterTableFragments[] = "ADD $escapedFieldName " . self::getDbType( $fieldName, $fieldData ) . " COMMENT $fieldJson";
 				if ( $fieldData['index'] ) {
 					$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $fieldName, $fieldData, $dbw );
 				}
-			# Handle deleted columns
+			# Handle removing index
 			} elseif ( $oldSchema[$fieldName]['index'] === true && $fieldData['index'] === false ) {
+				$alterTableFragments[] = "MODIFY $escapedFieldName " . self::getDbType( $fieldName, $fieldData ) . " COMMENT $fieldJson"; // Acts as a no-op except to set the comment
 				$alterTableFragments[] = "DROP INDEX $escapedFieldName";
 			} else {
 				# Handle type changes
@@ -449,7 +463,9 @@ class Bucket {
 					if ( $oldSchema[$fieldName]['repeated'] || $fieldData['repeated']
 						|| strpos( self::getIndexStatement( $fieldName, $oldSchema[$fieldName], $dbw ), '(' ) != strpos( self::getIndexStatement( $fieldName, $fieldData, $dbw ), '(' ) ) {
 						# We cannot MODIFY from a column that doesn't need key length to a column that does need key length
-						$alterTableFragments[] = "DROP INDEX $escapedFieldName"; # Repeated types cannot reuse the existing index
+						if ( $oldSchema[$fieldName]['index'] ) {
+							$alterTableFragments[] = "DROP INDEX $escapedFieldName"; # Repeated types cannot reuse the existing index
+						}
 						$needNewIndex = true;
 					}
 					if ( $oldDbType == 'TEXT' && $newDbType == 'JSON' ) { # Update string types to be valid JSON
@@ -457,14 +473,16 @@ class Bucket {
 							$dbw->query( "UPDATE $dbTableName SET $escapedFieldName = JSON_ARRAY($escapedFieldName) WHERE NOT JSON_VALID($escapedFieldName) AND _page_id >= 0;" );
 						}, __METHOD__ );
 					}
-					$alterTableFragments[] = "MODIFY $escapedFieldName " . self::getDbType( $fieldName, $fieldData );
+					$alterTableFragments[] = "MODIFY $escapedFieldName " . self::getDbType( $fieldName, $fieldData ) . " COMMENT $fieldJson";
 					if ( $fieldData['index'] && $needNewIndex ) {
 						$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $fieldName, $fieldData, $dbw );
 					}
-				}
-				# Handle index changes
-				if ( ( $oldSchema[$fieldName]['index'] === false && $fieldData['index'] === true ) ) {
-					$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $fieldName, $fieldData, $dbw );
+				} else {
+					# Handle adding index without type change
+					if ( ( $oldSchema[$fieldName]['index'] === false && $fieldData['index'] === true ) ) {
+						$alterTableFragments[] = "MODIFY $escapedFieldName " . self::getDbType( $fieldName, $fieldData ) . " COMMENT $fieldJson"; // Acts as a no-op except to set the comment
+						$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $fieldName, $fieldData, $dbw );
+					}
 				}
 			}
 			unset( $oldSchema[$fieldName] );
@@ -474,9 +492,6 @@ class Bucket {
 			$alterTableFragments[] = "DROP {$dbw->addIdentifierQuotes($deletedColumn)}";
 		}
 
-		$schemaString = json_encode( $newSchema );
-		$alterTableFragments[] = "COMMENT='$schemaString'";
-
 		return "ALTER TABLE $dbTableName " . implode( ', ', $alterTableFragments ) . ';';
 	}
 
@@ -485,17 +500,16 @@ class Bucket {
 
 		foreach ( $newSchema as $fieldName => $fieldData ) {
 			$dbType = self::getDbType( $fieldName, $fieldData );
-			$createTableFragments[] = "{$dbw->addIdentifierQuotes($fieldName)} {$dbType}";
+			$fieldJson = $dbw->addQuotes( json_encode( [ $fieldName => $fieldData ] ) );
+			$createTableFragments[] = "{$dbw->addIdentifierQuotes($fieldName)} {$dbType} COMMENT $fieldJson";
 			if ( $fieldData['index'] ) {
 				$createTableFragments[] = self::getIndexStatement( $fieldName, $fieldData, $dbw );
 			}
 		}
 		$createTableFragments[] = "PRIMARY KEY ({$dbw->addIdentifierQuotes('_page_id')}, {$dbw->addIdentifierQuotes('_index')})";
 
-		$schemaString = json_encode( $newSchema );
-
 		$dbTableName = $dbw->addIdentifierQuotes( $dbTableName );
-		return "CREATE TABLE $dbTableName (" . implode( ', ', $createTableFragments ) . ') COMMENT=\'' . $schemaString . '\';';
+		return "CREATE TABLE $dbTableName (" . implode( ', ', $createTableFragments ) . ');';
 	}
 
 	public static function deleteTable( $bucketName ) {
