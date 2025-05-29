@@ -147,6 +147,11 @@ class Bucket {
 			}
 			$tableName = $tableNameTmp;
 
+			if ( $tableName == self::MESSAGE_BUCKET && $writingLogs == false ) {
+				self::logMessage( $tableName, self::MESSAGE_BUCKET, 'bucket-general-error', wfMessage( 'bucket-cannot-write-to-system-bucket' ), $logs );
+				continue;
+			}
+
 			if ( !array_key_exists( $tableName, $schemas ) ) {
 				self::logMessage( $tableName, '', 'bucket-general-error', wfMessage( 'bucket-no-exist-error' ), $logs );
 				continue;
@@ -165,7 +170,12 @@ class Bucket {
 			$fields = [];
 			$fieldNames = $res->getFieldNames();
 			foreach ( $fieldNames as $fieldName ) {
-				$fields[ $fieldName ] = true;
+				// If the table has a field that isn't present in the schema, the schema must be out of date.
+				if ( !isset( $schemas[$tableName][$fieldName] ) ) {
+					self::logMessage( $tableName, $fieldName, 'bucket-general-error', wfMessage( 'bucket-schema-outdated-error' ), $logs );
+				} else {
+					$fields[$fieldName] = true;
+				}
 			}
 			foreach ( $tableData as $idx => $singleData ) {
 				$sub = $singleData['sub'];
@@ -878,6 +888,7 @@ class Bucket {
 		$tableNames = [];
 		$categoryJoins = [];
 
+		// TODO its possible to get here without a tableName specified.
 		$primaryTableName = self::getValidFieldName( $data['tableName'] );
 		if ( !$primaryTableName ) {
 			throw new QueryException( wfMessage( 'bucket-invalid-name-warning', $data['tableName'] ) );
