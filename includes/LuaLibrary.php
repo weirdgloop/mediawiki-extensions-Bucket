@@ -3,31 +3,53 @@
 namespace MediaWiki\Extension\Bucket;
 
 use MediaWiki\Extension\Scribunto\Engines\LuaCommon\LibraryBase;
+use MediaWiki\MediaWikiServices;
+use MediaWiki\Title\MalformedTitleException;
 
 class LuaLibrary extends LibraryBase {
 	public function register() {
 		$lib = [
 			'put' => [ $this, 'bucketPut' ],
 			'get' => [ $this, 'bucketGet' ],
-			'run' => [ $this, 'bucketRun' ]
+			'run' => [ $this, 'bucketRun' ],
 		];
 		return $this->getEngine()->registerInterface( __DIR__ . '/mw.ext.bucket.lua', $lib, [] );
 	}
 
-	public function bucketPut( $table_name, $data ): void {
+	public function bucketPut( $builder, $data ): void {
 		$parserOutput = $this->getParser()->getOutput();
 		$bucketPuts = $parserOutput->getExtensionData( Bucket::EXTENSION_DATA_KEY ) ?? [];
+		$table_name = '';
+		if ( array_key_exists( 'tableName', $builder ) ) {
+			$table_name = $builder['tableName'];
+		}
+		$sub = $builder['subversion'];
 		if ( !array_key_exists( $table_name, $bucketPuts ) ) {
+			try {
+				// Add the Bucket page as a "template" used on this page. This will get us linksUpdate scheduled for free when the Bucket page changes.
+				$title = MediaWikiServices::getInstance()->getTitleParser()->parseTitle( $table_name, NS_BUCKET );
+				$bucketPage = MediaWikiServices::getInstance()->getWikiPageFactory()->newFromLinkTarget( $title );
+				$bucketRevisionRecord = $bucketPage->getRevisionRecord();
+				if ( $bucketRevisionRecord != null ) {
+					$parserOutput->addTemplate( $title, $bucketPage->getId(), $bucketRevisionRecord->getId() );
+				}
+			} catch ( MalformedTitleException $e ) {
+				// Just ignore it, an error will be logged later
+			}
 			$bucketPuts[ $table_name ] = [];
 		}
-		$bucketPuts[ $table_name ][] = $data;
+		$bucketPuts[ $table_name ][] = [ 'sub' => $sub, 'data' => $data ];
 		$parserOutput->setExtensionData( Bucket::EXTENSION_DATA_KEY, $bucketPuts );
 	}
 
 	public function bucketRun( $data ): array {
-		$data = self::convertFromLuaTable( $data );
-		$rows = Bucket::runSelect( $data );
-		return [ self::convertToLuaTable( $rows ) ];
+		try {
+			$data = self::convertFromLuaTable( $data );
+			$rows = Bucket::runSelect( $data );
+			return [ self::convertToLuaTable( $rows ) ];
+		} catch ( QueryException $e ) {
+			return [ 'error' => $e->getMessage() ];
+		}
 	}
 
 	// Go from 0-index to 1-index.
@@ -46,7 +68,7 @@ class LuaLibrary extends LibraryBase {
 	}
 
 	// Go from 1-index to 0-index.
-	public function convertFromLuaTable( $arr ) {
+	public static function convertFromLuaTable( $arr ) {
 		if ( is_array( $arr ) ) {
 			$luaTable = [];
 			foreach ( $arr as $key => $value ) {

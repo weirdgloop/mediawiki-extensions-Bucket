@@ -3,16 +3,23 @@
 	"version": "0.1",
 	"author": [
 		"Jonathan Lee",
-		"TehKittyCat"
+		"TehKittyCat",
+		"Mudscape"
 	],
 	"url": "https://www.mediawiki.org/wiki/Extension:Bucket",
 	"license-name": "GPL-2.0-or-later",
 	"type": "other",
 	"requires": {
-		"MediaWiki": ">= 1.41"
+		"MediaWiki": ">= 1.41",
+		"extensions": {
+			"Scribunto": "*"
+		}
 	},
 	"AutoloadNamespaces": {
 		"MediaWiki\\Extension\\Bucket\\": "includes/"
+	},
+	"AutoloadClasses": {
+		"BucketAction": "includes/BucketAction.php"
 	},
 	"namespaces": [
 			{
@@ -31,12 +38,61 @@
 		"LinksUpdateComplete": "BucketHookHandler",
 		"LoadExtensionSchemaUpdates": "BucketHookHandler",
 		"MultiContentSave": "BucketHookHandler",
-		"ScribuntoExternalLibraries": "BucketHookHandler"
+		"PageUndelete": "BucketHookHandler",
+		"PageUndeleteComplete": "BucketHookHandler",
+		"ScribuntoExternalLibraries": "BucketHookHandler",
+		"SidebarBeforeOutput": "BucketHookHandler",
+		"ArticleFromTitle": "BucketHookHandler",
+		"MovePageIsValidMove": "BucketHookHandler",
+		"PageDelete": "BucketHookHandler",
+		"PageDeleteComplete": "BucketHookHandler",
+		"ContentModelCanBeUsedOn": "BucketHookHandler"
 	},
 	"HookHandlers": {
 		"BucketHookHandler": {
 			"class": "MediaWiki\\Extension\\Bucket\\Hooks"
 		}
+	},
+	"Actions": {
+		"bucket": "MediaWiki\\Extension\\Bucket\\BucketAction"
+	},
+	"APIModules": {
+		"bucket": "MediaWiki\\Extension\\Bucket\\BucketApi"
+	},
+	"MessagesDirs": {
+		"Bucket": [
+			"i18n"
+		]
+	},
+	"SpecialPages": {
+		"bucket": "MediaWiki\\Extension\\Bucket\\BucketSpecial",
+		"allbuckets": "MediaWiki\\Extension\\Bucket\\AllBucketsSpecial"
+	},
+	"ResourceFileModulePaths": {
+		"localBasePath": "",
+		"remoteExtPath": "Bucket"
+	},
+	"ResourceModules": {
+		"ext.bucket.bucketpage.css": {
+			"styles": "resources/bucket-json.css"
+		}
+	},
+	"config": {
+		"BucketWriteEnabledNamespaces": {
+			"value": {
+				"0": true,
+				"4": true
+			}
+		},
+		"BucketDBuser": {
+			"value": null
+		},
+		"BucketDBpassword": {
+			"value": null
+		}
+	},
+	"ConfigRegistry": {
+		"bucket": "GlobalVarConfig::newInstance"
 	},
 	"manifest_version": 2
 }

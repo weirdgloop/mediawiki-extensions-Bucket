@@ -21,10 +21,6 @@ function bucket.setupInterface( options )
     package.loaded['mw.ext.bucket'] = bucket
 end
 
--- function bucket.put(bucket_name, data)
---     return php.put(bucket_name, data)
--- end
-
 local QueryBuilder = {}
 
 function QueryBuilder:new(tableName)
@@ -34,7 +30,9 @@ function QueryBuilder:new(tableName)
         selects = {},
         wheres = {op = "AND", operands = {}},
         categories = {op = "AND", operands = {}},
-        joins = {}
+        joins = {},
+        orderBy = nil,
+        subversion = ""
     }
     setmetatable(queryBuilder, self)
     self.__index = function(tbl, key)
@@ -55,13 +53,11 @@ function QueryBuilder:where(...)
     return self
 end
 
-function QueryBuilder:whereCategory(condition)
-    table.insert(self.categories.operands, condition)
-    return self
-end
-
-function QueryBuilder:join(tableName, fieldName, selectFields)
-    table.insert(self.joins, {tableName = tableName, fieldName = fieldName, selectFields = selectFields})
+--Put selects in the normal select function, prepended with the table name.
+--tableName is the string of a table to join
+--cond is an array of two elements, which are the two columns to join on.
+function QueryBuilder:join(tableName, cond)
+    table.insert(self.joins, {tableName = tableName, cond = cond})
     return self
 end
 
@@ -70,12 +66,34 @@ function QueryBuilder:limit(arg)
     return self
 end
 
-function QueryBuilder:run()
-    return php.run(self)
+function QueryBuilder:offset(arg)
+    self.offset = arg
+    return self
 end
 
-function bucket.put(bucket_name, data)
-    return php.put(bucket_name, data)
+function QueryBuilder:orderBy(fieldName, direction)
+    self.orderBy = {fieldName = fieldName, direction = direction}
+    return self
+end
+
+function QueryBuilder:run()
+    local result = php.run(self)
+
+    if type(result) == "table" then
+        return result
+    else
+        error(result)
+        return nil
+    end
+end
+
+function QueryBuilder:sub(identifier)
+    self.subversion = identifier
+    return self
+end
+
+function QueryBuilder:put(data)
+    php.put(self, data)
 end
 
 function bucket.Or(...)
@@ -88,6 +106,10 @@ end
 
 function bucket.Not(arg)
     return {op = "NOT", operand = arg}
+end
+
+function bucket.Null()
+    return "&&NULL&&"
 end
 
 setmetatable(bucket, {
