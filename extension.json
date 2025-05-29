@@ -89,6 +89,9 @@
 		},
 		"BucketDBpassword": {
 			"value": null
+		},
+		"BucketDBserver": {
+			"value": "%"
 		}
 	},
 	"ConfigRegistry": {

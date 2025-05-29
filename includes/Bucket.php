@@ -77,7 +77,9 @@ class Bucket {
 
 	private static function getBucketDBUser() {
 		$config = MediaWikiServices::getInstance()->getMainConfig();
-		return $config->get( 'BucketDBuser' );
+		$dbUser = $config->get( 'BucketDBuser' );
+		$dbServer = $config->get( 'BucketDBserver' );
+		return "$dbUser@'$dbServer'";
 	}
 
 	public static function logMessage( string $bucket, string $property, string $type, string $message, &$logs ) {
@@ -418,19 +420,16 @@ class Bucket {
 		$dbw = self::getDB();
 
 		$dbw->onTransactionCommitOrIdle( function () use ( $dbw, $dbTableName, $newSchema, $parentId, $bucketName ) {
-			file_put_contents( MW_INSTALL_PATH . '/cook.txt', "POST TRANSACTION COMMIT\n", FILE_APPEND );
 			if ( !$dbw->tableExists( $dbTableName, __METHOD__ ) ) {
 				// We are a new bucket json
 				$statement = self::getCreateTableStatement( $dbTableName, $newSchema, $dbw );
-				file_put_contents( MW_INSTALL_PATH . '/cook.txt', "CREATE TABLE STATEMENT $statement \n", FILE_APPEND );
 				// Grant perms to the new table
 				if ( self::$specialBucketUser ) {
 					$bucketDBuser = self::getBucketDBUser();
 					$mainDB = self::getMainDB();
 					$mainDB->query( $statement );
 					$escapedTableName = $mainDB->addIdentifierQuotes( $dbTableName );
-					$escapedFullUser = $bucketDBuser . '@' . $mainDB->getServer();
-					$mainDB->query( "GRANT ALL ON $escapedTableName TO $escapedFullUser;" );
+					$mainDB->query( "GRANT ALL ON $escapedTableName TO $bucketDBuser;" );
 				} else {
 					$dbw->query( $statement );
 				}
@@ -438,7 +437,6 @@ class Bucket {
 				// We are an existing bucket json
 				$oldSchema = self::buildSchemaFromComments( $dbTableName, $dbw );
 				$statement = self::getAlterTableStatement( $dbTableName, $newSchema, $oldSchema, $dbw );
-				file_put_contents( MW_INSTALL_PATH . '/cook.txt', "ALTER TABLE STATEMENT $statement \n", FILE_APPEND );
 				$dbw->query( $statement );
 			}
 
