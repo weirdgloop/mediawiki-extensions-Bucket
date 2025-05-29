@@ -308,8 +308,8 @@ class Bucket {
 		}
 	}
 
-	public static function getValidFieldName( string $fieldName ) {
-		if ( preg_match( '/^[a-zA-Z0-9_ ]+$/', $fieldName ) ) {
+	public static function getValidFieldName( ?string $fieldName ) {
+		if ( $fieldName != null && preg_match( '/^[a-zA-Z0-9_ ]+$/', $fieldName ) ) {
 			$cleanName = str_replace( ' ', '_', strtolower( trim( $fieldName ) ) );
 			// MySQL has a maximum of 64, lets limit it to 60 in case we need to append to columns for some reason later
 			if ( strlen( $cleanName ) <= 60 ) {
@@ -888,7 +888,10 @@ class Bucket {
 		$tableNames = [];
 		$categoryJoins = [];
 
-		// TODO its possible to get here without a tableName specified.
+		if ( !isset( $data['tableName'] ) ) {
+			throw new QueryException( wfMessage( 'bucket-empty-table-name' ) );
+		}
+
 		$primaryTableName = self::getValidFieldName( $data['tableName'] );
 		if ( !$primaryTableName ) {
 			throw new QueryException( wfMessage( 'bucket-invalid-name-warning', $data['tableName'] ) );
