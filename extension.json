@@ -26,6 +26,7 @@
 				"id": 9592,
 				"constant": "NS_BUCKET",
 				"name": "Bucket",
+				"subpages": false,
 				"defaultcontentmodel": "json"
 			},
 			{
@@ -65,8 +66,8 @@
 		]
 	},
 	"SpecialPages": {
-		"bucket": "MediaWiki\\Extension\\Bucket\\BucketSpecial",
-		"allbuckets": "MediaWiki\\Extension\\Bucket\\AllBucketsSpecial"
+		"Bucket": "MediaWiki\\Extension\\Bucket\\BucketSpecial",
+		"Allbuckets": "MediaWiki\\Extension\\Bucket\\AllBucketsSpecial"
 	},
 	"ResourceFileModulePaths": {
 		"localBasePath": "",
@@ -96,6 +97,9 @@
 	},
 	"ConfigRegistry": {
 		"bucket": "GlobalVarConfig::newInstance"
+	},
+	"ExtensionMessagesFiles": {
+		"BucketAlias": "Bucket.i18n.alias.php"
 	},
 	"manifest_version": 2
 }

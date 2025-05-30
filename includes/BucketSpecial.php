@@ -7,7 +7,7 @@ use OOUI;
 
 class BucketSpecial extends SpecialPage {
 	public function __construct() {
-		parent::__construct( 'bucket' );
+		parent::__construct( 'Bucket' );
 	}
 
 	private function getQueryBuilder( $lastQuery, $bucket, $select, $where, $limit, $offset ) {

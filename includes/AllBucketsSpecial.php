@@ -8,7 +8,7 @@ use MediaWiki\Title\TitleValue;
 
 class AllBucketsSpecial extends SpecialPage {
 	public function __construct() {
-		parent::__construct( 'allbuckets' );
+		parent::__construct( 'Allbuckets' );
 	}
 
 	public function execute( $par ) {
