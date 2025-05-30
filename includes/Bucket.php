@@ -495,12 +495,13 @@ class Bucket {
 					if ( $fieldData['index'] && $needNewIndex ) {
 						$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $fieldName, $fieldData, $dbw );
 					}
-				} else {
-					# Handle adding index without type change
-					if ( ( $oldSchema[$fieldName]['index'] === false && $fieldData['index'] === true ) ) {
-						$alterTableFragments[] = "MODIFY $escapedFieldName " . self::getDbType( $fieldName, $fieldData ) . " COMMENT $fieldJson"; // Acts as a no-op except to set the comment
-						$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $fieldName, $fieldData, $dbw );
-					}
+				# Handle adding index without type change
+				} elseif ( ( $oldSchema[$fieldName]['index'] === false && $fieldData['index'] === true ) ) {
+					$alterTableFragments[] = "MODIFY $escapedFieldName " . self::getDbType( $fieldName, $fieldData ) . " COMMENT $fieldJson"; // Acts as a no-op except to set the comment
+					$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $fieldName, $fieldData, $dbw );
+				# Handle changing between PAGE and TEXT
+				} elseif ( ( $oldSchema[$fieldName]['type'] != $newSchema[$fieldName]['type'] ) ) {
+					$alterTableFragments[] = "MODIFY $escapedFieldName " . self::getDbType( $fieldName, $fieldData ) . " COMMENT $fieldJson"; // Acts as a no-op except to set the comment
 				}
 			}
 			unset( $oldSchema[$fieldName] );
