@@ -458,13 +458,13 @@ class Bucket {
 	private static function getAlterTableStatement( $dbTableName, $newSchema, $oldSchema, IDatabase $dbw ) {
 		$alterTableFragments = [];
 
-		unset( $oldSchema['_parent_rev_id'] ); // _parent_rev_id is not a column, its just metadata
+		$previousColumn = 'page_name_sub';
 		foreach ( $newSchema as $fieldName => $fieldData ) {
 			$escapedFieldName = $dbw->addIdentifierQuotes( $fieldName );
 			$fieldJson = $dbw->addQuotes( json_encode( [ $fieldName => $fieldData ] ) );
 			# Handle new columns
 			if ( !isset( $oldSchema[$fieldName] ) ) {
-				$alterTableFragments[] = "ADD $escapedFieldName " . self::getDbType( $fieldName, $fieldData ) . " COMMENT $fieldJson";
+				$alterTableFragments[] = "ADD $escapedFieldName " . self::getDbType( $fieldName, $fieldData ) . " COMMENT $fieldJson AFTER $previousColumn";
 				if ( $fieldData['index'] ) {
 					$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $fieldName, $fieldData, $dbw );
 				}
@@ -505,10 +505,15 @@ class Bucket {
 				}
 			}
 			unset( $oldSchema[$fieldName] );
+			$previousColumn = $fieldName;
 		}
 		// Drop unused columns
 		foreach ( $oldSchema as $deletedColumn => $val ) {
-			$alterTableFragments[] = "DROP {$dbw->addIdentifierQuotes($deletedColumn)}";
+			$escapedDeletedColumn = $dbw->addIdentifierQuotes( $deletedColumn );
+			if ( $oldSchema[$deletedColumn]['repeated'] === true ) {
+				$alterTableFragments[] = "DROP INDEX $escapedDeletedColumn"; // We must explicitly drop indexes for repeated fields
+			}
+			$alterTableFragments[] = "DROP $escapedDeletedColumn";
 		}
 
 		return "ALTER TABLE $dbTableName " . implode( ', ', $alterTableFragments ) . ';';
