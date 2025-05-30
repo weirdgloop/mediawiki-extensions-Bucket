@@ -757,7 +757,12 @@ class Bucket {
 			throw new QueryException( wfMessage( 'bucket-query-cast-fail', $value ) );
 		}
 		if ( is_bool( $value ) ) {
-			return boolval( $value );
+			// MySQL doesn't have boolean, 0 = FALSE and 1 = TRUE
+			if ( $value ) {
+				return 1;
+			} else {
+				return 0;
+			}
 		}
 		if ( is_string( $value ) ) {
 			return $dbw->addQuotes( strval( $value ) );

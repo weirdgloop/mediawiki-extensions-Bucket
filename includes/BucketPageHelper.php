@@ -47,6 +47,13 @@ class BucketPageHelper {
 		if ( $dataType == 'TEXT' ) {
 			return "<nowiki>$value</nowiki>";
 		}
+		if ( $dataType == 'BOOLEAN' ) {
+			if ( $value ) {
+				return 'True';
+			} else {
+				return 'False';
+			}
+		}
 		return $value;
 	}
 
