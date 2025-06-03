@@ -63,7 +63,8 @@ class Bucket {
 			'host' => $mainDB->getServer(),
 			'user' => $bucketDBuser,
 			'password' => $bucketDBpassword,
-			'dbname' => $mainDB->getDBname()
+			'dbname' => $mainDB->getDBname(),
+			'utf8Mode' => true
 		];
 
 		self::$db = MediaWikiServices::getInstance()->getDatabaseFactory()->create( $mainDB->getType(), $params );
