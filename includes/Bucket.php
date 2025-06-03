@@ -54,6 +54,7 @@ class Bucket {
 
 		$mainDB = self::getMainDB();
 		if ( $bucketDBuser == null || $bucketDBpassword == null ) {
+			//TODO need to set utf8Mode for this
 			self::$db = $mainDB;
 			self::$specialBucketUser = false;
 			return self::$db;
@@ -73,6 +74,7 @@ class Bucket {
 	}
 
 	private static function getMainDB(): IMaintainableDatabase {
+		//Note: Cannot be used to write Bucket data due to json requiring a utf8 connection
 		return MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnection( DB_PRIMARY );
 	}
 
@@ -195,7 +197,6 @@ class Bucket {
 				$singlePut = [];
 				foreach ( $fields as $key => $_ ) {
 					$value = isset( $singleData[$key] ) ? $singleData[$key] : null;
-					# TODO JSON relies on forcing utf8 transmission in DatabaseMySQL.php line 829
 					$singlePut[$dbw->addIdentifierQuotes( $key )] = self::castToDbType( $value, self::getDbType( $key, $schemas[$tableName][$key] ) );
 				}
 				$singlePut[$dbw->addIdentifierQuotes( '_page_id' )] = $pageId;
@@ -796,7 +797,7 @@ class Bucket {
 	 * 		(optional)op -> AND | OR | NOT
 	 * 		unnamed -> scalar value or array of scalar values
 	 */
-	public static function getWhereCondition( $condition, $fieldNamesToTables, $schemas, IDatabase $dbw, &$categoryJoins ) {
+	public static function getWhereCondition( $condition, $fieldNamesToTables, $schemas, IDatabase $dbw, &$categoryJoins, $primaryTableName ) {
 		if ( self::isOrAnd( $condition ) ) {
 			if ( empty( $condition['operands'] ) ) {
 				throw new QueryException( wfMessage( 'bucket-query-where-missing-cond', json_encode( $condition ) ) );
@@ -807,7 +808,7 @@ class Bucket {
 					if ( !isset( $operand['op'] ) && isset( $condition['op'] ) && isset( $operand[0] ) && is_array( $operand[0] ) && count( $operand[0] ) > 0 ) {
 						$operand['op'] = $condition['op']; // Set child op to parent
 					}
-					$children[] = self::getWhereCondition( $operand, $fieldNamesToTables, $schemas, $dbw, $categoryJoins );
+					$children[] = self::getWhereCondition( $operand, $fieldNamesToTables, $schemas, $dbw, $categoryJoins, $primaryTableName );
 				}
 			}
 			if ( $condition['op'] == 'OR' ) {
@@ -816,23 +817,28 @@ class Bucket {
 				return $dbw->makeList( $children, IDatabase::LIST_AND );
 			}
 		} elseif ( self::isNot( $condition ) ) {
-			$child = self::getWhereCondition( $condition['operand'], $fieldNamesToTables, $schemas, $dbw, $categoryJoins );
+			$child = self::getWhereCondition( $condition['operand'], $fieldNamesToTables, $schemas, $dbw, $categoryJoins, $primaryTableName );
 			return "(NOT $child)";
 		} elseif ( is_array( $condition ) && isset( $condition[0] ) && is_array( $condition[0] ) ) {
 			// .where{{"a", ">", 0}, {"b", "=", "5"}})
-			return self::getWhereCondition( [ 'op' => isset( $condition[ 'op' ] ) ? $condition[ 'op' ] : 'AND', 'operands' => $condition ], $fieldNamesToTables, $schemas, $dbw, $categoryJoins );
+			return self::getWhereCondition( [ 'op' => isset( $condition[ 'op' ] ) ? $condition[ 'op' ] : 'AND', 'operands' => $condition ], $fieldNamesToTables, $schemas, $dbw, $categoryJoins, $primaryTableName );
 		} elseif ( is_array( $condition ) && !empty( $condition ) && !isset( $condition[0] ) ) {
 			// .where({a = 1, b = 2})
 			$operands = [];
 			foreach ( $condition as $key => $value ) {
 				$operands[] = [ $key, '=', $value ];
 			}
-			return self::getWhereCondition( [ 'op' => 'AND', 'operands' => $operands ], $fieldNamesToTables, $schemas, $dbw, $categoryJoins );
+			return self::getWhereCondition( [ 'op' => 'AND', 'operands' => $operands ], $fieldNamesToTables, $schemas, $dbw, $categoryJoins, $primaryTableName );
 		} elseif ( is_array( $condition ) && isset( $condition[0] ) && isset( $condition[1] ) ) {
 			if ( count( $condition ) === 2 ) {
 				$condition = [ $condition[0], '=', $condition[1] ];
 			}
-			$columnNameData = self::sanitizeColumnName( $condition[0], $fieldNamesToTables, $schemas, $dbw );
+			$whereTableName = null;
+			// If we don't have a period then we must be the primary column.
+			if ( count( explode( '.', $condition[0] ) ) == 1 ) {
+				$whereTableName = $primaryTableName;
+			}
+			$columnNameData = self::sanitizeColumnName( $condition[0], $fieldNamesToTables, $schemas, $dbw, $whereTableName );
 			if ( !isset( self::$WHERE_OPS[$condition[1]] ) ) {
 				throw new QueryException( wfMessage( 'bucket-query-where-invalid-op', $condition[1] ) );
 			}
@@ -997,7 +1003,7 @@ class Bucket {
 		}
 
 		if ( !empty( $data['wheres']['operands'] ) ) {
-			$WHERES[] = self::getWhereCondition( $data['wheres'], $fieldNamesToTables, $schemas, $dbw, $categoryJoins );
+			$WHERES[] = self::getWhereCondition( $data['wheres'], $fieldNamesToTables, $schemas, $dbw, $categoryJoins, $primaryTableName );
 		}
 
 		if ( !empty( $categoryJoins ) ) {
@@ -1075,7 +1081,6 @@ class Bucket {
 				$tmp->orderBy( $orderName, $data['orderBy']['direction'] );
 			}
 		}
-		file_put_contents( MW_INSTALL_PATH . '/cook.txt', 'Query: ' . print_r( $tmp->getSQL(), true ) . "\n", FILE_APPEND );
 		$res = $tmp->fetchResultSet();
 		foreach ( $res as $row ) {
 			$row = (array)$row;
@@ -1109,14 +1114,12 @@ class BucketException extends LogicException {
 
 class SchemaException extends BucketException {
 	function __construct( $msg ) {
-		file_put_contents( MW_INSTALL_PATH . '/cook.txt', 'SCHEMA EXCEPTION ' . print_r( $msg, true ) . "\n", FILE_APPEND );
 		parent::__construct( $msg );
 	}
 }
 
 class QueryException extends BucketException {
 	function __construct( $msg ) {
-		file_put_contents( MW_INSTALL_PATH . '/cook.txt', 'QUERY EXCEPTION ' . print_r( $msg, true ) . "\n", FILE_APPEND );
 		parent::__construct( $msg );
 	}
 }
