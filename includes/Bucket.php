@@ -54,7 +54,7 @@ class Bucket {
 
 		$mainDB = self::getMainDB();
 		if ( $bucketDBuser == null || $bucketDBpassword == null ) {
-			//TODO need to set utf8Mode for this
+			// TODO need to set utf8Mode for this
 			self::$db = $mainDB;
 			self::$specialBucketUser = false;
 			return self::$db;
@@ -74,7 +74,7 @@ class Bucket {
 	}
 
 	private static function getMainDB(): IMaintainableDatabase {
-		//Note: Cannot be used to write Bucket data due to json requiring a utf8 connection
+		// Note: Cannot be used to write Bucket data due to json requiring a utf8 connection
 		return MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnection( DB_PRIMARY );
 	}
 
@@ -501,7 +501,7 @@ class Bucket {
 				} elseif ( ( $oldSchema[$fieldName]['index'] === false && $fieldData['index'] === true ) ) {
 					$alterTableFragments[] = "MODIFY $escapedFieldName " . self::getDbType( $fieldName, $fieldData ) . " COMMENT $fieldJson"; // Acts as a no-op except to set the comment
 					$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $fieldName, $fieldData, $dbw );
-				# Handle changing between PAGE and TEXT
+				# Handle changing between types that don't actually change the DB type
 				} elseif ( ( $oldSchema[$fieldName]['type'] != $newSchema[$fieldName]['type'] ) ) {
 					$alterTableFragments[] = "MODIFY $escapedFieldName " . self::getDbType( $fieldName, $fieldData ) . " COMMENT $fieldJson"; // Acts as a no-op except to set the comment
 				}
@@ -597,23 +597,8 @@ class Bucket {
 		$fieldName = $dbw->addIdentifierQuotes( $fieldName );
 		switch ( self::getDbType( $unescapedFieldName, $fieldData ) ) {
 			case 'JSON':
-				$fieldData['repeated'] = false;
-				$subType = self::getDbType( $unescapedFieldName, $fieldData );
-				switch ( $subType ) {
-					case 'TEXT':
-						$subType = 'CHAR(255)';
-						break;
-					case 'INTEGER':
-						$subType = 'DECIMAL';
-						break;
-					case 'DOUBLE': // CAST doesn't have a double type
-						$subType = 'CHAR(255)';
-						break;
-					case 'BOOLEAN':
-						$subType = 'CHAR(255)'; // CAST doesn't have a boolean option
-						break;
-				}
-				return "INDEX $fieldName((CAST($fieldName AS $subType ARRAY)))";
+				// Typecasting for repeated fields doesn't give us any advantage
+				return "INDEX $fieldName((CAST($fieldName AS CHAR(255) ARRAY)))";
 			case 'TEXT':
 			case 'PAGE':
 				return "INDEX $fieldName($fieldName(255))";
@@ -975,8 +960,8 @@ class Bucket {
 		}
 
 		$ungroupedColumns = [];
-		if ( empty( $data['selects'] )) {
-			throw new QueryException( wfMessage('bucket-query-select-empty'));
+		if ( empty( $data['selects'] ) ) {
+			throw new QueryException( wfMessage( 'bucket-query-select-empty' ) );
 		}
 
 		foreach ( $data['selects'] as $selectColumn ) {
