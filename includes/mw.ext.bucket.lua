@@ -29,7 +29,6 @@ function QueryBuilder:new(tableName)
         tableName = tableName,
         selects = {},
         wheres = {op = "AND", operands = {}},
-        categories = {op = "AND", operands = {}},
         joins = {},
         orderBy = nil,
         subversion = ""

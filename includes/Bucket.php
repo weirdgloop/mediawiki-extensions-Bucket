@@ -969,6 +969,10 @@ class Bucket {
 		}
 
 		$ungroupedColumns = [];
+		if ( empty( $data['selects'] )) {
+			throw new QueryException( wfMessage('bucket-query-select-empty'));
+		}
+
 		foreach ( $data['selects'] as $selectColumn ) {
 			if ( self::isCategory( $selectColumn ) ) {
 				$SELECTS[$selectColumn] = "{$dbw->addIdentifierQuotes($selectColumn)}.cl_to IS NOT NULL";
