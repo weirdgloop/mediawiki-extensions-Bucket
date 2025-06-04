@@ -61,8 +61,9 @@ class BucketPage extends Article {
 		$endResult = $offset + $resultCount;
 
 		$maxCount = $dbw->newSelectQueryBuilder()
+			->select("COUNT(*)")
 			->from( Bucket::getBucketTableName( $table_name ) )
-			->fetchRowCount();
+			->fetchField();
 		$out->addWikiTextAsContent( 'Bucket entries: ' . $maxCount );
 
 		$out->addHTML( wfMessage( 'bucket-page-result-counter', $resultCount, $offset, $endResult ) );
