@@ -421,7 +421,7 @@ class Bucket {
 		$dbTableName = self::getBucketTableName( $bucketName );
 		$dbw = self::getDB();
 
-		$dbw->onTransactionCommitOrIdle( function () use ( $dbw, $dbTableName, $newSchema, $parentId, $bucketName ) {
+		$dbw->onTransactionCommitOrIdle( function () use ( $dbw, $dbTableName, $newSchema, $bucketName ) {
 			if ( !$dbw->tableExists( $dbTableName, __METHOD__ ) ) {
 				// We are a new bucket json
 				$statement = self::getCreateTableStatement( $dbTableName, $newSchema, $dbw );
@@ -446,6 +446,7 @@ class Bucket {
 			//So we start a transaction, read the column comments (which are the schema), and write that to bucket_schemas
 			$dbw->begin( __METHOD__ );
 			$schemaJson = self::buildSchemaFromComments( $dbTableName, $dbw );
+			$schemaJson['_time'] = time(); // Time is only used so that an edit and then a revert will still count as a new schema.
 			$schemaJson = json_encode( $schemaJson );
 			$dbw->upsert(
 				'bucket_schemas',
@@ -466,7 +467,7 @@ class Bucket {
 			$fieldJson = $dbw->addQuotes( json_encode( [ $fieldName => $fieldData ] ) );
 			# Handle new columns
 			if ( !isset( $oldSchema[$fieldName] ) ) {
-				$alterTableFragments[] = "ADD $escapedFieldName " . self::getDbType( $fieldName, $fieldData ) . " COMMENT $fieldJson AFTER $previousColumn";
+				$alterTableFragments[] = "ADD $escapedFieldName " . self::getDbType( $fieldName, $fieldData ) . " COMMENT $fieldJson AFTER {$dbw->addIdentifierQuotes($previousColumn)}";
 				if ( $fieldData['index'] ) {
 					$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $fieldName, $fieldData, $dbw );
 				}
@@ -480,8 +481,7 @@ class Bucket {
 				$newDbType = self::getDbType( $fieldName, $fieldData );
 				if ( $oldDbType !== $newDbType ) {
 					$needNewIndex = false;
-					if ( $oldSchema[$fieldName]['repeated'] || $fieldData['repeated']
-						|| strpos( self::getIndexStatement( $fieldName, $oldSchema[$fieldName], $dbw ), '(' ) != strpos( self::getIndexStatement( $fieldName, $fieldData, $dbw ), '(' ) ) {
+					if ( $oldSchema[$fieldName]['repeated'] || $fieldData['repeated'] ) {
 						# We cannot MODIFY from a column that doesn't need key length to a column that does need key length
 						if ( $oldSchema[$fieldName]['index'] ) {
 							$alterTableFragments[] = "DROP INDEX $escapedFieldName"; # Repeated types cannot reuse the existing index
