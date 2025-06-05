@@ -11,10 +11,13 @@ use MediaWiki\Extension\Scribunto\Hooks\ScribuntoExternalLibrariesHook;
 use MediaWiki\Hook\LinksUpdateCompleteHook;
 use MediaWiki\Hook\MovePageIsValidMoveHook;
 use MediaWiki\Hook\SidebarBeforeOutputHook;
+use MediaWiki\Hook\TitleIsAlwaysKnownHook;
+use MediaWiki\Hook\TitleIsMovableHook;
 use MediaWiki\Installer\Hook\LoadExtensionSchemaUpdatesHook;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Page\Article;
 use MediaWiki\Page\Hook\ArticleFromTitleHook;
+use MediaWiki\Page\Hook\BeforeDisplayNoArticleTextHook;
 use MediaWiki\Page\Hook\PageDeleteCompleteHook;
 use MediaWiki\Page\Hook\PageDeleteHook;
 use MediaWiki\Page\Hook\PageUndeleteCompleteHook;
@@ -41,7 +44,10 @@ class Hooks implements
 	MovePageIsValidMoveHook,
 	PageDeleteHook,
 	PageDeleteCompleteHook,
-	ContentModelCanBeUsedOnHook
+	ContentModelCanBeUsedOnHook,
+	BeforeDisplayNoArticleTextHook,
+	TitleIsAlwaysKnownHook,
+	TitleIsMovableHook
 {
 	/**
 	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/LoadExtensionSchemaUpdates
@@ -191,6 +197,17 @@ class Hooks implements
 	}
 
 	/**
+	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/TitleIsMovable
+	 */
+	public function onTitleIsMovable( $title, &$result ) {
+		if ( $title->getNamespace() !== NS_BUCKET ) {
+			return;
+		}
+
+		$result = false;
+	}
+
+	/**
 	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/MovePageIsValidMove
 	 */
 	public function onMovePageIsValidMove( $oldTitle, $newTitle, $status ) {
@@ -252,6 +269,32 @@ class Hooks implements
 		} elseif ( $contentModel != 'json' ) {
 			$ok = false;
 			return false;
+		}
+	}
+
+	/**
+	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/BeforeDisplayNoArticleText
+	 */
+	public function onBeforeDisplayNoArticleText( $article ) {
+		if ( $article->getTitle()->getNamespace() !== NS_BUCKET ) {
+			return;
+		}
+
+		if ( strtolower( str_replace( ' ', '_', $article->getTitle()->getRootText() ) ) == Bucket::MESSAGE_BUCKET ) {
+			return false;
+		}
+	}
+
+	/**
+	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/TitleIsAlwaysKnown
+	 */
+	public function onTitleIsAlwaysKnown( $title, &$isKnown ) {
+		if ( $title->getNamespace() !== NS_BUCKET ) {
+			return;
+		}
+
+		if ( strtolower( str_replace( ' ', '_', $title->getRootText() ) ) == Bucket::MESSAGE_BUCKET ) {
+			$isKnown = true;
 		}
 	}
 }
