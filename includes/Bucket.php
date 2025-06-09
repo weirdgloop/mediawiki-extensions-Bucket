@@ -674,11 +674,10 @@ class Bucket {
 		}
 		// Category column names are specially handled
 		if ( self::isCategory( $column ) ) {
-			$tableName = 'category';
+			$tableName = 'Category';
 			$columnName = explode( ':', $column )[1];
-			$bucketName = self::getBucketTableName( $tableName );
 			return [
-				'fullName' => $dbw->addIdentifierQuotes( $bucketName ) . '.' . $dbw->addIdentifierQuotes( $columnName ),
+				'fullName' => $dbw->addIdentifierQuotes( $tableName . ':' . $columnName ),
 				'tableName' => $tableName,
 				'columnName' => $columnName,
 				'schema' => [
@@ -969,7 +968,7 @@ class Bucket {
 				$SELECTS[$selectColumn] = "{$dbw->addIdentifierQuotes($selectColumn)}.cl_to IS NOT NULL";
 				$categoryName = explode( ':', $selectColumn )[1];
 				$categoryJoins[$categoryName] = $selectColumn;
-				continue;
+				$ungroupedColumns[$dbw->addIdentifierQuotes( $selectColumn )] = true;
 			} else {
 				$selectTableName = null;
 				// If we don't have a period then we must be the primary column.
@@ -983,8 +982,8 @@ class Bucket {
 				} else {
 					$SELECTS[$colData['columnName']] = $colData['fullName'];
 				}
+				$ungroupedColumns[$colData['fullName']] = true;
 			}
-			$ungroupedColumns[$colData['fullName']] = true;
 		}
 
 		if ( !empty( $data['wheres']['operands'] ) ) {
@@ -1062,9 +1061,16 @@ class Bucket {
 		}
 		if ( isset( $data['orderBy'] ) ) {
 			$orderName = self::sanitizeColumnName( $data['orderBy']['fieldName'], $fieldNamesToTables, $schemas, $dbw )['fullName'];
-			if ( $orderName != false ) {
-				$tmp->orderBy( $orderName, $data['orderBy']['direction'] );
+			if ( $orderName == false ) {
+				throw new QueryException( wfMessage( 'bucket-query-column-name-invalid', json_encode( $data['orderBy']['fieldName'] ) ) );
 			}
+			if ( !isset( $data['orderBy']['direction'] ) || ( $data['orderBy']['direction'] != 'ASC' && $data['orderBy']['direction'] != 'DESC' ) ) {
+				throw new QueryException( wfMessage( 'bucket-query-order-by-direction', json_encode( $data['orderBy']['direction'] ) ) );
+			}
+			if ( !isset( $SELECTS[$data['orderBy']['fieldName']] ) ) {
+				throw new QueryException( wfMessage( 'bucket-query-order-by-must-select', json_encode( $data['orderBy']['fieldName'] ) ) );
+			}
+			$tmp->orderBy( $orderName, $data['orderBy']['direction'] );
 		}
 		$res = $tmp->fetchResultSet();
 		foreach ( $res as $row ) {
