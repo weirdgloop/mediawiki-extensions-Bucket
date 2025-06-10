@@ -86,7 +86,8 @@
 			"value": {
 				"0": true,
 				"4": true
-			}
+			},
+			"merge_strategy": "array_plus"
 		},
 		"BucketDBuser": {
 			"value": null
