@@ -1051,14 +1051,19 @@ class Bucket {
 			$tmp->leftJoin( $TABLES[$alias], $alias, $conds );
 		}
 		if ( isset( $data['orderBy'] ) ) {
-			$orderName = self::sanitizeColumnName( $data['orderBy']['fieldName'], $fieldNamesToTables, $schemas, $dbw )['fullName'];
+			$defaultTableName = null;
+			// If we don't have a period in the column name it must be a primary table column.
+			if ( count( explode( '.', $data['orderBy']['fieldName'] ) ) == 1 ) {
+				$defaultTableName = $primaryTableName;
+			}
+			$orderName = self::sanitizeColumnName( $data['orderBy']['fieldName'], $fieldNamesToTables, $schemas, $dbw, $defaultTableName )['fullName'];
 			if ( $orderName == false ) {
 				throw new QueryException( wfMessage( 'bucket-query-column-name-invalid', json_encode( $data['orderBy']['fieldName'] ) ) );
 			}
 			if ( !isset( $data['orderBy']['direction'] ) || ( $data['orderBy']['direction'] != 'ASC' && $data['orderBy']['direction'] != 'DESC' ) ) {
 				throw new QueryException( wfMessage( 'bucket-query-order-by-direction', json_encode( $data['orderBy']['direction'] ) ) );
 			}
-			if ( !isset( $SELECTS[$data['orderBy']['fieldName']] ) ) {
+			if ( !isset( $ungroupedColumns[$orderName] ) ) {
 				throw new QueryException( wfMessage( 'bucket-query-order-by-must-select', json_encode( $data['orderBy']['fieldName'] ) ) );
 			}
 			$tmp->orderBy( $orderName, $data['orderBy']['direction'] );
