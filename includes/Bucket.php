@@ -479,22 +479,13 @@ class Bucket {
 				# Handle type changes
 				$oldDbType = self::getDbType( $fieldName, $oldSchema[$fieldName] );
 				$newDbType = self::getDbType( $fieldName, $fieldData );
-				if ( $oldDbType !== $newDbType ) {
-					$needNewIndex = false;
-					if ( $oldSchema[$fieldName]['repeated'] || $fieldData['repeated'] ) {
-						# We cannot MODIFY from a column that doesn't need key length to a column that does need key length
-						if ( $oldSchema[$fieldName]['index'] ) {
-							$alterTableFragments[] = "DROP INDEX $escapedFieldName"; # Repeated types cannot reuse the existing index
-						}
-						$needNewIndex = true;
+				if ( $oldDbType !== $newDbType ) { # Always drop and then re-add the column for type changes.
+					if ( $oldSchema[$fieldName]['index'] ) {
+						$alterTableFragments[] = "DROP INDEX $escapedFieldName";
 					}
-					if ( $oldDbType == 'TEXT' && $newDbType == 'JSON' ) { # Update string types to be valid JSON
-						$dbw->onTransactionCommitOrIdle( static function () use ( $dbw, $dbTableName, $escapedFieldName ) {
-							$dbw->query( "UPDATE $dbTableName SET $escapedFieldName = JSON_ARRAY($escapedFieldName) WHERE NOT JSON_VALID($escapedFieldName) AND _page_id >= 0;" );
-						}, __METHOD__ );
-					}
-					$alterTableFragments[] = "MODIFY $escapedFieldName " . self::getDbType( $fieldName, $fieldData ) . " COMMENT $fieldJson";
-					if ( $fieldData['index'] && $needNewIndex ) {
+					$alterTableFragments[] = "DROP $escapedFieldName";
+					$alterTableFragments[] = "ADD $escapedFieldName " . self::getDbType( $fieldName, $fieldData ) . " COMMENT $fieldJson AFTER {$dbw->addIdentifierQuotes($previousColumn)}";
+					if ( $fieldData['index'] ) {
 						$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $fieldName, $fieldData, $dbw );
 					}
 				# Handle adding index without type change
