@@ -49,6 +49,11 @@ class Hooks implements
 	TitleIsAlwaysKnownHook,
 	TitleIsMovableHook
 {
+	private function enabledNamespaces() {
+		$config = MediaWikiServices::getInstance()->getMainConfig();
+		return array_keys( $config->get( 'BucketWriteEnabledNamespaces' ), true );
+	}
+
 	/**
 	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/LoadExtensionSchemaUpdates
 	 *
@@ -70,8 +75,7 @@ class Hooks implements
 	public function onLinksUpdateComplete( $linksUpdate, $ticket ) {
 		$bucketPuts = $linksUpdate->getParserOutput()->getExtensionData( Bucket::EXTENSION_DATA_KEY );
 		$pageId = $linksUpdate->getTitle()->getArticleID();
-		$config = MediaWikiServices::getInstance()->getMainConfig();
-		if ( $linksUpdate->getTitle()->inNamespaces( array_keys( $config->get( 'BucketWriteEnabledNamespaces' ) ) ) ) {
+		if ( $linksUpdate->getTitle()->inNamespaces( $this->enabledNamespaces() ) ) {
 			if ( $bucketPuts !== null ) {
 				$titleText = $linksUpdate->getTitle()->getPrefixedText();
 				Bucket::writePuts( $pageId, $titleText, $bucketPuts );
@@ -171,8 +175,7 @@ class Hooks implements
 	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/SidebarBeforeOutput
 	 */
 	public function onSidebarBeforeOutput( $skin, &$sidebar ): void {
-		$config = MediaWikiServices::getInstance()->getMainConfig();
-		if ( $skin->getTitle()->inNamespaces( array_keys( $config->get( 'BucketWriteEnabledNamespaces' ) ) ) ) {
+		if ( $skin->getTitle()->inNamespaces( $this->enabledNamespaces() ) ) {
 			$sidebar['TOOLBOX'][] = [
 				'text' => 'View Bucket',
 				'href' => '?action=bucket',
