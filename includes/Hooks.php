@@ -172,7 +172,7 @@ class Hooks implements
 	 */
 	public function onSidebarBeforeOutput( $skin, &$sidebar ): void {
 		$config = MediaWikiServices::getInstance()->getMainConfig();
-		if ( $skin->getTitle()->inNamespaces( array_keys( $config->get( 'BucketWriteEnabledNamespaces' ), true ) ) ) {
+		if ( $skin->getTitle()->inNamespaces( array_keys( $config->get( 'BucketWriteEnabledNamespaces' ) ) ) ) {
 			$sidebar['TOOLBOX'][] = [
 				'text' => 'View Bucket',
 				'href' => '?action=bucket',
