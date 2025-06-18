@@ -66,6 +66,7 @@
     "bucket-query-invalid-join": "Invalid mw.ext.bucket.join() condition: $1",
     "bucket-query-invalid-join-two-repeated": "Cannot use mw.ext.bucket.join() on two repeated fields: $1, $2",
     "bucket-query-cast-fail": "Invalid query value: $1",
+    "bucket-query-non-scalar": "Invalid value in where statement. All values must be scalars",
     "bucket-query-order-by-must-select": "orderBy() field must also be present in select(). Found $1",
     "bucket-query-order-by-direction": "orderBy() direction must be ASC or DESC. Found: $1"
 }

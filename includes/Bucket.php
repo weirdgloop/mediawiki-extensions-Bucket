@@ -724,6 +724,9 @@ class Bucket {
 	}
 
 	private static function sanitizeValue( $value, IDatabase $dbw ) {
+		if ( !is_scalar( $value ) ) {
+			throw new QueryException( wfMessage( 'bucket-query-non-scalar' ) );
+		}
 		if ( is_numeric( $value ) ) {
 			if ( is_int( $value ) ) {
 				return intval( $value );
