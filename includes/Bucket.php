@@ -1030,8 +1030,6 @@ class Bucket {
 			}
 		}
 
-		$OPTIONS['GROUP BY'] = array_keys( $ungroupedColumns );
-
 		$OPTIONS['LIMIT'] = self::DEFAULT_LIMIT;
 		if ( isset( $data['limit'] ) && is_int( $data['limit'] ) && $data['limit'] >= 0 ) {
 			$OPTIONS['LIMIT'] = min( $data['limit'], self::MAX_LIMIT );
