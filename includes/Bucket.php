@@ -313,8 +313,8 @@ class Bucket {
 	}
 
 	public static function getValidFieldName( ?string $fieldName ) {
-		if ( $fieldName != null && preg_match( '/^[a-zA-Z0-9_ ]+$/', $fieldName ) ) {
-			$cleanName = str_replace( ' ', '_', strtolower( trim( $fieldName ) ) );
+		if ( $fieldName != null && preg_match( '/^[a-zA-Z0-9_]+$/', $fieldName ) ) {
+			$cleanName = strtolower( trim( $fieldName ) );
 			// MySQL has a maximum of 64, lets limit it to 60 in case we need to append to columns for some reason later
 			if ( strlen( $cleanName ) <= 60 ) {
 				return $cleanName;
