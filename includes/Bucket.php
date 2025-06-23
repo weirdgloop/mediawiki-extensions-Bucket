@@ -619,10 +619,6 @@ class Bucket {
 					return json_encode( [ $value ] ); // Wrap single values in an array for compatability
 				}
 			} else {
-				// Remove empty strings
-				$value = array_filter( $value, static function ( $v ) {
-					return $v != '';
-				} );
 				if ( count( $value ) > 0 ) {
 					return json_encode( LuaLibrary::convertFromLuaTable( $value ) );
 				} else {
