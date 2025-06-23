@@ -43,7 +43,9 @@ function QueryBuilder:new(tableName)
 end
 
 function QueryBuilder:select(...)
-    self.selects = {...}
+    for k, v in pairs({...}) do
+        table.insert(self.selects, v)
+    end
     return self
 end
 
@@ -103,8 +105,8 @@ function bucket.And(...)
     return {op = "AND", operands = {...}}
 end
 
-function bucket.Not(arg)
-    return {op = "NOT", operand = arg}
+function bucket.Not(...)
+    return {op = "NOT", operand = {...}}
 end
 
 function bucket.Null()
