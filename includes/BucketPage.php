@@ -27,7 +27,7 @@ class BucketPage extends Article {
 		$dbw = Bucket::getDB();
 		$linkRenderer = MediaWikiServices::getInstance()->getLinkRenderer();
 
-		$table_name = Bucket::getValidFieldName( $title->getRootText() );
+		$table_name = Bucket::getValidFieldName( str_replace( ' ', '_', $title->getRootText() ) );
 
 		$res = $dbw->newSelectQueryBuilder()
 					->from( 'bucket_schemas' )
