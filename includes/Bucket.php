@@ -1001,9 +1001,20 @@ class Bucket {
 			if ( !is_array( $join['cond'] ) || !count( $join['cond'] ) == 2 ) {
 				throw new QueryException( wfMessage( 'bucket-query-invalid-join', json_encode( $join ) ) );
 			}
-			$leftField = self::sanitizeColumnName( $join['cond'][0], $fieldNamesToTables, $schemas, $dbw );
+			$leftDefaultTableName = null;
+			// If we don't have a period in the column name it must be a primary table column.
+			if ( count( explode( '.', $join['cond'][0] ) ) == 1 ) {
+				$leftDefaultTableName = $primaryTableName;
+			}
+			$leftField = self::sanitizeColumnName( $join['cond'][0], $fieldNamesToTables, $schemas, $dbw, $leftDefaultTableName );
 			$isLeftRepeated = $leftField['schema']['repeated'];
-			$rightField = self::sanitizeColumnName( $join['cond'][1], $fieldNamesToTables, $schemas, $dbw );
+			$rightDefaultTableName = null;
+			// If we don't have a period in the column name it must be a primary table column.
+			if ( count( explode( '.', $join['cond'][1] ) ) == 1 ) {
+				$rightDefaultTableName = $primaryTableName;
+			}
+			$rightField = self::sanitizeColumnName( $join['cond'][1], $fieldNamesToTables, $schemas, $dbw, $rightDefaultTableName );
+
 			$isRightRepeated = $rightField['schema']['repeated'];
 
 			if ( $isLeftRepeated && $isRightRepeated ) {
