@@ -728,14 +728,11 @@ class Bucket {
 		if ( !is_scalar( $value ) ) {
 			throw new QueryException( wfMessage( 'bucket-query-non-scalar' ) );
 		}
-		if ( is_numeric( $value ) ) {
-			if ( is_int( $value ) ) {
-				return intval( $value );
-			}
-			if ( is_float( $value ) ) { // Float and double
-				return floatval( $value );
-			}
-			throw new QueryException( wfMessage( 'bucket-query-cast-fail', $value ) );
+		if ( is_int( $value ) ) {
+			return intval( $value );
+		}
+		if ( is_float( $value ) ) { // Float and double
+			return floatval( $value );
 		}
 		if ( is_bool( $value ) ) {
 			// MySQL doesn't have boolean, 0 = FALSE and 1 = TRUE
