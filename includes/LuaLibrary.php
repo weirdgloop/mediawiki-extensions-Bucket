@@ -5,6 +5,7 @@ namespace MediaWiki\Extension\Bucket;
 use MediaWiki\Extension\Scribunto\Engines\LuaCommon\LibraryBase;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Title\MalformedTitleException;
+use Wikimedia\Rdbms\DBQueryTimeoutError;
 
 class LuaLibrary extends LibraryBase {
 	public function register() {
@@ -49,6 +50,8 @@ class LuaLibrary extends LibraryBase {
 			return [ self::convertToLuaTable( $rows ) ];
 		} catch ( QueryException $e ) {
 			return [ 'error' => $e->getMessage() ];
+		} catch ( DBQueryTimeoutError $e ) {
+			return [ 'error' => wfMessage( 'bucket-query-long-execution-time' )->text() ];
 		}
 	}
 

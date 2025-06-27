@@ -83,7 +83,7 @@ function QueryBuilder:run()
     if type(result) == "table" then
         return result
     else
-        error(result)
+        error(result, 3) -- Specify that the erroring code is 3 calls up the chain, which is the user facing module
         return nil
     end
 end
