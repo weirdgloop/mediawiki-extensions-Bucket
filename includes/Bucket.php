@@ -10,7 +10,6 @@ use Wikimedia\Rdbms\IMaintainableDatabase;
 
 class Bucket {
 	public const EXTENSION_DATA_KEY = 'bucket:puts';
-	public const EXTENSION_PROPERTY_KEY = 'bucketputs';
 	public const MAX_LIMIT = 5000;
 	public const DEFAULT_LIMIT = 500;
 	public const MESSAGE_BUCKET = 'bucket_message';
@@ -556,14 +555,6 @@ class Bucket {
 			return false;
 		}
 		return true;
-	}
-
-	public static function isBucketWithPuts( $cleanBucketName, IDatabase $dbw ) {
-		return $dbw->newSelectQueryBuilder()
-			->table( 'bucket_pages' )
-			->lockInShareMode()
-			->where( [ 'table_name' => $cleanBucketName ] )
-			->fetchRowCount() !== 0;
 	}
 
 	private static function getDbType( string $fieldName, ?array $fieldData ): string {
