@@ -970,7 +970,7 @@ class Bucket {
 				$colData = self::sanitizeColumnName( $selectColumn, $fieldNamesToTables, $schemas, $dbw, $selectTableName );
 
 				if ( $colData['tableName'] != $primaryTableName ) {
-					$SELECTS[$colData['tableName'] . '.' . $colData['columnName']] = 'JSON_ARRAY(' . $colData['fullName'] . ')';
+					$SELECTS[$colData['tableName'] . '.' . $colData['columnName']] = $colData['fullName'];
 				} else {
 					$SELECTS[$colData['columnName']] = $colData['fullName'];
 				}
@@ -1078,6 +1078,7 @@ class Bucket {
 			}
 			$tmp->orderBy( $orderName, $data['orderBy']['direction'] );
 		}
+		print( $tmp->getSQL() );
 		$res = $tmp->fetchResultSet();
 		foreach ( $res as $row ) {
 			$row = (array)$row;
