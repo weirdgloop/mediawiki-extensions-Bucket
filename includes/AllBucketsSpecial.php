@@ -8,7 +8,7 @@ use MediaWiki\Title\TitleValue;
 
 class AllBucketsSpecial extends SpecialPage {
 	public function __construct() {
-		parent::__construct( 'Allbuckets' );
+		parent::__construct( 'AllBuckets' );
 	}
 
 	public function execute( $par ) {
@@ -24,16 +24,11 @@ class AllBucketsSpecial extends SpecialPage {
 			->caller( __METHOD__ )
 			->fetchResultSet();
 
-		$schemas = [];
-		foreach ( $res as $row ) {
-			$schemas[$row->table_name] = json_decode( $row->schema_json, true );
-		}
-
 		$out->addHTML( '<table class="wikitable">' );
 		$out->addHTML( '<tr><th>Bucket</th></tr>' );
 		$linkRenderer = MediaWikiServices::getInstance()->getLinkRenderer();
-		foreach ( $schemas as $row => $val ) {
-			$out->addHTML( '<tr><td>' . $linkRenderer->makePreloadedLink( new TitleValue( NS_BUCKET, $row ) ) . '</td></tr>' );
+		foreach ( $res as $row ) {
+			$out->addHTML( '<tr><td>' . $linkRenderer->makePreloadedLink( new TitleValue( NS_BUCKET, $row->table_name ) ) . '</td></tr>' );
 		}
 		$out->addHTML( '</table>' );
 	}
