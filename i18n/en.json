@@ -69,5 +69,6 @@
     "bucket-query-non-scalar": "Invalid value in where statement. All values must be scalars",
     "bucket-query-order-by-must-select": "orderBy() field must also be present in select(). Found $1",
     "bucket-query-order-by-direction": "orderBy() direction must be ASC or DESC. Found: $1",
-    "bucket-query-long-execution-time": "Bucket query took longer than the allowed time"
+    "bucket-query-long-execution-time": "Bucket query took longer than the allowed time",
+    "bucket-query-must-be-numeric": "$1 argument must be a number"
 }

@@ -299,6 +299,18 @@ class Bucket {
 		}
 	}
 
+	/**
+	 * Used for early validation of input by Lua
+	 */
+	public static function isPossibleField( ?string $fieldName ) {
+		if ( $fieldName != null && preg_match( '/^[a-zA-Z0-9_\.]+$/', $fieldName ) ) {
+			if ( substr_count( $fieldName, '\.' ) <= 1 ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	public static function getValidFieldName( ?string $fieldName ) {
 		if ( $fieldName != null && preg_match( '/^[a-zA-Z0-9_]+$/', $fieldName ) ) {
 			$cleanName = strtolower( trim( $fieldName ) );

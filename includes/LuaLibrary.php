@@ -13,6 +13,8 @@ class LuaLibrary extends LibraryBase {
 			'put' => [ $this, 'bucketPut' ],
 			'get' => [ $this, 'bucketGet' ],
 			'run' => [ $this, 'bucketRun' ],
+			'isPossibleField' => [ $this, 'bucketIsPossibleField' ],
+			'isCategory' => [ $this, 'bucketIsCategory' ]
 		];
 		return $this->getEngine()->registerInterface( __DIR__ . '/mw.ext.bucket.lua', $lib, [] );
 	}
@@ -83,5 +85,13 @@ class LuaLibrary extends LibraryBase {
 			return $luaTable;
 		}
 		return $arr;
+	}
+
+	public function bucketIsPossibleField( string $name ): array {
+		return [ Bucket::isPossibleField( $name ) ];
+	}
+
+	public function bucketIsCategory( string $name ): array {
+		return [ BucketQuery::isCategory( $name ) ];
 	}
 }

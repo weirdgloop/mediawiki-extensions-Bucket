@@ -121,8 +121,8 @@ class BucketApi extends ApiBase {
 			ParamValidator::PARAM_DEFAULT => 20,
 			ParamValidator::PARAM_TYPE => 'limit',
 			IntegerDef::PARAM_MIN => 1,
-			IntegerDef::PARAM_MAX => Bucket::DEFAULT_LIMIT,
-			IntegerDef::PARAM_MAX2 => Bucket::MAX_LIMIT,
+			IntegerDef::PARAM_MAX => BucketQuery::DEFAULT_LIMIT,
+			IntegerDef::PARAM_MAX2 => BucketQuery::MAX_LIMIT,
 		],
 		'offset' => [
 			ParamValidator::PARAM_DEFAULT => 0,
