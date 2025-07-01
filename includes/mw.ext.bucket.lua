@@ -31,7 +31,8 @@ function QueryBuilder:new(tableName)
         wheres = {op = "AND", operands = {}},
         joins = {},
         orderBy = nil,
-        subversion = ""
+        subversion = "",
+        debug = false
     }
     setmetatable(queryBuilder, self)
     self.__index = function(tbl, key)
@@ -77,11 +78,19 @@ function QueryBuilder:orderBy(fieldName, direction)
     return self
 end
 
+function QueryBuilder:print_sql()
+    self.debug = true
+    return self
+end
+
 function QueryBuilder:run()
     local result = php.run(self)
 
     if type(result) == "table" then
-        return result
+        if self.debug then
+            mw.log(result[2])
+        end
+        return result[1]
     else
         error(result, 3) -- Specify that the erroring code is 3 calls up the chain, which is the user facing module
         return nil

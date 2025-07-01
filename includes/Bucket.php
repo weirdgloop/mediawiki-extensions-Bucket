@@ -1073,7 +1073,10 @@ class Bucket {
 			}
 			$tmp->orderBy( $orderName, $data['orderBy']['direction'] );
 		}
-		print( $tmp->getSQL() );
+		$sql_string = '';
+		if ( $data['debug'] == true ) {
+			$sql_string = $tmp->getSQL();
+		}
 		$res = $tmp->fetchResultSet();
 		foreach ( $res as $row ) {
 			$row = (array)$row;
@@ -1088,7 +1091,7 @@ class Bucket {
 			}
 			$rows[] = $row;
 		}
-		return $rows;
+		return [ $rows, $sql_string ];
 	}
 }
 
