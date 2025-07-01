@@ -636,12 +636,7 @@ class Bucket {
 			if ( $value == null ) {
 				$value = '';
 			}
-			// If we are a join-ed repeated field we will already be an array
-			if ( gettype( $value ) == 'array' ) {
-				$jsonData = $value;
-			} else {
-				$jsonData = json_decode( $value, true );
-			}
+			$jsonData = json_decode( $value, true );
 			if ( !is_array( $jsonData ) ) { // If we are in a repeated field but only holding a scalar, make it an array anyway.
 				$jsonData = [ $jsonData ];
 			}
@@ -1089,17 +1084,7 @@ class Bucket {
 					$defaultTableName = $primaryTableName;
 				}
 				$columnData = self::sanitizeColumnName( $columnName, $fieldNamesToTables, $schemas, $dbw, $defaultTableName );
-				if ( !self::isCategory( $columnName ) && $columnData['tableName'] != $primaryTableName ) {
-					// For joined columns we must undo the JSON_ARRAY that the join statement adds
-					$vals = [];
-					foreach ( json_decode( $value ) as $v ) {
-						$vals[] = self::cast( $v, $columnData['schema'] );
-					}
-
-					$row[$columnName] = $vals;
-				} else {
-					$row[$columnName] = self::cast( $value, $columnData['schema'] );
-				}
+				$row[$columnName] = self::cast( $value, $columnData['schema'] );
 			}
 			$rows[] = $row;
 		}
