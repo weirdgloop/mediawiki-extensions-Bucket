@@ -46,7 +46,7 @@ class LuaLibrary extends LibraryBase {
 	public function bucketRun( $data ): array {
 		try {
 			$data = self::convertFromLuaTable( $data );
-			$rows = Bucket::runSelect( $data );
+			$rows = BucketQuery::runSelect( $data );
 			return [ self::convertToLuaTable( $rows ) ];
 		} catch ( QueryException $e ) {
 			return [ 'error' => $e->getMessage() ];
