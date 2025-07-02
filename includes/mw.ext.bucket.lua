@@ -77,7 +77,7 @@ end
 
 function QueryBuilder:limit(arg)
     if type(arg) ~= "number" then
-        printError('bucket-query-must-be-numeric', 5, 'limit()')
+        printError('bucket-query-must-be-type', 5, 'limit()', 'number')
     end
     self.limit = arg
     return self
@@ -85,14 +85,23 @@ end
 
 function QueryBuilder:offset(arg)
     if type(arg) ~= "number" then
-        printError('bucket-query-must-be-numeric', 5, 'offset()')
+        printError('bucket-query-must-be-type', 5, 'offset()', 'number')
     end
     self.offset = arg
     return self
 end
 
+-- Direction is optional, defaults to ASC
 function QueryBuilder:orderBy(fieldName, direction)
-    -- TODO parse
+    assertPossibleField(fieldName)
+    if direction == nil then
+        direction = "ASC" -- Default value
+    end
+    local originalDirection = direction
+    local direction = string.upper(direction)
+    if direction ~= "ASC" and direction ~= "DESC" then
+        printError('bucket-query-order-by-direction', 5, originalDirection)
+    end
     self.orderBy = {fieldName = fieldName, direction = direction}
     return self
 end
@@ -117,6 +126,9 @@ function QueryBuilder:run()
 end
 
 function QueryBuilder:sub(identifier)
+    if type(identifier) ~= 'string' then
+        printError('bucket-query-must-be-type', 5, 'sub()', 'string')
+    end
     self.subversion = identifier
     return self
 end
@@ -152,18 +164,38 @@ setmetatable(bucket, {
 })
 
 -- Validation functions
+-- We cannot definitively validate while in lua, since its always possible 
+-- to modify the QueryBuilder data structures directly from untrusted lua code
+-- However this validation allows us to return meaningful error messages to users instead of waiting for .run()
 function assertPossibleField(fieldName)
-    if not php.isPossibleField(fieldName) then
+    if not isPossibleField(fieldName) then
         printError('bucket-invalid-name-warning', 5, fieldName)
     end
 end
 
+-- Select can be a Category: or a normal field
 function assertPossibleSelect(fieldName)
-    if (not php.isCategory(fieldName)) and (not php.isPossibleField(fieldName)) then
+    if (not isCategory(fieldName)) and (not isPossibleField(fieldName)) then
         printError('bucket-invalid-name-warning', 5, fieldName)
     end
 end
 
+-- This is equivalent to Bucket.php field name validation, but is kept in lua for performance.
+function isPossibleField(fieldName)
+    if string.match(fieldName, '^[a-zA-Z0-9_.]+$') then
+        return true
+    end
+    return false
+end
+
+function isCategory(fieldName)
+    if string.match(fieldName, '^Category:') then
+        return true
+    end
+    return false
+end
+
+-- Return a lua error using a mediawiki message
 function printError(msg, depth, ...)
     error(mw.message.new(msg, ...):plain(), depth)
 end
