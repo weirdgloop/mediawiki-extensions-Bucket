@@ -45,7 +45,7 @@ end
 
 function QueryBuilder:select(...)
     for k, v in pairs({...}) do
-        assertPossibleSelect(v)
+        assertPossibleField(v)
         table.insert(self.selects, v)
     end
     return self
@@ -168,28 +168,21 @@ setmetatable(bucket, {
 -- to modify the QueryBuilder data structures directly from untrusted lua code
 -- However this validation allows us to return meaningful error messages to users instead of waiting for .run()
 function assertPossibleField(fieldName)
-    if not isPossibleField(fieldName) then
-        printError('bucket-invalid-name-warning', 5, fieldName)
-    end
-end
-
--- Select can be a Category: or a normal field
-function assertPossibleSelect(fieldName)
     if (not isCategory(fieldName)) and (not isPossibleField(fieldName)) then
-        printError('bucket-invalid-name-warning', 5, fieldName)
+        printError('bucket-schema-invalid-field-name', 5, fieldName or '')
     end
 end
 
 -- This is equivalent to Bucket.php field name validation, but is kept in lua for performance.
 function isPossibleField(fieldName)
-    if string.match(fieldName, '^[a-zA-Z0-9_.]+$') then
+    if fieldName and string.match(fieldName, '^[a-zA-Z0-9_.]+$') then
         return true
     end
     return false
 end
 
 function isCategory(fieldName)
-    if string.match(fieldName, '^Category:') then
+    if fieldName and string.match(fieldName, '^Category:') then
         return true
     end
     return false
