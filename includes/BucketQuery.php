@@ -309,10 +309,6 @@ class BucketQuery {
 		if ( self::isNot( $condition ) ) {
 			return new NotNode( self::parseWhere( $condition['operand'] ) );
 		}
-		if ( is_array( $condition ) && isset( $condition[0] ) && is_array( $condition[0] ) ) {
-			// .where{{"a", ">", 0}, {"b", "=", "5"}})
-			return self::parseWhere( [ 'op' => isset( $condition[ 'op' ] ) ? $condition[ 'op' ] : 'AND', 'operands' => $condition ] );
-		}
 		if ( is_array( $condition ) && isset( $condition[0] ) && isset( $condition[1] ) && isset( $condition[2] ) ) {
 			$selector = new FieldSelector( $condition[0] );
 			$op = new Operator( $condition[1] );

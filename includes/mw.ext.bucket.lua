@@ -82,7 +82,8 @@ function standardizeWhere(...)
             if #children > 1 then
                 return {op = val['op'], operands = children}
             else
-                return children
+                -- Both AND or OR don't apply if there is only a single child
+                return children[1]
             end
         else
             local operand = standardizeWhere(val['operand'])
@@ -94,9 +95,9 @@ function standardizeWhere(...)
     elseif type(val) == "table" then
         if #val > 0 and type(val[1]) == "table" then
             -- .where{{"a", ">", 0}, {"b", "=", "5"}})
-            local op = val['op'] and val['op'] or 'AND'
+            local op = val['op'] and val['op'] or 'AND' -- Apply implicit AND
             return standardizeWhere({op = op, operands = val})
-        elseif #val == 0 then -- The # operator only counts consecutive unnamed variables.
+        elseif #val == 0 then -- The # operator only counts unnamed variables
             -- .where({a = 1, b = 2})
             local operands = {}
             for k, v in pairs(val) do
