@@ -73,12 +73,12 @@ class BucketQuery {
 		} elseif ( $node instanceof ComparisonConditionNode ) {
 			$dbw = Bucket::getDB();
 			$selector = $node->getSelector();
-			$columnName = $selector->getInputString(); // TODO quote
+			$columnName = $selector->getQuotedSelectorText( $dbw );
 			$op = $node->getOperator()->getOperator();
-			$value = $dbw->addQuotes( $node->getValue()->getValue() );
+			$value = $node->getValue()->getQuotedValue( $dbw );
 
 			if ( $selector instanceof CategorySelector ) {
-				return "({$dbw->addIdentifierQuotes($selector->getSelectorText())}.cl_to IS NOT NULL)";
+				return "({$selector->getQuotedSelectorText($dbw)}.cl_to IS NOT NULL)";
 			} elseif ( $selector instanceof FieldSelector ) {
 				if ( $value == '&&NULL&&' ) {
 					if ( $op == '!=' ) {
@@ -102,9 +102,9 @@ class BucketQuery {
 					// return "($value $op ANY(SELECT json_col FROM JSON_TABLE($columnName, '$[*]' COLUMNS(json_col $dbType PATH '$')) AS json_tab))";
 				} else {
 					if ( in_array( $op, [ '>', '>=', '<', '<=' ] ) ) {
-						return $dbw->buildComparison( $op, [ $columnName => $value ] );
+						return $dbw->buildComparison( $op, [ $columnName => $node->getValue()->getValue() ] ); // Intentionally get the unquoted value, buildComparison quotes it.
 					} elseif ( $op == '=' ) {
-						return $dbw->makeList( [ $columnName => $value ], IDatabase::LIST_AND );
+						return $dbw->makeList( [ $columnName => $node->getValue()->getValue() ], IDatabase::LIST_AND ); // Intentionally get the unquoted value, makeList quotes it.
 					} elseif ( $op == '!=' ) {
 						return "($columnName $op $value)";
 					}
@@ -115,10 +115,9 @@ class BucketQuery {
 	}
 
 	public static function runSelect( $data ) {
-		self::parseSelect( $data ); // This populates the static Query class
-		// file_put_contents(MW_INSTALL_PATH . '/cook.txt', "QUERY: " . print_r(self::$query, true) . "\n", FILE_APPEND);
+		self::parseSelect( $data ); // This populates the query instance
 
-		//TODO unset $data or move everything below into its own function so that we cannot cross contaminate
+		// unset $data so that we cannot cross contaminate
 		$data = null;
 
 		$dbw = Bucket::getDB();
@@ -127,9 +126,9 @@ class BucketQuery {
 		$querySelectors = self::$query->getSelectors();
 		foreach ( $querySelectors as $selector ) {
 			if ( $selector instanceof CategorySelector ) {
-				$SELECTS[$selector->getInputString()] = "{$dbw->addIdentifierQuotes($selector->getSelectorText())}.cl_to IS NOT NULL}";
+				$SELECTS[$selector->getInputString()] = "{$selector->getQuotedSelectorText($dbw)}.cl_to IS NOT NULL";
 			} else {
-				$SELECTS[$selector->getInputString()] = Bucket::getBucketTableName( $selector->getSelectorText() ); // TODO figure out escaping for this.
+				$SELECTS[$selector->getInputString()] = $selector->getQuotedSelectorText( $dbw );
 			}
 		}
 
@@ -138,18 +137,19 @@ class BucketQuery {
 		foreach ( $queryJoins as $join ) {
 			if ( $join instanceof CategoryJoin ) {
 				$alias = $join->getName();
-				$bucketTableName = Bucket::getBucketTableName( self::$query->getPrimaryBucket()->getName() );
-				$LEFT_JOINS[$alias] = [
-					"{$dbw->addIdentifierQuotes($alias)}.cl_from = {$dbw->addIdentifierQuotes($bucketTableName)}._page_id", // Must be all in one string to avoid the table name being treated as a string value.
-					"{$dbw->addIdentifierQuotes($alias)}.cl_to" => str_replace( ' ', '_', $join->getName() )
+				$bucketTableName = self::$query->getPrimaryBucket()->getQuotedTableName( $dbw );
+				$categoryNameNoPrefix = substr( str_replace( ' ', '_', $join->getName() ), 9 );
+				$LEFT_JOINS[$join->getName()] = [
+					"{$join->getQuotedIdentifier($dbw)}.cl_from = {$bucketTableName}._page_id", // Must be all in one string to avoid the table name being treated as a string value.
+					"{$join->getQuotedIdentifier($dbw)}.cl_to" => $categoryNameNoPrefix
 				];
 			} elseif ( $join instanceof BucketJoin ) {
 				$condition = $join->getJoinCondition();
 
 				$selector1 = $condition->getSelector1();
-				$selector1Table = $dbw->addIdentifierQuotes( Bucket::getBucketTableName( $selector1->getSelectorText() ) );
+				$selector1Table = $selector1->getQuotedSelectorText( $dbw );
 				$selector2 = $condition->getSelector2();
-				$selector2Table = $dbw->addIdentifierQuotes( Bucket::getBucketTableName( $selector2->getSelectorText() ) );
+				$selector2Table = $selector2->getQuotedSelectorText( $dbw );
 				if ( $selector1->getFieldSchema()->getRepeated() ) {
 					$LEFT_JOINS[Bucket::getBucketTableName( $join->getName() )] = [
 						"$selector2Table MEMBER OF($selector1Table)"
@@ -168,7 +168,7 @@ class BucketQuery {
 
 		$WHERES = self::generateWhereSQL( self::$query->getWhereNodes() );
 		if ( $WHERES == '' ) {
-			$WHERES = [];
+			$WHERES = []; // Select query builder doesn't like an empty string or null.
 		}
 
 		$OPTIONS = [];
@@ -196,15 +196,19 @@ class BucketQuery {
 			$tmp->orderBy( $orderByField->getInputString(), $orderByDirection );
 		}
 		$sql_string = '';
-		if ( $data['debug'] == true ) {
+		if ( self::$query->getDebug() == true ) {
 			$sql_string = $tmp->getSQL();
 		}
 		$res = $tmp->fetchResultSet();
 		foreach ( $res as $row ) {
 			$row = (array)$row;
 			foreach ( $row as $columnName => $value ) {
-				$selector = new FieldSelector( $columnName );
-				$row[$selector->getInputString()] = self::cast( $value, $selector->getFieldSchema() );
+				if ( self::isCategory( $columnName ) ) {
+					$row[$columnName] = boolval( $value );
+				} else {
+					$selector = new FieldSelector( $columnName );
+					$row[$selector->getInputString()] = self::cast( $value, $selector->getFieldSchema() );
+				}
 			}
 			$rows[] = $row;
 		}
@@ -229,7 +233,7 @@ class BucketQuery {
 		$neededSchemas = $usedTables;
 		foreach ( $neededSchemas as $name ) {
 			if ( isset( self::$schemaCache[$name] ) ) {
-				unset( $queryTables[$name] );
+				unset( $neededSchemas[$name] );
 			}
 		}
 		$dbw = Bucket::getDB();
@@ -282,8 +286,7 @@ class BucketQuery {
 		}
 
 		if ( isset( $data['orderBy'] ) ) {
-			// TODO verify data types
-			// self::$query->setOrderBy( $data['orderBy'], $data['direction'] );
+			self::$query->setOrderBy( $data['orderBy']['fieldName'], $data['orderBy']['direction'] );
 		}
 
 		if ( isset( $data['debug'] ) ) {
@@ -329,7 +332,7 @@ class BucketQuery {
 			return new ComparisonConditionNode( $selector, $op, $value );
 		}
 		if ( is_string( $condition ) && self::isCategory( $condition ) || ( is_array( $condition ) && self::isCategory( $condition[0] ) ) ) {
-			$selector = new CategorySelector( $condition[0] );
+			$selector = new CategorySelector( $condition );
 			$op = new Operator( '!=' );
 			$value = new Value( '&&NULL&&' );
 			return new ComparisonConditionNode( $selector, $op, $value );
@@ -409,9 +412,13 @@ class Query {
 
 	private function checkForCategories( QueryNode $node ) {
 		foreach ( $node->getChildren() as $child ) {
-			if ( $child instanceof CategoryName ) {
-				$this->addCategoryJoin( $child->getName() );
+			if ( $child instanceof ComparisonConditionNode ) {
+				$selector = $child->getSelector();
+				if ( $selector instanceof CategorySelector ) {
+					$this->addCategoryJoin( $selector->getInputString() );
+				}
 			}
+			self::checkForCategories( $child );
 		}
 	}
 
@@ -440,9 +447,17 @@ class Query {
 	}
 
 	function setOrderBy( string $orderByField, string $direction ) {
-		// TODO check if the orderBy is selected
-		//throw new QueryException( wfMessage( 'bucket-query-order-by-must-select', json_encode( $data['orderBy']['fieldName'] ) ) );
+		$isSelected = false;
 		$this->orderByField = new FieldSelector( $orderByField );
+		foreach ( BucketQuery::$query->getSelectors() as $select ) {
+			if ( $select->getSelectorText() == $this->orderByField->getSelectorText() ) {
+				$isSelected = true;
+				break;
+			}
+		}
+		if ( !$isSelected ) {
+			throw new QueryException( wfMessage( 'bucket-query-order-by-must-select', $orderByField ) );
+		}
 		if ( $direction != 'ASC' && $direction != 'DESC' ) {
 			throw new QueryException( wfMessage( 'bucket-query-order-by-direction', $direction ) );
 		}
@@ -479,6 +494,8 @@ class Query {
 
 abstract class Join {
 	abstract function getName(): string;
+
+	abstract function getQuotedIdentifier( IDatabase $dbw ): string;
 }
 
 class BucketJoin extends Join {
@@ -497,6 +514,10 @@ class BucketJoin extends Join {
 	function getName(): string {
 		return $this->joinedTable->getName();
 	}
+
+	function getQuotedIdentifier( IDatabase $dbw ): string {
+		return $this->joinedTable->getQuotedTableName( $dbw );
+	}
 }
 
 class CategoryJoin extends Join {
@@ -508,6 +529,10 @@ class CategoryJoin extends Join {
 
 	function getName(): string {
 		return $this->category->getName();
+	}
+
+	function getQuotedIdentifier( IDatabase $dbw ): string {
+		return $this->category->getQuotedIdentifier( $dbw );
 	}
 }
 
@@ -531,7 +556,7 @@ class NotNode extends QueryNode {
 	}
 
 	function getChild(): QueryNode {
-		return $this->children[1];
+		return $this->children[0];
 	}
 }
 
@@ -607,6 +632,8 @@ abstract class Selector {
 
 	abstract function getSelectorText(): string;
 
+	abstract function getQuotedSelectorText( IDatabase $dbw ): string;
+
 	function getInputString(): string {
 		return $this->inputString;
 	}
@@ -638,6 +665,7 @@ class FieldSelector extends Selector {
 		// TODO ambiguous checks - I don't think anything can be ambiguous now that everything except the primary bucket requires a bucket name
 		$fields = $this->schema->getFields();
 		if ( !isset( $fields[$fieldName] ) ) {
+			debug_print_backtrace();
 			throw new QueryException( wfMessage( 'bucket-query-column-not-found-in-bucket', $fieldName, $this->schema->getName() ) );
 		}
 		$this->schemaField = $fields[$fieldName];
@@ -645,6 +673,10 @@ class FieldSelector extends Selector {
 
 	function getSelectorText(): string {
 		return $this->schema->getName() . '.' . $this->schemaField->getFieldName();
+	}
+
+	function getQuotedSelectorText( IDatabase $dbw ): string {
+		return $dbw->addIdentifierQuotes( Bucket::getBucketTableName( $this->schema->getName() ) ) . '.' . $dbw->addIdentifierQuotes( $this->schemaField->getFieldName() );
 	}
 
 	function getFieldSchema(): BucketSchemaField {
@@ -663,10 +695,16 @@ class CategorySelector extends Selector {
 	function getSelectorText(): string {
 		return $this->categoryName->getName();
 	}
+
+	function getQuotedSelectorText( IDatabase $dbw ): string {
+		return $this->categoryName->getQuotedIdentifier( $dbw );
+	}
 }
 
 abstract class Name {
 	abstract function getName(): string;
+
+	abstract function getQuotedIdentifier( IDatabase $dbw ): string;
 }
 class CategoryName extends Name {
 	private string $categoryName;
@@ -679,6 +717,10 @@ class CategoryName extends Name {
 
 	function getName(): string {
 		return $this->categoryName;
+	}
+
+	function getQuotedIdentifier( IDatabase $dbw ): string {
+		return $dbw->addIdentifierQuotes( $this->categoryName );
 	}
 }
 
@@ -696,6 +738,10 @@ class BucketName extends Name {
 	function getName(): string {
 		return $this->bucketSchema->getName();
 	}
+
+	function getQuotedIdentifier( IDatabase $dbw ): string {
+		return $this->bucketSchema->getQuotedTableName( $dbw );
+	}
 }
 
 class FieldName extends Name {
@@ -707,6 +753,10 @@ class FieldName extends Name {
 
 	function getName(): string {
 		return $this->fieldName;
+	}
+
+	function getQuotedIdentifier( IDatabase $dbw ): string {
+		return $dbw->addIdentifierQuotes( $this->fieldName );
 	}
 }
 
@@ -768,6 +818,10 @@ class Value {
 	function getValue() {
 		return $this->value;
 	}
+
+	function getQuotedValue( IDatabase $dbw ) {
+		return $dbw->addQuotes( $this->value );
+	}
 }
 
 /**
@@ -806,6 +860,14 @@ class BucketSchema {
 
 	function getName(): string {
 		return $this->bucketName;
+	}
+
+	function getTableName(): string {
+		return Bucket::getBucketTableName( $this->bucketName );
+	}
+
+	function getQuotedTableName( IDatabase $dbw ): string {
+		return $dbw->addIdentifierQuotes( $this->getTableName() );
 	}
 }
 

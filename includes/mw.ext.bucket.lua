@@ -71,6 +71,10 @@ function QueryBuilder:join(tableName, columnOne, columnTwo)
         printError('bucket-query-invalid-join', 5, mw.text.jsonEncode({tableName, columnOne, columnTwo}))
     end
 
+    if bucketOne ~= tableName and bucketTwo ~= tableName then -- One of the columns must be for the joined table
+        printError('bucket-query-invalid-join', 5, mw.text.jsonEncode({tableName, columnOne, columnTwo}))
+    end
+
     table.insert(self.joins, {tableName = tableName, cond = {columnOne, columnTwo}})
     return self
 end
@@ -106,7 +110,7 @@ function QueryBuilder:orderBy(fieldName, direction)
     return self
 end
 
-function QueryBuilder:print_sql()
+function QueryBuilder:printSQL()
     self.debug = true
     return self
 end
@@ -175,14 +179,14 @@ end
 
 -- This is equivalent to Bucket.php field name validation, but is kept in lua for performance.
 function isPossibleField(fieldName)
-    if fieldName and string.match(fieldName, '^[a-zA-Z0-9_.]+$') then
+    if fieldName and type(fieldName) == 'string' and string.match(fieldName, '^[a-zA-Z0-9_.]+$') then
         return true
     end
     return false
 end
 
 function isCategory(fieldName)
-    if fieldName and string.match(fieldName, '^Category:') then
+    if fieldName and type(fieldName) == 'string' and string.match(fieldName, '^Category:') then
         return true
     end
     return false
