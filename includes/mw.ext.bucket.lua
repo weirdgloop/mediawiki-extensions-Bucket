@@ -52,9 +52,85 @@ function QueryBuilder:select(...)
 end
 
 function QueryBuilder:where(...)
-    --TODO parse the incoming where.
-    table.insert(self.wheres.operands, {...})
+    local args = standardizeWhere({...})
+    table.insert(self.wheres.operands, args)
     return self
+end
+
+-- There are multiple accepted formats for where conditions.
+-- This function takes any accepted condition, and outputs a condition formatted as {field, operator, value}
+-- .where{{"a", ">", 0}, {"b", "=", "5"}})
+-- .where("Category:Foo")
+-- .where(a = 1, b = 2)
+-- .where("id", 100)
+-- .where("id", ">", 100)
+function standardizeWhere(...)
+    local val = ...
+
+    if hasOp(val) then
+        if val['operands'] then
+            local children = {}
+            for k, operand in pairs(val['operands']) do
+                if k ~= 'op' then
+                    -- If we have a single child that is just an array of operands, then it is equivalent to the op being set on the child
+                    if (not operand['op']) and val['op'] and type(operand) == "table" and type(operand[1]) == "table" and #operand[1] > 0 then
+                        operand['op'] = val['op']
+                    end
+                    table.insert(children, standardizeWhere(operand))
+                end
+            end
+            if #children > 1 then
+                return {op = val['op'], operands = children}
+            else
+                return children
+            end
+        else
+            local operand = standardizeWhere(val['operand'])
+            if type(operand) ~= "table" then
+                operand = {operand}
+            end
+            return {op = 'NOT', operand = operand}
+        end
+    elseif type(val) == "table" then
+        if #val > 0 and type(val[1]) == "table" then
+            -- .where{{"a", ">", 0}, {"b", "=", "5"}})
+            local op = val['op'] and val['op'] or 'AND'
+            return standardizeWhere({op = op, operands = val})
+        elseif #val == 0 then -- The # operator only counts consecutive unnamed variables.
+            -- .where({a = 1, b = 2})
+            local operands = {}
+            for k, v in pairs(val) do
+                table.insert(operands, {k, '=', v})
+            end
+            if #operands > 1 then
+                return standardizeWhere({op = 'AND', operands = operands})
+            else
+                return standardizeWhere(operands[1])
+            end
+        elseif val[1] and val[2] then
+            -- .where({a, "foo"})
+            if #val == 2 then
+                return {val[1], '=', val[2]}
+            else
+                return {val[1], val[2], val[3]}
+            end
+        end
+    else -- If we aren't a table
+        if type(val) == "string" then
+            -- .where("Category:Foo")
+            if not isCategory(val) then
+                printError('bucket-schema-invalid-field-name', 5, val or '')
+            end
+            return val
+        end
+    end
+    printError('bucket-query-where-confused', 5, val or '')
+end
+
+function hasOp(condition)
+    return type(condition) == "table"
+        and condition['op']
+        and ( condition['operands'] or condition['operand'] )
 end
 
 --Put selects in the normal select function, prepended with the table name.
@@ -143,17 +219,14 @@ function QueryBuilder:put(data)
 end
 
 function bucket.Or(...)
-    -- TODO parse
     return {op = "OR", operands = {...}}
 end
 
 function bucket.And(...)
-    -- TODO parse
     return {op = "AND", operands = {...}}
 end
 
 function bucket.Not(...)
-    -- TODO parse
     return {op = "NOT", operand = {...}}
 end
 

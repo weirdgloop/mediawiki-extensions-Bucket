@@ -298,7 +298,6 @@ class BucketQuery {
 		if ( self::isOrAnd( $condition ) ) {
 			$children = [];
 			foreach ( $condition['operands'] as $key => $operand ) {
-				// TODO move the old "Set child op to parent" to Lua
 				$children[] = self::parseWhere( $operand );
 			}
 			if ( $condition['op'] === 'OR' ) {
@@ -314,18 +313,7 @@ class BucketQuery {
 			// .where{{"a", ">", 0}, {"b", "=", "5"}})
 			return self::parseWhere( [ 'op' => isset( $condition[ 'op' ] ) ? $condition[ 'op' ] : 'AND', 'operands' => $condition ] );
 		}
-		if ( is_array( $condition ) && !empty( $condition ) && !isset( $condition[0] ) ) {
-			// .where({a = 1, b = 2})
-			$operands = [];
-			foreach ( $condition as $key => $value ) {
-				$operands[] = [ $key, '=', $value ];
-			}
-			return self::parseWhere( [ 'op' => 'AND', 'operands' => $operands ] );
-		}
-		if ( is_array( $condition ) && isset( $condition[0] ) && isset( $condition[1] ) ) {
-			if ( count( $condition ) == 2 ) {
-				$condition = [ $condition[0], '=', $condition[1] ];
-			}
+		if ( is_array( $condition ) && isset( $condition[0] ) && isset( $condition[1] ) && isset( $condition[2] ) ) {
 			$selector = new FieldSelector( $condition[0] );
 			$op = new Operator( $condition[1] );
 			$value = new Value( $condition[2] );
