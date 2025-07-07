@@ -123,7 +123,7 @@ class BucketSpecial extends SpecialPage {
 
 		$out->addHTML( $this->getQueryBuilder( $request, $bucket, $select, $where, $limit, $offset ) );
 		try {
-			$table_name = Bucket::getValidFieldName( $bucket );
+			$bucketName = Bucket::getValidFieldName( $bucket );
 		} catch ( SchemaException $e ) {
 			$out->addHTML( wfMessage( 'bucket-query-bucket-invalid', $bucket ) );
 			return;
@@ -133,7 +133,7 @@ class BucketSpecial extends SpecialPage {
 		$res = $dbw->newSelectQueryBuilder()
 		->from( 'bucket_schemas' )
 		->select( [ 'table_name', 'schema_json' ] )
-		->where( [ 'table_name' => $table_name ] )
+		->where( [ 'table_name' => $bucketName ] )
 		->caller( __METHOD__ )
 		->fetchResultSet();
 		$schemas = [];

@@ -222,15 +222,15 @@ class BucketQuery {
 
 	private static function parseSelect( $data ) {
 		// Start with populating the schema cache for all used buckets.
-		$usedTables = [];
+		$usedBuckets = [];
 
-		$usedTables[] = $data['tableName'];
+		$usedBuckets[] = $data['bucketName'];
 		foreach ( $data['joins'] as $join ) {
-			$usedTables[] = $join['tableName'];
+			$usedBuckets[] = $join['bucketName'];
 		}
 
 		// Populate the schema cache
-		$neededSchemas = $usedTables;
+		$neededSchemas = $usedBuckets;
 		foreach ( $neededSchemas as $name ) {
 			if ( isset( self::$schemaCache[$name] ) ) {
 				unset( $neededSchemas[$name] );
@@ -249,20 +249,20 @@ class BucketQuery {
 				self::$schemaCache[$row->table_name] = json_decode( $row->schema_json, true );
 			}
 		}
-		foreach ( $usedTables as $tableName ) {
-			if ( !array_key_exists( $tableName, self::$schemaCache ) || !self::$schemaCache[$tableName] ) {
-				throw new QueryException( wfMessage( 'bucket-no-exist', $tableName ) );
+		foreach ( $usedBuckets as $bucketName ) {
+			if ( !array_key_exists( $bucketName, self::$schemaCache ) || !self::$schemaCache[$bucketName] ) {
+				throw new QueryException( wfMessage( 'bucket-no-exist', $bucketName ) );
 			}
 		}
 
 		// Create the query object, using previously retrieved schemas
-		self::$query = new Query( $data['tableName'], self::$schemaCache[$data['tableName']] );
+		self::$query = new Query( $data['bucketName'], self::$schemaCache[$data['bucketName']] );
 
 		foreach ( $data['joins'] as $join ) {
 			if ( !is_array( $join['cond'] ) || !count( $join['cond'] ) == 2 ) {
 				throw new QueryException( wfMessage( 'bucket-query-invalid-join', json_encode( $join ) ) );
 			}
-			self::$query->addBucketJoin( $join['tableName'], self::$schemaCache[$join['tableName']], $join['cond'][0], $join['cond'][1] );
+			self::$query->addBucketJoin( $join['bucketName'], self::$schemaCache[$join['bucketName']], $join['cond'][0], $join['cond'][1] );
 		}
 
 		// Parse selects
@@ -817,7 +817,7 @@ class BucketSchema {
 
 	function __construct( string $bucketName, array $schema ) {
 		if ( $bucketName == '' ) {
-			throw new QueryException( wfMessage( 'bucket-empty-table-name' ) );
+			throw new QueryException( wfMessage( 'bucket-empty-bucket-name' ) );
 		}
 		$this->bucketName = $bucketName;
 

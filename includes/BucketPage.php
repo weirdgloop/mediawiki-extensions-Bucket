@@ -29,7 +29,7 @@ class BucketPage extends Article {
 		$linkRenderer = MediaWikiServices::getInstance()->getLinkRenderer();
 
 		try {
-			$table_name = Bucket::getValidFieldName( $this->getTitle()->getDBkey() );
+			$bucketName = Bucket::getValidFieldName( $this->getTitle()->getDBkey() );
 		} catch ( SchemaException $e ) {
 			$out->addHTML( $e->getMessage() );
 		}
@@ -37,7 +37,7 @@ class BucketPage extends Article {
 		$res = $dbw->newSelectQueryBuilder()
 					->from( 'bucket_schemas' )
 					->select( [ 'table_name', 'schema_json' ] )
-					->where( [ 'table_name' => $table_name ] )
+					->where( [ 'table_name' => $bucketName ] )
 					->caller( __METHOD__ )
 					->fetchResultSet();
 		$schemas = [];
@@ -50,7 +50,7 @@ class BucketPage extends Article {
 		$limit = $context->getRequest()->getInt( 'limit', 20 );
 		$offset = $context->getRequest()->getInt( 'offset', 0 );
 
-		$fullResult = BucketPageHelper::runQuery( $this->getContext()->getRequest(), $table_name, $select, $where, $limit, $offset );
+		$fullResult = BucketPageHelper::runQuery( $this->getContext()->getRequest(), $bucketName, $select, $where, $limit, $offset );
 
 		if ( isset( $fullResult['error'] ) ) {
 			$out->addHTML( $fullResult['error'] );
@@ -67,7 +67,7 @@ class BucketPage extends Article {
 
 		$maxCount = $dbw->newSelectQueryBuilder()
 			->select( 'COUNT(*)' )
-			->from( Bucket::getBucketTableName( $table_name ) )
+			->from( Bucket::getBucketTableName( $bucketName ) )
 			->fetchField();
 		$out->addWikiTextAsContent( 'Bucket entries: ' . $maxCount );
 
@@ -76,7 +76,7 @@ class BucketPage extends Article {
 		$specialQueryValues = $context->getRequest()->getQueryValues();
 		unset( $specialQueryValues['action'] );
 		unset( $specialQueryValues['title'] );
-		$specialQueryValues['bucket'] = $table_name;
+		$specialQueryValues['bucket'] = $bucketName;
 		$out->addHTML( ' ' );
 		$out->addHTML( $linkRenderer->makeKnownLink( new TitleValue( NS_SPECIAL, 'Bucket' ), wfMessage( 'bucket-page-dive-into' ), [], $specialQueryValues ) );
 		$out->addHTML( '<br>' );
@@ -84,7 +84,7 @@ class BucketPage extends Article {
 		$pageLinks = BucketPageHelper::getPageLinks( $title, $limit, $offset, $context->getRequest()->getQueryValues(), ( $resultCount == $limit ) );
 
 		$out->addHTML( $pageLinks );
-		$out->addWikiTextAsContent( BucketPageHelper::getResultTable( $schemas[$table_name], $fullResult['fields'], $queryResult ) );
+		$out->addWikiTextAsContent( BucketPageHelper::getResultTable( $schemas[$bucketName], $fullResult['fields'], $queryResult ) );
 		$out->addHTML( $pageLinks );
 	}
 }

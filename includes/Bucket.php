@@ -120,36 +120,36 @@ class Bucket {
 			$schemas[$row->table_name] = json_decode( $row->schema_json, true );
 		}
 
-		foreach ( $puts as $tableName => $tableData ) {
-			if ( $tableName == '' ) {
-				self::logMessage( $tableName, '', 'bucket-general-error', wfMessage( 'bucket-no-bucket-defined-warning' ) );
+		foreach ( $puts as $bucketName => $bucketData ) {
+			if ( $bucketName == '' ) {
+				self::logMessage( $bucketName, '', 'bucket-general-error', wfMessage( 'bucket-no-bucket-defined-warning' ) );
 				continue;
 			}
 
 			try {
-				$tableNameTmp = self::getValidFieldName( $tableName );
+				$bucketNameTmp = self::getValidFieldName( $bucketName );
 			} catch ( SchemaException $e ) {
-				self::logMessage( $tableName, '', 'bucket-general-warning', wfMessage( 'bucket-invalid-name-warning', $tableName ) );
+				self::logMessage( $bucketName, '', 'bucket-general-warning', wfMessage( 'bucket-invalid-name-warning', $bucketName ) );
 				continue;
 			}
 
-			if ( $tableNameTmp != $tableName ) {
-				self::logMessage( $tableName, '', 'bucket-general-warning', wfMessage( 'bucket-capital-name-warning' ) );
+			if ( $bucketNameTmp != $bucketName ) {
+				self::logMessage( $bucketName, '', 'bucket-general-warning', wfMessage( 'bucket-capital-name-warning' ) );
 			}
-			$tableName = $tableNameTmp;
+			$bucketName = $bucketNameTmp;
 
-			if ( $tableName == self::MESSAGE_BUCKET && $writingLogs == false ) {
-				self::logMessage( $tableName, self::MESSAGE_BUCKET, 'bucket-general-error', wfMessage( 'bucket-cannot-write-to-system-bucket' ) );
+			if ( $bucketName == self::MESSAGE_BUCKET && $writingLogs == false ) {
+				self::logMessage( $bucketName, self::MESSAGE_BUCKET, 'bucket-general-error', wfMessage( 'bucket-cannot-write-to-system-bucket' ) );
 				continue;
 			}
 
-			if ( !array_key_exists( $tableName, $schemas ) ) {
-				self::logMessage( $tableName, '', 'bucket-general-error', wfMessage( 'bucket-no-exist-error' ) );
+			if ( !array_key_exists( $bucketName, $schemas ) ) {
+				self::logMessage( $bucketName, '', 'bucket-general-error', wfMessage( 'bucket-no-exist-error' ) );
 				continue;
 			}
 
 			$tablePuts = [];
-			$dbTableName = self::getBucketTableName( $tableName );
+			$dbTableName = self::getBucketTableName( $bucketName );
 			$res = $dbw->newSelectQueryBuilder()
 				->from( $dbw->addIdentifierQuotes( $dbTableName ) )
 				->select( '*' )
@@ -162,28 +162,28 @@ class Bucket {
 			$fieldNames = $res->getFieldNames();
 			foreach ( $fieldNames as $fieldName ) {
 				// If the table has a field that isn't present in the schema, the schema must be out of date.
-				if ( !isset( $schemas[$tableName][$fieldName] ) ) {
-					self::logMessage( $tableName, $fieldName, 'bucket-general-error', wfMessage( 'bucket-schema-outdated-error' ) );
+				if ( !isset( $schemas[$bucketName][$fieldName] ) ) {
+					self::logMessage( $bucketName, $fieldName, 'bucket-general-error', wfMessage( 'bucket-schema-outdated-error' ) );
 				} else {
 					$fields[$fieldName] = true;
 				}
 			}
-			foreach ( $tableData as $idx => $singleData ) {
+			foreach ( $bucketData as $idx => $singleData ) {
 				$sub = $singleData['sub'];
 				$singleData = $singleData['data'];
 				if ( gettype( $singleData ) != 'array' ) {
-					self::logMessage( $tableName, '', 'bucket-general-error', wfMessage( 'bucket-put-syntax-error' ) );
+					self::logMessage( $bucketName, '', 'bucket-general-error', wfMessage( 'bucket-put-syntax-error' ) );
 					continue;
 				}
 				foreach ( $singleData as $key => $value ) {
 					if ( !isset( $fields[$key] ) || !$fields[$key] ) {
-						self::logMessage( $tableName, $key, 'bucket-general-warning', wfMessage( 'bucket-put-key-missing-warning', $key, $tableName ) );
+						self::logMessage( $bucketName, $key, 'bucket-general-warning', wfMessage( 'bucket-put-key-missing-warning', $key, $bucketName ) );
 					}
 				}
 				$singlePut = [];
 				foreach ( $fields as $key => $_ ) {
 					$value = isset( $singleData[$key] ) ? $singleData[$key] : null;
-					$singlePut[$dbw->addIdentifierQuotes( $key )] = self::castToDbType( $value, self::getDbType( $key, $schemas[$tableName][$key] ) );
+					$singlePut[$dbw->addIdentifierQuotes( $key )] = self::castToDbType( $value, self::getDbType( $key, $schemas[$bucketName][$key] ) );
 				}
 				$singlePut[$dbw->addIdentifierQuotes( '_page_id' )] = $pageId;
 				$singlePut[$dbw->addIdentifierQuotes( '_index' )] = $idx;
@@ -197,15 +197,15 @@ class Bucket {
 
 			# Check these puts against the hash of the last time we did puts.
 			sort( $tablePuts );
-			sort( $schemas[$tableName] );
-			$newHash = hash( 'sha256', json_encode( $tablePuts ) . json_encode( $schemas[$tableName] ) );
-			if ( isset( $bucket_hash[ $tableName ] ) && $bucket_hash[ $tableName ] == $newHash ) {
-				unset( $bucket_hash[ $tableName ] );
+			sort( $schemas[$bucketName] );
+			$newHash = hash( 'sha256', json_encode( $tablePuts ) . json_encode( $schemas[$bucketName] ) );
+			if ( isset( $bucket_hash[ $bucketName ] ) && $bucket_hash[ $bucketName ] == $newHash ) {
+				unset( $bucket_hash[ $bucketName ] );
 				continue;
 			}
 
 			// Remove the bucket_hash entry so we can it as a list of removed buckets at the end.
-			unset( $bucket_hash[ $tableName ] );
+			unset( $bucket_hash[ $bucketName ] );
 
 			$dbw->newDeleteQueryBuilder()
 				->deleteFrom( $dbw->addIdentifierQuotes( $dbTableName ) )
@@ -219,12 +219,12 @@ class Bucket {
 				->execute();
 			$dbw->newDeleteQueryBuilder()
 				->deleteFrom( 'bucket_pages' )
-				->where( [ '_page_id' => $pageId, 'table_name' => $tableName ] )
+				->where( [ '_page_id' => $pageId, 'table_name' => $bucketName ] )
 				->caller( __METHOD__ )
 				->execute();
 			$dbw->newInsertQueryBuilder()
 				->insert( 'bucket_pages' )
-				->rows( [ '_page_id' => $pageId, 'table_name' => $tableName, 'put_hash' => $newHash ] )
+				->rows( [ '_page_id' => $pageId, 'table_name' => $bucketName, 'put_hash' => $newHash ] )
 				->caller( __METHOD__ )
 				->execute();
 		}

@@ -23,10 +23,10 @@ end
 
 local QueryBuilder = {}
 
-function QueryBuilder:new(tableName)
+function QueryBuilder:new(bucketName)
     -- set everything up here...
     local queryBuilder = {
-        tableName = tableName,
+        bucketName = bucketName,
         selects = {},
         wheres = {op = "AND", operands = {}},
         joins = {},
@@ -137,25 +137,24 @@ function hasOp(condition)
         and ( condition['operands'] or condition['operand'] )
 end
 
---Put selects in the normal select function, prepended with the table name.
---tableName is the string of a table to join
-function QueryBuilder:join(tableName, fieldOne, fieldTwo)
-    assertPossibleField(tableName)
+--bucketName is the string of a bucket to join, with fieldOne == fieldTwo being the join condition.
+function QueryBuilder:join(bucketName, fieldOne, fieldTwo)
+    assertPossibleField(bucketName)
     assertPossibleField(fieldOne)
     assertPossibleField(fieldTwo)
 
     local bucketOne = string.match(fieldOne, '([^%.]+)%.') --Grabs the bucket name, or nil if none is specified.
     local bucketTwo = string.match(fieldTwo, '([^%.]+)%.')
 
-    if bucketOne == bucketTwo then -- We cannot join a table with itself
-        printError('bucket-query-invalid-join', 5, mw.text.jsonEncode({tableName, fieldOne, fieldTwo}))
+    if bucketOne == bucketTwo then -- We cannot join a bucket with itself
+        printError('bucket-query-invalid-join', 5, mw.text.jsonEncode({bucketName, fieldOne, fieldTwo}))
     end
 
-    if bucketOne ~= tableName and bucketTwo ~= tableName then -- One of the fields must be for the joined table
-        printError('bucket-query-invalid-join', 5, mw.text.jsonEncode({tableName, fieldOne, fieldTwo}))
+    if bucketOne ~= bucketName and bucketTwo ~= bucketName then -- One of the fields must be for the joined table
+        printError('bucket-query-invalid-join', 5, mw.text.jsonEncode({bucketName, fieldOne, fieldTwo}))
     end
 
-    table.insert(self.joins, {tableName = tableName, cond = {fieldOne, fieldTwo}})
+    table.insert(self.joins, {bucketName = bucketName, cond = {fieldOne, fieldTwo}})
     return self
 end
 
@@ -239,8 +238,8 @@ function bucket.Null()
 end
 
 setmetatable(bucket, {
-    __call = function(tbl, tableName)
-        return QueryBuilder:new(tableName)
+    __call = function(tbl, bucketName)
+        return QueryBuilder:new(bucketName)
     end
 })
 

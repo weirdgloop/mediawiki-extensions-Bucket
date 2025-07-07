@@ -29,12 +29,12 @@ class BucketAction extends Action {
 			->groupBy( 'table_name' )
 			->caller( __METHOD__ )
 			->fetchResultSet();
-		$tables = [];
+		$buckets = [];
 		foreach ( $res as $row ) {
-			$tables[] = $row->table_name;
+			$buckets[] = $row->table_name;
 		}
 
-		if ( count( $tables ) == 0 ) {
+		if ( count( $buckets ) == 0 ) {
 			$out->addWikiTextAsContent( wfMessage( 'bucket-action-writes-empty' ) );
 			return;
 		}
@@ -42,7 +42,7 @@ class BucketAction extends Action {
 		$res = $dbw->newSelectQueryBuilder()
 			->from( 'bucket_schemas' )
 			->select( [ 'table_name', 'schema_json' ] )
-			->where( [ 'table_name' => $tables ] )
+			->where( [ 'table_name' => $buckets ] )
 			->caller( __METHOD__ )
 			->fetchResultSet();
 		$schemas = [];
@@ -52,14 +52,14 @@ class BucketAction extends Action {
 
 		$title = $dbw->addQuotes( $title );
 		$linkRenderer = MediaWikiServices::getInstance()->getLinkRenderer();
-		foreach ( $tables as $table_name ) {
-			$bucket_page_name = str_replace( '_', ' ', $table_name );
+		foreach ( $buckets as $bucketName ) {
+			$bucket_page_name = str_replace( '_', ' ', $bucketName );
 
 			$out->addHTML( '<h2>' . $linkRenderer->makePreloadedLink( new TitleValue( NS_BUCKET, $bucket_page_name ) ) . '</h2>' );
 
-			$fullResult = BucketPageHelper::runQuery( $this->getRequest(), $table_name, '*', "{'page_name', $title}", 500, 0 );
+			$fullResult = BucketPageHelper::runQuery( $this->getRequest(), $bucketName, '*', "{'page_name', $title}", 500, 0 );
 
-			$out->addWikiTextAsContent( BucketPageHelper::getResultTable( $schemas[$table_name], $fullResult['fields'], $fullResult['bucket'] ) );
+			$out->addWikiTextAsContent( BucketPageHelper::getResultTable( $schemas[$bucketName], $fullResult['fields'], $fullResult['bucket'] ) );
 		}
 	}
 

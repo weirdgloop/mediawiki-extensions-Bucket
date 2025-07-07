@@ -20,15 +20,15 @@ class LuaLibrary extends LibraryBase {
 	public function bucketPut( $builder, $data ): void {
 		$parserOutput = $this->getParser()->getOutput();
 		$bucketPuts = $parserOutput->getExtensionData( Bucket::EXTENSION_DATA_KEY ) ?? [];
-		$table_name = '';
-		if ( array_key_exists( 'tableName', $builder ) ) {
-			$table_name = $builder['tableName'];
+		$bucketName = '';
+		if ( array_key_exists( 'bucketName', $builder ) ) {
+			$bucketName = $builder['bucketName'];
 		}
 		$sub = $builder['subversion'];
-		if ( !array_key_exists( $table_name, $bucketPuts ) ) {
+		if ( !array_key_exists( $bucketName, $bucketPuts ) ) {
 			try {
 				// Add the Bucket page as a "template" used on this page. This will get us linksUpdate scheduled for free when the Bucket page changes.
-				$title = MediaWikiServices::getInstance()->getTitleParser()->parseTitle( $table_name, NS_BUCKET );
+				$title = MediaWikiServices::getInstance()->getTitleParser()->parseTitle( $bucketName, NS_BUCKET );
 				$bucketPage = MediaWikiServices::getInstance()->getWikiPageFactory()->newFromLinkTarget( $title );
 				$bucketRevisionRecord = $bucketPage->getRevisionRecord();
 				if ( $bucketRevisionRecord != null ) {
@@ -37,9 +37,9 @@ class LuaLibrary extends LibraryBase {
 			} catch ( MalformedTitleException $e ) {
 				// Just ignore it, an error will be logged later
 			}
-			$bucketPuts[ $table_name ] = [];
+			$bucketPuts[ $bucketName ] = [];
 		}
-		$bucketPuts[ $table_name ][] = [ 'sub' => $sub, 'data' => $data ];
+		$bucketPuts[ $bucketName ][] = [ 'sub' => $sub, 'data' => $data ];
 		$parserOutput->setExtensionData( Bucket::EXTENSION_DATA_KEY, $bucketPuts );
 	}
 
