@@ -71,7 +71,7 @@ class BucketPage extends Article {
 			->fetchField();
 		$out->addWikiTextAsContent( 'Bucket entries: ' . $maxCount );
 
-		$out->addHTML( wfMessage( 'bucket-page-result-counter', $resultCount, $offset, $endResult ) );
+		$out->addWikiMsg( 'bucket-page-result-counter', $resultCount, $offset, $endResult );
 
 		$specialQueryValues = $context->getRequest()->getQueryValues();
 		unset( $specialQueryValues['action'] );

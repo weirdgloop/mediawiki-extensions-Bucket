@@ -28,6 +28,10 @@ class BucketApi extends ApiBase {
 			$limit = $params['limit'];
 			$offset = $params['offset'];
 
+			if ( $bucket == null ) {
+				$this->getResult()->addValue( null, 'error', wfMessage( 'bucket-empty-bucket-name' ) );
+				return;
+			}
 			try {
 				$bucket = Bucket::getValidBucketName( $bucket );
 			} catch ( SchemaException $e ) {
