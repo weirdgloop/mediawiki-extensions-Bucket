@@ -28,8 +28,6 @@ class BucketApi extends ApiBase {
 			$limit = $params['limit'];
 			$offset = $params['offset'];
 
-			$dbw = Bucket::getDB();
-
 			try {
 				$bucket = Bucket::getValidBucketName( $bucket );
 			} catch ( SchemaException $e ) {
@@ -37,23 +35,25 @@ class BucketApi extends ApiBase {
 				return;
 			}
 
-			$res = $dbw->newSelectQueryBuilder()
-				->from( 'bucket_schemas' )
-				->select( [ 'bucket_name', 'schema_json' ] )
-				->where( [ 'bucket_name' => $bucket ] )
-				->caller( __METHOD__ )
-				->fetchResultSet();
-			$schemas = [];
-			foreach ( $res as $row ) {
-				$schemas[$row->bucket_name] = json_decode( $row->schema_json, true );
-			}
-
 			// Select everything if input is *
 			$selectNames = [];
 			if ( $select == '*' || $select == '' ) {
-				foreach ( $schemas[$bucket] as $name => $value ) {
-					if ( !str_starts_with( $name, '_' ) ) {
-						$selectNames[] = $name;
+				$dbw = Bucket::getDB();
+				$res = $dbw->newSelectQueryBuilder()
+					->from( 'bucket_schemas' )
+					->select( [ 'bucket_name', 'schema_json' ] )
+					->where( [ 'bucket_name' => $bucket ] )
+					->caller( __METHOD__ )
+					->fetchResultSet();
+				$schemas = [];
+				foreach ( $res as $row ) {
+					$schemas[$row->bucket_name] = json_decode( $row->schema_json, true );
+				}
+				if ( isset( $schemas[$bucket] ) ) {
+					foreach ( $schemas[$bucket] as $name => $value ) {
+						if ( !str_starts_with( $name, '_' ) ) {
+							$selectNames[] = $name;
+						}
 					}
 				}
 			} else {
@@ -93,6 +93,7 @@ class BucketApi extends ApiBase {
 			$errorMsg = $e->getMessage();
 			$errorMsg = preg_replace( '/Lua error in .+: /U', '', $errorMsg ); // Remove the "Lua error in mw.ext.bucket.ua at line 85" text to clean up the error a little bit.
 			$this->getResult()->addValue( null, 'error', $errorMsg );
+			return;
 		}
 
 		$this->getResult()->addValue( null, 'bucket', json_decode( $result['return'] ) );
