@@ -309,7 +309,7 @@ class Bucket {
 				return $cleanName;
 			}
 		}
-		throw new SchemaException( wfMessage( 'bucket-query-field-name-invalid', $fieldName ) );
+		throw new SchemaException( wfMessage( 'bucket-schema-invalid-field-name', $fieldName ) );
 	}
 
 	public static function getValidBucketName( string $bucketName ) {
@@ -372,12 +372,8 @@ class Bucket {
 				throw new SchemaException( wfMessage( 'bucket-schema-must-be-strings', $fieldName ) );
 			}
 
-			$lcFieldName = self::getValidFieldName( $fieldName );
-			if ( !$lcFieldName ) {
-				throw new SchemaException( wfMessage( 'bucket-schema-invalid-field-name', $fieldName ) );
-			}
+			$lcFieldName = self::getValidFieldName($fieldName);
 
-			$lcFieldName = strtolower( $fieldName );
 			if ( isset( $newSchema[$lcFieldName] ) ) {
 				throw new SchemaException( wfMessage( 'bucket-schema-duplicated-field-name', $fieldName ) );
 			}
