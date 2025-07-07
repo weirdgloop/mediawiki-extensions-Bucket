@@ -125,7 +125,7 @@ class BucketSpecial extends SpecialPage {
 		try {
 			$bucketName = Bucket::getValidFieldName( $bucket );
 		} catch ( SchemaException $e ) {
-			$out->addHTML( wfMessage( 'bucket-query-bucket-invalid', $bucket ) );
+			$out->addWikiTextAsContent( '<nowiki>' . wfMessage( 'bucket-query-bucket-invalid', $bucket )->parse() . '</nowiki>' );
 			return;
 		}
 
