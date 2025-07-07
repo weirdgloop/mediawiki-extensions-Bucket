@@ -12,6 +12,7 @@ class Bucket {
 	public const EXTENSION_DATA_KEY = 'bucket:puts';
 	public const MESSAGE_BUCKET = 'bucket_message';
 
+	private static $logs = [];
 	private static $db = null;
 	private static $specialBucketUser = false;
 
@@ -72,14 +73,11 @@ class Bucket {
 		return "$dbUser@'$dbServer'";
 	}
 
-	public static function logMessage( string $bucket, string $property, string $type, string $message, &$logs ) {
-		if ( !array_key_exists( self::MESSAGE_BUCKET, $logs ) ) {
-			$logs[self::MESSAGE_BUCKET] = [];
-		}
+	public static function logMessage( string $bucket, string $property, string $type, string $message ) {
 		if ( $bucket != '' ) {
 			$bucket = 'Bucket:' . $bucket;
 		}
-		$logs[self::MESSAGE_BUCKET][] = [
+		self::$logs[] = [
 			'sub' => '',
 			'data' => [
 				'bucket' => $bucket,
@@ -94,7 +92,6 @@ class Bucket {
 	Called when a page is saved containing a bucket.put
 	*/
 	public static function writePuts( int $pageId, string $titleText, array $puts, bool $writingLogs = false ) {
-		$logs = [];
 		$dbw = self::getDB();
 
 		$res = $dbw->newSelectQueryBuilder()
@@ -125,27 +122,27 @@ class Bucket {
 
 		foreach ( $puts as $tableName => $tableData ) {
 			if ( $tableName == '' ) {
-				self::logMessage( $tableName, '', 'bucket-general-error', wfMessage( 'bucket-no-bucket-defined-warning' ), $logs );
+				self::logMessage( $tableName, '', 'bucket-general-error', wfMessage( 'bucket-no-bucket-defined-warning' ) );
 				continue;
 			}
 
 			$tableNameTmp = self::getValidFieldName( $tableName );
 			if ( $tableNameTmp == false ) {
-				self::logMessage( $tableName, '', 'bucket-general-warning', wfMessage( 'bucket-invalid-name-warning', $tableName ), $logs );
+				self::logMessage( $tableName, '', 'bucket-general-warning', wfMessage( 'bucket-invalid-name-warning', $tableName ) );
 				continue;
 			}
 			if ( $tableNameTmp != $tableName ) {
-				self::logMessage( $tableName, '', 'bucket-general-warning', wfMessage( 'bucket-capital-name-warning' ), $logs );
+				self::logMessage( $tableName, '', 'bucket-general-warning', wfMessage( 'bucket-capital-name-warning' ) );
 			}
 			$tableName = $tableNameTmp;
 
 			if ( $tableName == self::MESSAGE_BUCKET && $writingLogs == false ) {
-				self::logMessage( $tableName, self::MESSAGE_BUCKET, 'bucket-general-error', wfMessage( 'bucket-cannot-write-to-system-bucket' ), $logs );
+				self::logMessage( $tableName, self::MESSAGE_BUCKET, 'bucket-general-error', wfMessage( 'bucket-cannot-write-to-system-bucket' ) );
 				continue;
 			}
 
 			if ( !array_key_exists( $tableName, $schemas ) ) {
-				self::logMessage( $tableName, '', 'bucket-general-error', wfMessage( 'bucket-no-exist-error' ), $logs );
+				self::logMessage( $tableName, '', 'bucket-general-error', wfMessage( 'bucket-no-exist-error' ) );
 				continue;
 			}
 
@@ -164,7 +161,7 @@ class Bucket {
 			foreach ( $fieldNames as $fieldName ) {
 				// If the table has a field that isn't present in the schema, the schema must be out of date.
 				if ( !isset( $schemas[$tableName][$fieldName] ) ) {
-					self::logMessage( $tableName, $fieldName, 'bucket-general-error', wfMessage( 'bucket-schema-outdated-error' ), $logs );
+					self::logMessage( $tableName, $fieldName, 'bucket-general-error', wfMessage( 'bucket-schema-outdated-error' ) );
 				} else {
 					$fields[$fieldName] = true;
 				}
@@ -173,12 +170,12 @@ class Bucket {
 				$sub = $singleData['sub'];
 				$singleData = $singleData['data'];
 				if ( gettype( $singleData ) != 'array' ) {
-					self::logMessage( $tableName, '', 'bucket-general-error', wfMessage( 'bucket-put-syntax-error' ), $logs );
+					self::logMessage( $tableName, '', 'bucket-general-error', wfMessage( 'bucket-put-syntax-error' ) );
 					continue;
 				}
 				foreach ( $singleData as $key => $value ) {
 					if ( !isset( $fields[$key] ) || !$fields[$key] ) {
-						self::logMessage( $tableName, $key, 'bucket-general-warning', wfMessage( 'bucket-put-key-missing-warning', $key, $tableName ), $logs );
+						self::logMessage( $tableName, $key, 'bucket-general-warning', wfMessage( 'bucket-put-key-missing-warning', $key, $tableName ) );
 					}
 				}
 				$singlePut = [];
@@ -232,8 +229,8 @@ class Bucket {
 
 		if ( !$writingLogs ) {
 			// Clean up bucket_pages entries for buckets that are no longer written to on this page.
-			$tablesToDelete = array_keys( array_filter( $bucket_hash ) );
-			if ( count( $logs ) != 0 ) {
+			$tablesToDelete = array_keys( $bucket_hash );
+			if ( count( self::$logs ) != 0 ) {
 				unset( $tablesToDelete[self::MESSAGE_BUCKET] );
 			} else {
 				$tablesToDelete[] = self::MESSAGE_BUCKET;
@@ -254,8 +251,8 @@ class Bucket {
 				}
 			}
 
-			if ( count( $logs ) > 0 ) {
-				self::writePuts( $pageId, $titleText, $logs, true );
+			if ( count( self::$logs ) > 0 ) {
+				self::writePuts( $pageId, $titleText, [ self::MESSAGE_BUCKET => self::$logs ], true );
 			}
 		}
 	}
