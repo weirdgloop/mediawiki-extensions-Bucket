@@ -113,6 +113,9 @@ function standardizeWhere(...)
             if #val == 2 then
                 return {val[1], '=', val[2]}
             else
+                if val[3] == bucket.Null() and val[2] ~= '=' and val[2] ~= '!=' then
+                    printError('bucket-query-null-invalid-operator', 5, val[2] or '')
+                end
                 return {val[1], val[2], val[3]}
             end
         end
