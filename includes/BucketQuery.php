@@ -2,6 +2,7 @@
 
 namespace MediaWiki\Extension\Bucket;
 
+use MediaWiki\MediaWikiServices;
 use MediaWiki\Title\Title;
 use Wikimedia\Rdbms\IDatabase;
 
@@ -175,6 +176,9 @@ class BucketQuery {
 		$OPTIONS['LIMIT'] = self::$query->getLimit();
 		$OPTIONS['OFFSET'] = self::$query->getOffset();
 
+		$config = MediaWikiServices::getInstance()->getMainConfig();
+		$maxExecutionTime = $config->get( 'BucketMaxExecutionTime' );
+
 		$rows = [];
 		$tmp = $dbw->newSelectQueryBuilder()
 			->from( Bucket::getBucketTableName( self::$query->getPrimaryBucket()->getName() ) )
@@ -182,7 +186,7 @@ class BucketQuery {
 			->where( $WHERES )
 			->options( $OPTIONS )
 			->caller( __METHOD__ )
-			->setMaxExecutionTime( 500 );
+			->setMaxExecutionTime( $maxExecutionTime );
 		foreach ( $LEFT_JOINS as $alias => $conds ) {
 			$name = $alias;
 			if ( self::isCategory( $alias ) ) {

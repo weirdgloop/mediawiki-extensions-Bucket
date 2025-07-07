@@ -111,6 +111,9 @@
 		},
 		"BucketDBserver": {
 			"value": "%"
+		},
+		"BucketMaxExecutionTime": {
+			"value": 500
 		}
 	},
 	"ConfigRegistry": {
