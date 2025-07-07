@@ -519,7 +519,7 @@ class Bucket {
 		$bucketName = self::getValidBucketName( $bucketName );
 		$tableName = self::getBucketTableName( $bucketName );
 
-		if ( self::canDeleteBucketPage( $bucketName ) ) {
+		if ( self::countPagesUsingBucket( $bucketName ) > 0) {
 			$dbw->newDeleteQueryBuilder()
 				->table( 'bucket_schemas' )
 				->where( [ 'bucket_name' => $bucketName ] )
@@ -529,18 +529,17 @@ class Bucket {
 		}
 	}
 
-	public static function canDeleteBucketPage( $bucketName ) {
+	/**
+	 * @return The number of pages writing to this bucket
+	 */
+	public static function countPagesUsingBucket( String $bucketName ) : int {
 		$dbw = self::getDB();
 		$bucketName = self::getValidBucketName( $bucketName );
-		$putCount = $dbw->newSelectQueryBuilder()
+		return $dbw->newSelectQueryBuilder()
 						->table( 'bucket_pages' )
 						->lockInShareMode()
 						->where( [ 'bucket_name' => $bucketName ] )
 						->fetchRowCount();
-		if ( $putCount > 0 ) {
-			return false;
-		}
-		return true;
 	}
 
 	public static function getDbType( string $fieldName, ?array $fieldData ): string {

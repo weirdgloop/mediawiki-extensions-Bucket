@@ -28,7 +28,7 @@
 
     "bucket-namespace-move-into": "Cannot move pages to the Bucket namespace",
     "bucket-namespace-move": "Cannot move Bucket pages",
-    "bucket-delete-fail-in-use": "Cannot delete a Bucket that is written to",
+    "bucket-delete-fail-in-use": "Cannot delete a non-empty bucket. $1 pages currently write to this bucket.",
 
     "bucket-general-error": "Error",
     "bucket-general-warning": "Warning",
