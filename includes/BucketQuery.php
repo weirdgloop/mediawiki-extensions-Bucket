@@ -2,6 +2,7 @@
 
 namespace MediaWiki\Extension\Bucket;
 
+use MediaWiki\Title\Title;
 use Wikimedia\Rdbms\IDatabase;
 
 class BucketQuery {
@@ -136,9 +137,8 @@ class BucketQuery {
 		$queryJoins = self::$query->getJoins();
 		foreach ( $queryJoins as $join ) {
 			if ( $join instanceof CategoryJoin ) {
-				$alias = $join->getName();
 				$bucketTableName = self::$query->getPrimaryBucket()->getQuotedTableName( $dbw );
-				$categoryNameNoPrefix = substr( str_replace( ' ', '_', $join->getName() ), 9 );
+				$categoryNameNoPrefix = Title::newFromText( $join->getName(), NS_CATEGORY )->getDBkey();
 				$LEFT_JOINS[$join->getName()] = [
 					"{$join->getQuotedIdentifier($dbw)}.cl_from = {$bucketTableName}._page_id", // Must be all in one string to avoid the table name being treated as a string value.
 					"{$join->getQuotedIdentifier($dbw)}.cl_to" => $categoryNameNoPrefix
