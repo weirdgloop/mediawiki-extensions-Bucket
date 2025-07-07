@@ -59,12 +59,12 @@ class SetupDBPermission extends Maintenance {
 		// Grab existing Bucket tables, in case we are migrating an existing install to a new account.
 		$res = $dbw->newSelectQueryBuilder()
 					->from( 'bucket_schemas' )
-					->select( [ 'table_name' ] )
+					->select( [ 'bucket_name' ] )
 					->forUpdate()
 					->caller( __METHOD__ )
 					->fetchResultSet();
 		foreach ( $res as $row ) {
-			$table = $dbw->addIdentifierQuotes( 'bucket__' . $row->table_name );
+			$table = $dbw->addIdentifierQuotes( 'bucket__' . $row->bucket_name );
 			$query[] = "GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, DROP ON $table TO $fullUserName;";
 		}
 

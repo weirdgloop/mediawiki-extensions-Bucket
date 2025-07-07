@@ -240,13 +240,13 @@ class BucketQuery {
 		if ( !empty( $neededSchemas ) ) {
 			$res = $dbw->newSelectQueryBuilder()
 				->from( 'bucket_schemas' )
-				->select( [ 'table_name', 'schema_json' ] )
+				->select( [ 'bucket_name', 'schema_json' ] )
 				->lockInShareMode()
-				->where( [ 'table_name' => $neededSchemas ] )
+				->where( [ 'bucket_name' => $neededSchemas ] )
 				->caller( __METHOD__ )
 				->fetchResultSet();
 			foreach ( $res as $row ) {
-				self::$schemaCache[$row->table_name] = json_decode( $row->schema_json, true );
+				self::$schemaCache[$row->bucket_name] = json_decode( $row->schema_json, true );
 			}
 		}
 		foreach ( $usedBuckets as $bucketName ) {

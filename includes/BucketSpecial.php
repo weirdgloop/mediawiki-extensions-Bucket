@@ -132,13 +132,13 @@ class BucketSpecial extends SpecialPage {
 		$dbw = Bucket::getDB();
 		$res = $dbw->newSelectQueryBuilder()
 		->from( 'bucket_schemas' )
-		->select( [ 'table_name', 'schema_json' ] )
-		->where( [ 'table_name' => $bucketName ] )
+		->select( [ 'bucket_name', 'schema_json' ] )
+		->where( [ 'bucket_name' => $bucketName ] )
 		->caller( __METHOD__ )
 		->fetchResultSet();
 		$schemas = [];
 		foreach ( $res as $row ) {
-			$schemas[$row->table_name] = json_decode( $row->schema_json, true );
+			$schemas[$row->bucket_name] = json_decode( $row->schema_json, true );
 		}
 
 		$fullResult = BucketPageHelper::runQuery( $request, $bucket, $select, $where, $limit, $offset );
@@ -158,7 +158,7 @@ class BucketSpecial extends SpecialPage {
 		$pageLinks = BucketPageHelper::getPageLinks( $this->getFullTitle(), $limit, $offset, $request->getQueryValues(), ( $resultCount == $limit ) );
 
 		$out->addHTML( $pageLinks );
-		$out->addWikiTextAsContent( BucketPageHelper::getResultTable( $schemas[$table_name], $fullResult['fields'], $queryResult ) );
+		$out->addWikiTextAsContent( BucketPageHelper::getResultTable( $schemas[$bucketName], $fullResult['fields'], $queryResult ) );
 		$out->addHTML( $pageLinks );
 	}
 

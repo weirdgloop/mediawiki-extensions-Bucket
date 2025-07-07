@@ -96,28 +96,28 @@ class Bucket {
 
 		$res = $dbw->newSelectQueryBuilder()
 				->from( 'bucket_pages' )
-				->select( [ '_page_id', 'table_name', 'put_hash' ] )
+				->select( [ '_page_id', 'bucket_name', 'put_hash' ] )
 				->forUpdate()
 				->where( [ '_page_id' => $pageId ] )
 				->caller( __METHOD__ )
 				->fetchResultSet();
 		$bucket_hash = [];
 		foreach ( $res as $row ) {
-			$bucket_hash[ $row->table_name ] = $row->put_hash;
+			$bucket_hash[ $row->bucket_name ] = $row->put_hash;
 		}
 
 		// Combine existing written bucket list and new written bucket list.
 		$relevantBuckets = array_merge( array_keys( $puts ), array_keys( $bucket_hash ) );
 		$res = $dbw->newSelectQueryBuilder()
 				->from( 'bucket_schemas' )
-				->select( [ 'table_name', 'schema_json' ] )
+				->select( [ 'bucket_name', 'schema_json' ] )
 				->lockInShareMode()
-				->where( [ 'table_name' => $relevantBuckets ] )
+				->where( [ 'bucket_name' => $relevantBuckets ] )
 				->caller( __METHOD__ )
 				->fetchResultSet();
 		$schemas = [];
 		foreach ( $res as $row ) {
-			$schemas[$row->table_name] = json_decode( $row->schema_json, true );
+			$schemas[$row->bucket_name] = json_decode( $row->schema_json, true );
 		}
 
 		foreach ( $puts as $bucketName => $bucketData ) {
@@ -219,12 +219,12 @@ class Bucket {
 				->execute();
 			$dbw->newDeleteQueryBuilder()
 				->deleteFrom( 'bucket_pages' )
-				->where( [ '_page_id' => $pageId, 'table_name' => $bucketName ] )
+				->where( [ '_page_id' => $pageId, 'bucket_name' => $bucketName ] )
 				->caller( __METHOD__ )
 				->execute();
 			$dbw->newInsertQueryBuilder()
 				->insert( 'bucket_pages' )
-				->rows( [ '_page_id' => $pageId, 'table_name' => $bucketName, 'put_hash' => $newHash ] )
+				->rows( [ '_page_id' => $pageId, 'bucket_name' => $bucketName, 'put_hash' => $newHash ] )
 				->caller( __METHOD__ )
 				->execute();
 		}
@@ -241,7 +241,7 @@ class Bucket {
 			if ( count( $tablesToDelete ) > 0 ) {
 				$dbw->newDeleteQueryBuilder()
 					->deleteFrom( 'bucket_pages' )
-					->where( [ '_page_id' => $pageId, 'table_name' => $tablesToDelete ] )
+					->where( [ '_page_id' => $pageId, 'bucket_name' => $tablesToDelete ] )
 					->caller( __METHOD__ )
 					->execute();
 				foreach ( $tablesToDelete as $name ) {
@@ -268,10 +268,10 @@ class Bucket {
 		// Check if any buckets are storing data for this page
 		$res = $dbw->newSelectQueryBuilder()
 				->from( 'bucket_pages' )
-				->select( [ 'table_name' ] )
+				->select( [ 'bucket_name' ] )
 				->forUpdate()
 				->where( [ '_page_id' => $pageId ] )
-				->groupBy( 'table_name' )
+				->groupBy( 'bucket_name' )
 				->caller( __METHOD__ )
 				->fetchResultSet();
 
@@ -284,7 +284,7 @@ class Bucket {
 				->execute();
 			$table = [];
 			foreach ( $res as $row ) {
-				$table[] = $row->table_name;
+				$table[] = $row->bucket_name;
 			}
 
 			foreach ( $table as $name ) {
@@ -328,7 +328,7 @@ class Bucket {
 		$dbw = self::getDB();
 		$schemaExists = $dbw->newSelectQueryBuilder()
 			->from( 'bucket_schemas' )
-			->where( [ 'table_name' => $bucketName ] )
+			->where( [ 'bucket_name' => $bucketName ] )
 			->forUpdate()
 			->caller( __METHOD__ )
 			->field( 'schema_json' )
@@ -439,8 +439,8 @@ class Bucket {
 			$schemaJson = json_encode( $schemaJson );
 			$dbw->upsert(
 				'bucket_schemas',
-				[ 'table_name' => $bucketName, 'schema_json' => $schemaJson ],
-				'table_name',
+				[ 'bucket_name' => $bucketName, 'schema_json' => $schemaJson ],
+				'bucket_name',
 				[ 'schema_json' => $schemaJson ]
 			);
 			$dbw->commit( __METHOD__ );
@@ -526,7 +526,7 @@ class Bucket {
 		if ( self::canDeleteBucketPage( $bucketName ) ) {
 			$dbw->newDeleteQueryBuilder()
 				->table( 'bucket_schemas' )
-				->where( [ 'table_name' => $bucketName ] )
+				->where( [ 'bucket_name' => $bucketName ] )
 				->caller( __METHOD__ )
 				->execute();
 			$dbw->query( "DROP TABLE IF EXISTS $tableName" );
@@ -539,7 +539,7 @@ class Bucket {
 		$putCount = $dbw->newSelectQueryBuilder()
 						->table( 'bucket_pages' )
 						->lockInShareMode()
-						->where( [ 'table_name' => $bucketName ] )
+						->where( [ 'bucket_name' => $bucketName ] )
 						->fetchRowCount();
 		if ( $putCount > 0 ) {
 			return false;

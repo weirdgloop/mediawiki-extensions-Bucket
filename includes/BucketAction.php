@@ -24,14 +24,14 @@ class BucketAction extends Action {
 
 		$res = $dbw->newSelectQueryBuilder()
 			->from( 'bucket_pages' )
-			->select( [ 'table_name' ] )
+			->select( [ 'bucket_name' ] )
 			->where( [ '_page_id' => $pageId ] )
-			->groupBy( 'table_name' )
+			->groupBy( 'bucket_name' )
 			->caller( __METHOD__ )
 			->fetchResultSet();
 		$buckets = [];
 		foreach ( $res as $row ) {
-			$buckets[] = $row->table_name;
+			$buckets[] = $row->bucket_name;
 		}
 
 		if ( count( $buckets ) == 0 ) {
@@ -41,13 +41,13 @@ class BucketAction extends Action {
 
 		$res = $dbw->newSelectQueryBuilder()
 			->from( 'bucket_schemas' )
-			->select( [ 'table_name', 'schema_json' ] )
-			->where( [ 'table_name' => $buckets ] )
+			->select( [ 'bucket_name', 'schema_json' ] )
+			->where( [ 'bucket_name' => $buckets ] )
 			->caller( __METHOD__ )
 			->fetchResultSet();
 		$schemas = [];
 		foreach ( $res as $row ) {
-			$schemas[$row->table_name] = json_decode( $row->schema_json, true );
+			$schemas[$row->bucket_name] = json_decode( $row->schema_json, true );
 		}
 
 		$title = $dbw->addQuotes( $title );

@@ -39,13 +39,13 @@ class BucketApi extends ApiBase {
 
 			$res = $dbw->newSelectQueryBuilder()
 				->from( 'bucket_schemas' )
-				->select( [ 'table_name', 'schema_json' ] )
-				->where( [ 'table_name' => $bucket ] )
+				->select( [ 'bucket_name', 'schema_json' ] )
+				->where( [ 'bucket_name' => $bucket ] )
 				->caller( __METHOD__ )
 				->fetchResultSet();
 			$schemas = [];
 			foreach ( $res as $row ) {
-				$schemas[$row->table_name] = json_decode( $row->schema_json, true );
+				$schemas[$row->bucket_name] = json_decode( $row->schema_json, true );
 			}
 
 			// Select everything if input is *

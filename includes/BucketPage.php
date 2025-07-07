@@ -36,13 +36,13 @@ class BucketPage extends Article {
 
 		$res = $dbw->newSelectQueryBuilder()
 					->from( 'bucket_schemas' )
-					->select( [ 'table_name', 'schema_json' ] )
-					->where( [ 'table_name' => $bucketName ] )
+					->select( [ 'bucket_name', 'schema_json' ] )
+					->where( [ 'bucket_name' => $bucketName ] )
 					->caller( __METHOD__ )
 					->fetchResultSet();
 		$schemas = [];
 		foreach ( $res as $row ) {
-			$schemas[$row->table_name] = json_decode( $row->schema_json, true );
+			$schemas[$row->bucket_name] = json_decode( $row->schema_json, true );
 		}
 
 		$select = $context->getRequest()->getText( 'select', '*' );

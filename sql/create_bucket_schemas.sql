@@ -1,7 +1,7 @@
 CREATE TABLE bucket_schemas (
-	`table_name` VARCHAR(255) NOT NULL,
+	`bucket_name` VARCHAR(255) NOT NULL,
 	`schema_json` TEXT NOT NULL,
-	PRIMARY KEY (`table_name`)
+	PRIMARY KEY (`bucket_name`)
 );
 
 -- Create entry for bucket_message Bucket
@@ -22,4 +22,4 @@ CREATE TABLE `bucket__bucket_message` (
   KEY `type` (`type`(255)),
   KEY `message` (`message`(255))
 );
-INSERT INTO bucket_schemas (`table_name`, `schema_json`) VALUE ("bucket_message", '{\"_page_id\":{\"type\":\"INTEGER\",\"index\":false,\"repeated\":false},\"_index\":{\"type\":\"INTEGER\",\"index\":false,\"repeated\":false},\"page_name\":{\"type\":\"PAGE\",\"index\":true,\"repeated\":false},\"page_name_sub\":{\"type\":\"PAGE\",\"index\":true,\"repeated\":false},\"bucket\":{\"type\":\"PAGE\",\"index\":true,\"repeated\":false},\"property\":{\"type\":\"TEXT\",\"index\":true,\"repeated\":false},\"type\":{\"type\":\"TEXT\",\"index\":true,\"repeated\":false},\"message\":{\"type\":\"TEXT\",\"index\":true,\"repeated\":false}}');
+INSERT INTO bucket_schemas (`bucket_name`, `schema_json`) VALUE ("bucket_message", '{\"_page_id\":{\"type\":\"INTEGER\",\"index\":false,\"repeated\":false},\"_index\":{\"type\":\"INTEGER\",\"index\":false,\"repeated\":false},\"page_name\":{\"type\":\"PAGE\",\"index\":true,\"repeated\":false},\"page_name_sub\":{\"type\":\"PAGE\",\"index\":true,\"repeated\":false},\"bucket\":{\"type\":\"PAGE\",\"index\":true,\"repeated\":false},\"property\":{\"type\":\"TEXT\",\"index\":true,\"repeated\":false},\"type\":{\"type\":\"TEXT\",\"index\":true,\"repeated\":false},\"message\":{\"type\":\"TEXT\",\"index\":true,\"repeated\":false}}');

@@ -20,7 +20,7 @@ class AllBucketsSpecial extends SpecialPage {
 		$dbw = Bucket::getDB();
 		$res = $dbw->newSelectQueryBuilder()
 			->from( 'bucket_schemas' )
-			->select( [ 'table_name', 'schema_json' ] )
+			->select( [ 'bucket_name', 'schema_json' ] )
 			->caller( __METHOD__ )
 			->fetchResultSet();
 
@@ -28,7 +28,7 @@ class AllBucketsSpecial extends SpecialPage {
 		$out->addHTML( '<tr><th>Bucket</th></tr>' );
 		$linkRenderer = MediaWikiServices::getInstance()->getLinkRenderer();
 		foreach ( $res as $row ) {
-			$out->addHTML( '<tr><td>' . $linkRenderer->makePreloadedLink( new TitleValue( NS_BUCKET, $row->table_name ) ) . '</td></tr>' );
+			$out->addHTML( '<tr><td>' . $linkRenderer->makePreloadedLink( new TitleValue( NS_BUCKET, $row->bucket_name ) ) . '</td></tr>' );
 		}
 		$out->addHTML( '</table>' );
 	}
