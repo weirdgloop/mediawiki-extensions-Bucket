@@ -45,7 +45,7 @@ class BucketPageHelper {
 			return "[[$value]]";
 		}
 		if ( $dataType == 'TEXT' ) {
-			return "<nowiki>$value</nowiki>";
+			return wfEscapeWikiText( $value );
 		}
 		if ( $dataType == 'BOOLEAN' ) {
 			if ( $value ) {
