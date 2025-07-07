@@ -519,7 +519,7 @@ class Bucket {
 		$bucketName = self::getValidBucketName( $bucketName );
 		$tableName = self::getBucketTableName( $bucketName );
 
-		if ( self::countPagesUsingBucket( $bucketName ) > 0) {
+		if ( self::countPagesUsingBucket( $bucketName ) > 0 ) {
 			$dbw->newDeleteQueryBuilder()
 				->table( 'bucket_schemas' )
 				->where( [ 'bucket_name' => $bucketName ] )
@@ -532,7 +532,7 @@ class Bucket {
 	/**
 	 * @return The number of pages writing to this bucket
 	 */
-	public static function countPagesUsingBucket( String $bucketName ) : int {
+	public static function countPagesUsingBucket( string $bucketName ): int {
 		$dbw = self::getDB();
 		$bucketName = self::getValidBucketName( $bucketName );
 		return $dbw->newSelectQueryBuilder()

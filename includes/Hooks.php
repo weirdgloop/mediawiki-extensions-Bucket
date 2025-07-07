@@ -234,8 +234,8 @@ class Hooks implements
 		}
 
 		try {
-			$pagesCount = Bucket::countPagesUsingBucket($page->getDBkey());
-			if ( $pagesCount == 0) {
+			$pagesCount = Bucket::countPagesUsingBucket( $page->getDBkey() );
+			if ( $pagesCount == 0 ) {
 				return true;
 			} else {
 				$status->fatal( 'bucket-delete-fail-in-use', $pagesCount );
