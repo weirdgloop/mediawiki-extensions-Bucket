@@ -122,8 +122,8 @@ class Hooks implements
 		}
 		$jsonSchema = $content->getData()->value;
 		$title = $page->getDBkey();
-		$parentId = $revRecord->getParentId() ?? 0;
-		Bucket::createOrModifyTable( $title, $jsonSchema, $parentId );
+		$isExistingPage = $revRecord->getParentId() > 0;
+		Bucket::createOrModifyTable( $title, $jsonSchema, $isExistingPage );
 	}
 
 	/**
@@ -149,9 +149,9 @@ class Hooks implements
 		}
 		$jsonSchema = $content->getData()->value;
 		$title = $page->getDBkey();
-		$parentId = $revRecord->getParentId() ?? 0;
+		$isExistingPage = $revRecord->getParentId() > 0;
 		try {
-			Bucket::createOrModifyTable( $title, $jsonSchema, $parentId );
+			Bucket::createOrModifyTable( $title, $jsonSchema, $isExistingPage );
 		} catch ( BucketException $e ) {
 			$status->fatal( $e->getWfMessage() );
 			return false;

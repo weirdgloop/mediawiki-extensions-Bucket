@@ -349,7 +349,7 @@ class Bucket {
 		return array_merge( ...$jsonObject ); // The ... operator passes each array element as its own parameter.
 	}
 
-	public static function createOrModifyTable( string $bucketName, object $jsonSchema, int $parentId ) {
+	public static function createOrModifyTable( string $bucketName, object $jsonSchema, bool $isExistingPage ) {
 		$newSchema = array_merge( [], self::$requiredColumns );
 		$bucketName = self::getValidBucketName( $bucketName );
 
@@ -357,7 +357,7 @@ class Bucket {
 			throw new SchemaException( wfMessage( 'bucket-cannot-create-system-page' ) );
 		}
 
-		if ( $parentId == 0 && !self::canCreateTable( $bucketName ) ) {
+		if ( !$isExistingPage && !self::canCreateTable( $bucketName ) ) {
 			throw new SchemaException( wfMessage( 'bucket-already-exist-error' ) );
 		}
 
