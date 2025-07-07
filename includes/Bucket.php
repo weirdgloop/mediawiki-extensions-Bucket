@@ -452,37 +452,35 @@ class Bucket {
 		foreach ( $newSchema as $fieldName => $fieldData ) {
 			$escapedFieldName = $dbw->addIdentifierQuotes( $fieldName );
 			$fieldJson = $dbw->addQuotes( json_encode( [ $fieldName => $fieldData ] ) );
+			$oldDbType = self::getDbType( $fieldName, $oldSchema[$fieldName] );
+			$newDbType = self::getDbType( $fieldName, $fieldData );
 			# Handle new columns
 			if ( !isset( $oldSchema[$fieldName] ) ) {
 				$alterTableFragments[] = "ADD $escapedFieldName " . self::getDbType( $fieldName, $fieldData ) . " COMMENT $fieldJson AFTER {$dbw->addIdentifierQuotes($previousColumn)}";
 				if ( $fieldData['index'] ) {
 					$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $fieldName, $fieldData, $dbw );
 				}
+			# Handle type changes, including add/drop index
+			} elseif ( $oldDbType !== $newDbType ) {
+				if ( $oldSchema[$fieldName]['index'] ) {
+					$alterTableFragments[] = "DROP INDEX $escapedFieldName";
+				}
+				$alterTableFragments[] = "DROP $escapedFieldName"; # Always drop and then re-add the column for type changes.
+				$alterTableFragments[] = "ADD $escapedFieldName " . self::getDbType( $fieldName, $fieldData ) . " COMMENT $fieldJson AFTER {$dbw->addIdentifierQuotes($previousColumn)}";
+				if ( $fieldData['index'] ) {
+					$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $fieldName, $fieldData, $dbw );
+				}
+			# Handle adding index without type change
+			} elseif ( ( $oldSchema[$fieldName]['index'] === false && $fieldData['index'] === true ) ) {
+				$alterTableFragments[] = "MODIFY $escapedFieldName " . self::getDbType( $fieldName, $fieldData ) . " COMMENT $fieldJson"; // Acts as a no-op except to set the comment
+				$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $fieldName, $fieldData, $dbw );
 			# Handle removing index
-			} elseif ( $oldSchema[$fieldName]['index'] === true && $fieldData['index'] === false ) {
+			} elseif ( ( $oldSchema[$fieldName]['index'] === true && $fieldData['index'] === false ) ) {
 				$alterTableFragments[] = "MODIFY $escapedFieldName " . self::getDbType( $fieldName, $fieldData ) . " COMMENT $fieldJson"; // Acts as a no-op except to set the comment
 				$alterTableFragments[] = "DROP INDEX $escapedFieldName";
-			} else {
-				# Handle type changes
-				$oldDbType = self::getDbType( $fieldName, $oldSchema[$fieldName] );
-				$newDbType = self::getDbType( $fieldName, $fieldData );
-				if ( $oldDbType !== $newDbType ) { # Always drop and then re-add the column for type changes.
-					if ( $oldSchema[$fieldName]['index'] ) {
-						$alterTableFragments[] = "DROP INDEX $escapedFieldName";
-					}
-					$alterTableFragments[] = "DROP $escapedFieldName";
-					$alterTableFragments[] = "ADD $escapedFieldName " . self::getDbType( $fieldName, $fieldData ) . " COMMENT $fieldJson AFTER {$dbw->addIdentifierQuotes($previousColumn)}";
-					if ( $fieldData['index'] ) {
-						$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $fieldName, $fieldData, $dbw );
-					}
-				# Handle adding index without type change
-				} elseif ( ( $oldSchema[$fieldName]['index'] === false && $fieldData['index'] === true ) ) {
-					$alterTableFragments[] = "MODIFY $escapedFieldName " . self::getDbType( $fieldName, $fieldData ) . " COMMENT $fieldJson"; // Acts as a no-op except to set the comment
-					$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $fieldName, $fieldData, $dbw );
-				# Handle changing between types that don't actually change the DB type
-				} elseif ( ( $oldSchema[$fieldName]['type'] != $newSchema[$fieldName]['type'] ) ) {
-					$alterTableFragments[] = "MODIFY $escapedFieldName " . self::getDbType( $fieldName, $fieldData ) . " COMMENT $fieldJson"; // Acts as a no-op except to set the comment
-				}
+			# Handle changing between types that don't actually change the DB type
+			} elseif ( ( $oldSchema[$fieldName]['type'] != $newSchema[$fieldName]['type'] ) ) {
+				$alterTableFragments[] = "MODIFY $escapedFieldName " . self::getDbType( $fieldName, $fieldData ) . " COMMENT $fieldJson"; // Acts as a no-op except to set the comment
 			}
 			unset( $oldSchema[$fieldName] );
 			$previousColumn = $fieldName;
