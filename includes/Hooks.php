@@ -177,8 +177,8 @@ class Hooks implements
 	public function onSidebarBeforeOutput( $skin, &$sidebar ): void {
 		if ( $skin->getTitle()->inNamespaces( $this->enabledNamespaces() ) ) {
 			$sidebar['TOOLBOX'][] = [
-				'text' => 'View Bucket',
-				'href' => '?action=bucket',
+				'text' => $skin->msg( 'bucket-sidebar-action' )->text(),
+				'href' => $skin->getTitle()->getLocalURL( 'action=bucket' ),
 				'title' => 'Bucket',
 				'id' => 'n-bucket'
 			];
