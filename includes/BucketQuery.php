@@ -225,37 +225,27 @@ class BucketQuery {
 	static Query $query;
 
 	private static function parseSelect( $data ) {
-		// Start with populating the schema cache for all used buckets.
-		$usedBuckets = [];
-
-		$usedBuckets[] = $data['bucketName'];
-		foreach ( $data['joins'] as $join ) {
-			$usedBuckets[] = $join['bucketName'];
-		}
-
 		// Populate the schema cache
-		$neededSchemas = $usedBuckets;
-		foreach ( $neededSchemas as $idx => $name ) {
-			if ( isset( self::$schemaCache[$name] ) ) {
-				unset( $neededSchemas[$idx] );
-			}
-		}
-		$dbw = Bucket::getDB();
-		if ( !empty( $neededSchemas ) ) {
+		if ( empty( self::$schemaCache ) ) {
+			$dbw = Bucket::getDB();
 			$res = $dbw->newSelectQueryBuilder()
 				->from( 'bucket_schemas' )
 				->select( [ 'bucket_name', 'schema_json' ] )
 				->lockInShareMode()
-				->where( [ 'bucket_name' => $neededSchemas ] )
 				->caller( __METHOD__ )
 				->fetchResultSet();
 			foreach ( $res as $row ) {
 				self::$schemaCache[$row->bucket_name] = json_decode( $row->schema_json, true );
 			}
 		}
-		foreach ( $usedBuckets as $bucketName ) {
-			if ( !array_key_exists( $bucketName, self::$schemaCache ) || !self::$schemaCache[$bucketName] ) {
-				throw new QueryException( wfMessage( 'bucket-no-exist', $bucketName ) );
+
+		// Check that all used buckets exist.
+		if ( !isset( self::$schemaCache[$data['bucketName']] ) ) {
+			throw new QueryException( wfMessage( 'bucket-no-exist', $data['bucketName'] ) );
+		}
+		foreach ( $data['joins'] as $join ) {
+			if ( !isset( self::$schemaCache[$join['bucketName']] ) ) {
+				throw new QueryException( wfMessage( 'bucket-no-exist', $join ) );
 			}
 		}
 
@@ -280,7 +270,7 @@ class BucketQuery {
 		// Parse wheres
 		self::$query->addWhere( self::parseWhere( $data['wheres'] ) );
 
-		// Parse LIMIT
+		// Parse other options
 		if ( isset( $data['limit'] ) && is_int( $data['limit'] ) && $data['limit'] >= 0 ) {
 			self::$query->setLimit( $data['limit'] );
 		}
