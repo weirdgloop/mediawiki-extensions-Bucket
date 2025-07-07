@@ -115,4 +115,11 @@ class BucketPageHelper {
 
 		return new OOUI\ButtonGroupWidget( [ 'items' => $links ] );
 	}
+
+	/**
+	 * Escapes input and wraps in a standard error format.
+	 */
+	public static function printError( string $msg ) {
+		return '<strong class="error bucket-error">' . wfEscapeWikiText( $msg ) . '</strong>';
+	}
 }
