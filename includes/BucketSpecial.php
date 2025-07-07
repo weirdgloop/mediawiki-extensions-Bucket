@@ -122,9 +122,9 @@ class BucketSpecial extends SpecialPage {
 		$offset = $request->getInt( 'offset', 0 );
 
 		$out->addHTML( $this->getQueryBuilder( $request, $bucket, $select, $where, $limit, $offset ) );
-		$table_name = Bucket::getValidFieldName( $bucket );
-
-		if ( $table_name == false ) {
+		try {
+			$table_name = Bucket::getValidFieldName( $bucket );
+		} catch ( SchemaException $e ) {
 			$out->addHTML( wfMessage( 'bucket-query-bucket-invalid', $bucket ) );
 			return;
 		}

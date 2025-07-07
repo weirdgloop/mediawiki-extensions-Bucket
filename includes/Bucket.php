@@ -126,11 +126,13 @@ class Bucket {
 				continue;
 			}
 
-			$tableNameTmp = self::getValidFieldName( $tableName );
-			if ( $tableNameTmp == false ) {
+			try {
+				$tableNameTmp = self::getValidFieldName( $tableName );
+			} catch ( SchemaException $e ) {
 				self::logMessage( $tableName, '', 'bucket-general-warning', wfMessage( 'bucket-invalid-name-warning', $tableName ) );
 				continue;
 			}
+
 			if ( $tableNameTmp != $tableName ) {
 				self::logMessage( $tableName, '', 'bucket-general-warning', wfMessage( 'bucket-capital-name-warning' ) );
 			}
@@ -296,6 +298,9 @@ class Bucket {
 		}
 	}
 
+	/**
+	 * @throws SchemaException
+	 */
 	public static function getValidFieldName( ?string $fieldName ) {
 		if ( $fieldName != null && preg_match( '/^[a-zA-Z0-9_]+$/', $fieldName ) ) {
 			$cleanName = strtolower( trim( $fieldName ) );
@@ -304,18 +309,18 @@ class Bucket {
 				return $cleanName;
 			}
 		}
-		return false;
+		throw new SchemaException( wfMessage( 'bucket-query-column-name-invalid', $fieldName ) );
 	}
 
 	public static function getValidBucketName( string $bucketName ) {
 		if ( ucfirst( $bucketName ) != ucfirst( strtolower( $bucketName ) ) ) {
 			throw new SchemaException( wfMessage( 'bucket-capital-name-error' ) );
 		}
-		$bucketName = self::getValidFieldName( $bucketName );
-		if ( !$bucketName ) {
+		try {
+			return self::getValidFieldName( $bucketName );
+		} catch ( SchemaException $e ) {
 			throw new SchemaException( wfMessage( 'bucket-invalid-name-warning', $bucketName ) );
 		}
-		return $bucketName;
 	}
 
 	public static function canCreateTable( string $bucketName ) {

@@ -5,6 +5,7 @@ namespace Mediawiki\Extension\Bucket;
 use Article;
 use MediaWiki\Extension\Bucket\Bucket;
 use MediaWiki\Extension\Bucket\BucketPageHelper;
+use MediaWiki\Extension\Bucket\SchemaException;
 use MediaWiki\MediaWikiServices;
 use Mediawiki\Title\Title;
 use MediaWiki\Title\TitleValue;
@@ -27,7 +28,11 @@ class BucketPage extends Article {
 		$dbw = Bucket::getDB();
 		$linkRenderer = MediaWikiServices::getInstance()->getLinkRenderer();
 
-		$table_name = Bucket::getValidFieldName( str_replace( ' ', '_', $title->getRootText() ) );
+		try {
+			$table_name = Bucket::getValidFieldName( $this->getTitle()->getDBkey() );
+		} catch ( SchemaException $e ) {
+			$out->addHTML( $e->getMessage() );
+		}
 
 		$res = $dbw->newSelectQueryBuilder()
 					->from( 'bucket_schemas' )

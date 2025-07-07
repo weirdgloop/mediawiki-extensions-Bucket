@@ -732,7 +732,7 @@ class FieldName extends Name {
 	private string $fieldName;
 
 	function __construct( string $name ) {
-		$this->fieldName = Bucket::getValidFieldName( $name ); // TODO error if we don't get back a valid name
+		$this->fieldName = Bucket::getValidFieldName( $name );
 	}
 
 	function getName(): string {
