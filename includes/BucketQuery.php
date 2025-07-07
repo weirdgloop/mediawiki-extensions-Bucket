@@ -234,7 +234,12 @@ class BucketQuery {
 		}
 
 		// Populate the schema cache
-		$neededSchemas = array_diff_key( $usedBuckets, self::$schemaCache );
+		$neededSchemas = $usedBuckets;
+		foreach ( $neededSchemas as $idx => $name ) {
+			if ( isset( self::$schemaCache[$name] ) ) {
+				unset( $neededSchemas[$idx] );
+			}
+		}
 		$dbw = Bucket::getDB();
 		if ( !empty( $neededSchemas ) ) {
 			$res = $dbw->newSelectQueryBuilder()
