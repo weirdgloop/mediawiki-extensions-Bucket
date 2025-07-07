@@ -576,6 +576,9 @@ class Bucket {
 	}
 
 	public static function castToDbType( $value, $type ) {
+		if ( $value == null ) {
+			return null;
+		}
 		if ( $type === 'TEXT' || $type === 'PAGE' ) {
 			if ( $value == '' ) {
 				return null;
