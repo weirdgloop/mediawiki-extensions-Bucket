@@ -452,8 +452,10 @@ class Bucket {
 		foreach ( $newSchema as $fieldName => $fieldData ) {
 			$escapedFieldName = $dbw->addIdentifierQuotes( $fieldName );
 			$fieldJson = $dbw->addQuotes( json_encode( [ $fieldName => $fieldData ] ) );
-			$oldDbType = self::getDbType( $fieldName, $oldSchema[$fieldName] );
-			$newDbType = self::getDbType( $fieldName, $fieldData );
+			if ( isset( $oldSchema[$fieldName] ) ) {
+				$oldDbType = self::getDbType( $fieldName, $oldSchema[$fieldName] );
+				$newDbType = self::getDbType( $fieldName, $fieldData );
+			}
 			# Handle new columns
 			if ( !isset( $oldSchema[$fieldName] ) ) {
 				$alterTableFragments[] = "ADD $escapedFieldName " . self::getDbType( $fieldName, $fieldData ) . " COMMENT $fieldJson AFTER {$dbw->addIdentifierQuotes($previousColumn)}";
