@@ -59,7 +59,7 @@ class BucketApi extends ApiBase {
 			} else {
 				$selectNames = explode( ' ', $select );
 			}
-			$this->getResult()->addValue( null, 'columns', $selectNames );
+			$this->getResult()->addValue( null, 'fields', $selectNames );
 			foreach ( $selectNames as $idx => $name ) {
 				$selectNames[$idx] = "'" . $name . "'";
 			}

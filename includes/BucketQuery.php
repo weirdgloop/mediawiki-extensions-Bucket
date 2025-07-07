@@ -26,8 +26,8 @@ class BucketQuery {
 		&& is_array( $condition['operands'] );
 	}
 
-	public static function isCategory( $columnName ): bool {
-		return substr( strtolower( trim( $columnName ) ), 0, 9 ) == 'category:';
+	public static function isCategory( $fieldName ): bool {
+		return substr( strtolower( trim( $fieldName ) ), 0, 9 ) == 'category:';
 	}
 
 	public static function cast( $value, BucketSchemaField $fieldData ) {
@@ -74,7 +74,7 @@ class BucketQuery {
 		} elseif ( $node instanceof ComparisonConditionNode ) {
 			$dbw = Bucket::getDB();
 			$selector = $node->getSelector();
-			$columnName = $selector->getQuotedSelectorText( $dbw );
+			$fieldName = $selector->getQuotedSelectorText( $dbw );
 			$op = $node->getOperator()->getOperator();
 			$value = $node->getValue()->getQuotedValue( $dbw );
 
@@ -83,15 +83,15 @@ class BucketQuery {
 			} elseif ( $selector instanceof FieldSelector ) {
 				if ( $value == '&&NULL&&' ) {
 					if ( $op == '!=' ) {
-						return "($columnName IS NOT NULL)";
+						return "($fieldName IS NOT NULL)";
 					}
-					return "($columnName IS NULL)";
+					return "($fieldName IS NULL)";
 				} elseif ( $selector->getFieldSchema()->getRepeated() == true ) {
 					if ( $op == '=' ) {
-						return "$value MEMBER OF($columnName)";
+						return "$value MEMBER OF($fieldName)";
 					}
 					if ( $op == '!=' ) {
-						return "NOT $value MEMBER OF($columnName)";
+						return "NOT $value MEMBER OF($fieldName)";
 					}
 					// > < >= <=
 					//TODO this is very expensive
@@ -103,11 +103,11 @@ class BucketQuery {
 					// return "($value $op ANY(SELECT json_col FROM JSON_TABLE($columnName, '$[*]' COLUMNS(json_col $dbType PATH '$')) AS json_tab))";
 				} else {
 					if ( in_array( $op, [ '>', '>=', '<', '<=' ] ) ) {
-						return $dbw->buildComparison( $op, [ $columnName => $node->getValue()->getValue() ] ); // Intentionally get the unquoted value, buildComparison quotes it.
+						return $dbw->buildComparison( $op, [ $fieldName => $node->getValue()->getValue() ] ); // Intentionally get the unquoted value, buildComparison quotes it.
 					} elseif ( $op == '=' ) {
-						return $dbw->makeList( [ $columnName => $node->getValue()->getValue() ], IDatabase::LIST_AND ); // Intentionally get the unquoted value, makeList quotes it.
+						return $dbw->makeList( [ $fieldName => $node->getValue()->getValue() ], IDatabase::LIST_AND ); // Intentionally get the unquoted value, makeList quotes it.
 					} elseif ( $op == '!=' ) {
-						return "($columnName $op $value)";
+						return "($fieldName $op $value)";
 					}
 				}
 			}
@@ -202,11 +202,11 @@ class BucketQuery {
 		$res = $tmp->fetchResultSet();
 		foreach ( $res as $row ) {
 			$row = (array)$row;
-			foreach ( $row as $columnName => $value ) {
-				if ( self::isCategory( $columnName ) ) {
-					$row[$columnName] = boolval( $value );
+			foreach ( $row as $fieldName => $value ) {
+				if ( self::isCategory( $fieldName ) ) {
+					$row[$fieldName] = boolval( $value );
 				} else {
-					$selector = new FieldSelector( $columnName );
+					$selector = new FieldSelector( $fieldName );
 					$row[$selector->getInputString()] = self::cast( $value, $selector->getFieldSchema() );
 				}
 			}
@@ -269,8 +269,8 @@ class BucketQuery {
 		if ( empty( $data['selects'] ) ) {
 			throw new QueryException( wfMessage( 'bucket-query-select-empty' ) );
 		}
-		foreach ( $data['selects'] as $selectColumn ) {
-			self::$query->addSelect( $selectColumn );
+		foreach ( $data['selects'] as $selectField ) {
+			self::$query->addSelect( $selectField );
 		}
 
 		// Parse wheres
@@ -634,7 +634,7 @@ class FieldSelector extends Selector {
 		parent::__construct( $fullSelector );
 		$parts = explode( '.', $fullSelector ); // Split on period
 		if ( $fullSelector === '' || count( $parts ) > 2 ) {
-			throw new QueryException( wfMessage( 'bucket-query-column-name-invalid', $fullSelector ) );
+			throw new QueryException( wfMessage( 'bucket-query-field-name-invalid', $fullSelector ) );
 		}
 		$fieldName = end( $parts );
 		if ( count( $parts ) == 1 ) { // If we don't have a period, we are the primary bucket.
@@ -650,7 +650,7 @@ class FieldSelector extends Selector {
 		$fields = $this->schema->getFields();
 		if ( !isset( $fields[$fieldName] ) ) {
 			debug_print_backtrace();
-			throw new QueryException( wfMessage( 'bucket-query-column-not-found-in-bucket', $fieldName, $this->schema->getName() ) );
+			throw new QueryException( wfMessage( 'bucket-query-field-not-found-in-bucket', $fieldName, $this->schema->getName() ) );
 		}
 		$this->schemaField = $fields[$fieldName];
 	}

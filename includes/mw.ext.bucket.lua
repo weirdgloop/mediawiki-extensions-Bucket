@@ -139,23 +139,23 @@ end
 
 --Put selects in the normal select function, prepended with the table name.
 --tableName is the string of a table to join
-function QueryBuilder:join(tableName, columnOne, columnTwo)
+function QueryBuilder:join(tableName, fieldOne, fieldTwo)
     assertPossibleField(tableName)
-    assertPossibleField(columnOne)
-    assertPossibleField(columnTwo)
+    assertPossibleField(fieldOne)
+    assertPossibleField(fieldTwo)
 
-    local bucketOne = string.match(columnOne, '([^%.]+)%.') --Grabs the bucket name, or nil if none is specified.
-    local bucketTwo = string.match(columnTwo, '([^%.]+)%.')
+    local bucketOne = string.match(fieldOne, '([^%.]+)%.') --Grabs the bucket name, or nil if none is specified.
+    local bucketTwo = string.match(fieldTwo, '([^%.]+)%.')
 
     if bucketOne == bucketTwo then -- We cannot join a table with itself
-        printError('bucket-query-invalid-join', 5, mw.text.jsonEncode({tableName, columnOne, columnTwo}))
+        printError('bucket-query-invalid-join', 5, mw.text.jsonEncode({tableName, fieldOne, fieldTwo}))
     end
 
-    if bucketOne ~= tableName and bucketTwo ~= tableName then -- One of the columns must be for the joined table
-        printError('bucket-query-invalid-join', 5, mw.text.jsonEncode({tableName, columnOne, columnTwo}))
+    if bucketOne ~= tableName and bucketTwo ~= tableName then -- One of the fields must be for the joined table
+        printError('bucket-query-invalid-join', 5, mw.text.jsonEncode({tableName, fieldOne, fieldTwo}))
     end
 
-    table.insert(self.joins, {tableName = tableName, cond = {columnOne, columnTwo}})
+    table.insert(self.joins, {tableName = tableName, cond = {fieldOne, fieldTwo}})
     return self
 end
 

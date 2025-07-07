@@ -25,7 +25,7 @@ class Bucket {
 		'PAGE' => 'TEXT'
 	];
 
-	private static $requiredColumns = [
+	private static $requiredFields = [
 			'_page_id' => [ 'type' => 'INTEGER', 'index' => false, 'repeated' => false ],
 			'_index' => [ 'type' => 'INTEGER', 'index' => false, 'repeated' => false ],
 			'page_name' => [ 'type' => 'PAGE', 'index' => true, 'repeated' => false ],
@@ -304,12 +304,12 @@ class Bucket {
 	public static function getValidFieldName( ?string $fieldName ) {
 		if ( $fieldName != null && preg_match( '/^[a-zA-Z0-9_]+$/', $fieldName ) ) {
 			$cleanName = strtolower( trim( $fieldName ) );
-			// MySQL has a maximum of 64, lets limit it to 60 in case we need to append to columns for some reason later
+			// MySQL has a maximum of 64, lets limit it to 60 in case we need to append to fields for some reason later
 			if ( strlen( $cleanName ) <= 60 ) {
 				return $cleanName;
 			}
 		}
-		throw new SchemaException( wfMessage( 'bucket-query-column-name-invalid', $fieldName ) );
+		throw new SchemaException( wfMessage( 'bucket-query-field-name-invalid', $fieldName ) );
 	}
 
 	public static function getValidBucketName( string $bucketName ) {
@@ -352,7 +352,7 @@ class Bucket {
 	}
 
 	public static function createOrModifyTable( string $bucketName, object $jsonSchema, bool $isExistingPage ) {
-		$newSchema = array_merge( [], self::$requiredColumns );
+		$newSchema = array_merge( [], self::$requiredFields );
 		$bucketName = self::getValidBucketName( $bucketName );
 
 		if ( $bucketName == self::MESSAGE_BUCKET ) {
@@ -364,7 +364,7 @@ class Bucket {
 		}
 
 		if ( empty( (array)$jsonSchema ) ) {
-			throw new SchemaException( wfMessage( 'bucket-schema-no-columns-error' ) );
+			throw new SchemaException( wfMessage( 'bucket-schema-no-fields-error' ) );
 		}
 
 		foreach ( $jsonSchema as $fieldName => $fieldData ) {
@@ -458,7 +458,7 @@ class Bucket {
 				$oldDbType = self::getDbType( $fieldName, $oldSchema[$fieldName] );
 				$newDbType = self::getDbType( $fieldName, $fieldData );
 			}
-			# Handle new columns
+			# Handle new fields
 			if ( !isset( $oldSchema[$fieldName] ) ) {
 				$alterTableFragments[] = "ADD $escapedFieldName " . self::getDbType( $fieldName, $fieldData ) . " COMMENT $fieldJson AFTER {$dbw->addIdentifierQuotes($previousColumn)}";
 				if ( $fieldData['index'] ) {
@@ -469,7 +469,7 @@ class Bucket {
 				if ( $oldSchema[$fieldName]['index'] ) {
 					$alterTableFragments[] = "DROP INDEX $escapedFieldName";
 				}
-				$alterTableFragments[] = "DROP $escapedFieldName"; # Always drop and then re-add the column for type changes.
+				$alterTableFragments[] = "DROP $escapedFieldName"; # Always drop and then re-add the column for field type changes.
 				$alterTableFragments[] = "ADD $escapedFieldName " . self::getDbType( $fieldName, $fieldData ) . " COMMENT $fieldJson AFTER {$dbw->addIdentifierQuotes($previousColumn)}";
 				if ( $fieldData['index'] ) {
 					$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $fieldName, $fieldData, $dbw );
@@ -548,8 +548,8 @@ class Bucket {
 	}
 
 	public static function getDbType( string $fieldName, ?array $fieldData ): string {
-		if ( isset( self::$requiredColumns[$fieldName] ) ) {
-			return self::$dataTypes[self::$requiredColumns[$fieldName]['type']];
+		if ( isset( self::$requiredFields[$fieldName] ) ) {
+			return self::$dataTypes[self::$requiredFields[$fieldName]['type']];
 		} else {
 			if ( isset( $fieldData['repeated'] ) && strlen( $fieldData['repeated'] ) > 0 ) {
 				return 'JSON';

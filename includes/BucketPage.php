@@ -84,7 +84,7 @@ class BucketPage extends Article {
 		$pageLinks = BucketPageHelper::getPageLinks( $title, $limit, $offset, $context->getRequest()->getQueryValues(), ( $resultCount == $limit ) );
 
 		$out->addHTML( $pageLinks );
-		$out->addWikiTextAsContent( BucketPageHelper::getResultTable( $schemas[$table_name], $fullResult['columns'], $queryResult ) );
+		$out->addWikiTextAsContent( BucketPageHelper::getResultTable( $schemas[$table_name], $fullResult['fields'], $queryResult ) );
 		$out->addHTML( $pageLinks );
 	}
 }

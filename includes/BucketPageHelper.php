@@ -57,12 +57,12 @@ class BucketPageHelper {
 		return $value;
 	}
 
-	public static function getResultTable( $schema, $columns, $result ) {
-		if ( isset( $columns ) && count( $columns ) > 0 ) {
+	public static function getResultTable( $schema, $fields, $result ) {
+		if ( isset( $fields ) && count( $fields ) > 0 ) {
 			$output[] = '<table class="wikitable"><tr>';
 			$keys = [];
 			foreach ( array_keys( $schema ) as $key ) {
-				if ( in_array( $key, $columns ) ) {
+				if ( in_array( $key, $fields ) ) {
 					$keys[] = $key;
 					$output[] = "<th>$key</th>";
 				}

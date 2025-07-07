@@ -59,7 +59,7 @@ class BucketAction extends Action {
 
 			$fullResult = BucketPageHelper::runQuery( $this->getRequest(), $table_name, '*', "{'page_name', $title}", 500, 0 );
 
-			$out->addWikiTextAsContent( BucketPageHelper::getResultTable( $schemas[$table_name], $fullResult['columns'], $fullResult['bucket'] ) );
+			$out->addWikiTextAsContent( BucketPageHelper::getResultTable( $schemas[$table_name], $fullResult['fields'], $fullResult['bucket'] ) );
 		}
 	}
 
