@@ -42,7 +42,7 @@ class Bucket {
 
 		$mainDB = self::getMainDB();
 		if ( $bucketDBuser == null || $bucketDBpassword == null ) {
-			// TODO need to set utf8Mode for this
+			// TODO need to set utf8Mode for this if you want to be able to store repeated fields
 			self::$db = $mainDB;
 			self::$specialBucketUser = false;
 			return self::$db;

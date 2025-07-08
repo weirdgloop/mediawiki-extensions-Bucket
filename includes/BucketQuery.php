@@ -697,8 +697,9 @@ class CategoryName extends Name {
 	private string $categoryName;
 
 	function __construct( string $name ) {
-		// TODO idk what to do here if this fails?
-		assert( substr( strtolower( trim( $name ) ), 0, 9 ) == 'category:' );
+		if ( !BucketQuery::isCategory( $name ) ) {
+			throw new QueryException( wfMessage( 'bucket-query-expected-category', $name ) );
+		}
 		$this->categoryName = $name;
 	}
 
