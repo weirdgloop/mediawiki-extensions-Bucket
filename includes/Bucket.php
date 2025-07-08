@@ -2,6 +2,7 @@
 
 namespace MediaWiki\Extension\Bucket;
 
+use JsonSerializable;
 use LogicException;
 use MediaWiki\MediaWikiServices;
 use Message;
@@ -325,7 +326,7 @@ class Bucket {
 
 	/**
 	 * The table comments hold a json representation of the applied Bucket schema
-	 * Example comment for field _page_id: {"_page_id":{"type":"INTEGER","index":false,"repeated":false}}
+	 * Example comment for field _page_id: {"type":"INTEGER","index":false,"repeated":false}
 	 */
 	private static function buildSchemaFromComments( string $bucketName, IDatabase $dbw ): BucketSchema {
 		$dbTableName = self::getBucketTableName( $bucketName );
@@ -333,9 +334,9 @@ class Bucket {
 
 		$fields = [];
 		foreach ( $res as $row => $val ) {
-			$fields[] = BucketSchemaField::fromJson( $val->Comment );
+			$fields[] = BucketSchemaField::fromJson( $val->Field, $val->Comment );
 		}
-		return new BucketSchema( $bucketName, $fields );
+		return new BucketSchema( $bucketName, $fields, time() );
 	}
 
 	public static function createOrModifyTable( string $bucketName, object $jsonSchema, bool $isExistingPage ): void {
@@ -415,7 +416,7 @@ class Bucket {
 				}
 			} else {
 				// We are an existing bucket json
-				$oldSchema = self::buildSchemaFromComments( $bucketSchema->getTableName(), $dbw );
+				$oldSchema = self::buildSchemaFromComments( $bucketSchema->getName(), $dbw );
 				$statement = self::getAlterTableStatement( $bucketSchema, $oldSchema, $dbw );
 				$dbw->query( $statement );
 			}
@@ -423,8 +424,7 @@ class Bucket {
 			// At this point is is possible that another transaction has changed the table
 			//So we start a transaction, read the column comments (which are the schema), and write that to bucket_schemas
 			$dbw->begin( __METHOD__ );
-			$schemaJson = self::buildSchemaFromComments( $bucketSchema->getTableName(), $dbw );
-			$schemaJson['_time'] = time(); // Time is only used so that an edit and then a revert will still count as a new schema.
+			$schemaJson = self::buildSchemaFromComments( $bucketSchema->getName(), $dbw );
 			$schemaJson = json_encode( $schemaJson );
 			$dbw->upsert(
 				'bucket_schemas',
@@ -441,17 +441,21 @@ class Bucket {
 
 		$oldFields = $oldSchema->getFields();
 
-		$previousColumn = 'page_name_sub';
+		$previousColumn = null;
 		foreach ( $bucketSchema->getFields() as $fieldName => $field ) {
 			$escapedFieldName = $dbw->addIdentifierQuotes( $fieldName );
-			$fieldJson = $dbw->addQuotes( $field->getJson() );
+			$fieldJson = $dbw->addQuotes( json_encode( $field ) );
 			if ( isset( $oldFields[$fieldName] ) ) {
-				$oldDbType = $oldFields[$fieldName]->getDatabaseValueType();
+				$oldDbType = $oldFields[$fieldName]->getDatabaseValueType()->value;
 			}
-			$newDbType = $field->getDatabaseValueType();
+			$after = '';
+			if ( isset( $previousColumn ) ) {
+				$after = " AFTER {$dbw->addIdentifierQuotes($previousColumn)}";
+			}
+			$newDbType = $field->getDatabaseValueType()->value;
 			# Handle new fields
 			if ( !isset( $oldFields[$fieldName] ) ) {
-				$alterTableFragments[] = "ADD $escapedFieldName " . $newDbType . " COMMENT $fieldJson AFTER {$dbw->addIdentifierQuotes($previousColumn)}";
+				$alterTableFragments[] = "ADD $escapedFieldName " . $newDbType . " COMMENT $fieldJson" . $after;
 				if ( $field->getIndexed() ) {
 					$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $field, $dbw );
 				}
@@ -461,7 +465,7 @@ class Bucket {
 					$alterTableFragments[] = "DROP INDEX $escapedFieldName";
 				}
 				$alterTableFragments[] = "DROP $escapedFieldName"; # Always drop and then re-add the column for field type changes.
-				$alterTableFragments[] = "ADD $escapedFieldName " . $newDbType . " COMMENT $fieldJson AFTER {$dbw->addIdentifierQuotes($previousColumn)}";
+				$alterTableFragments[] = "ADD $escapedFieldName " . $newDbType . " COMMENT $fieldJson" . $after;
 				if ( $field->getIndexed() ) {
 					$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $field, $dbw );
 				}
@@ -498,7 +502,7 @@ class Bucket {
 
 		foreach ( $newSchema->getFields() as $field ) {
 			$dbType = $field->getDatabaseValueType()->value;
-			$fieldJson = $dbw->addQuotes( $field->getJson() );
+			$fieldJson = $dbw->addQuotes( json_encode( $field ) );
 			$createTableFragments[] = "{$dbw->addIdentifierQuotes($field->getFieldName())} {$dbType} COMMENT $fieldJson";
 			if ( $field->getIndexed() ) {
 				$createTableFragments[] = self::getIndexStatement( $field, $dbw );
@@ -540,7 +544,7 @@ class Bucket {
 
 	private static function getIndexStatement( BucketSchemaField $field, IDatabase $dbw ): string {
 		$fieldName = $dbw->addIdentifierQuotes( $field->getFieldName() );
-		switch ( $field->getType() ) {
+		switch ( $field->getDatabaseValueType() ) {
 			case ValueType::Json:
 				// Typecasting for repeated fields doesn't give us any advantage
 				// return "INDEX $fieldName((CAST($fieldName AS CHAR(512) ARRAY)))"; //TODO Figure out if this larger index is needed or good
@@ -570,27 +574,34 @@ enum ValueType: string {
 /**
  * @property BucketSchemaField[] $fields
  */
-class BucketSchema {
+class BucketSchema implements JsonSerializable {
 	private string $bucketName;
 	private array $fields = [];
+	private int $timestamp = 0;
 
-	function __construct( string $bucketName, array $schema ) {
+	function __construct( string $bucketName, array $schema, int $timestamp = 0 ) {
+		$this->timestamp = $timestamp;
 		if ( $bucketName == '' ) {
 			throw new QueryException( wfMessage( 'bucket-empty-bucket-name' ) );
 		}
 		$this->bucketName = $bucketName;
 
 		foreach ( $schema as $name => $val ) {
-			// Skip the _time field, its not a real field
-			if ( $name == '_time' ) {
-				continue;
+			if ( $val instanceof BucketSchemaField ) {
+				$this->fields[$val->getFieldName()] = $val;
+			} else {
+				// Skip the _time field, its not a real field
+				if ( $name == '_time' ) {
+					$this->timestamp = $val;
+					continue;
+				}
+				$this->fields[$name] = new BucketSchemaField(
+					$name,
+					ValueType::from( $val['type'] ),
+					$val['index'],
+					$val['repeated']
+				);
 			}
-			$this->fields[$name] = new BucketSchemaField(
-				$name,
-				ValueType::from( $val['type'] ),
-				$val['index'],
-				$val['repeated']
-			);
 		}
 	}
 
@@ -616,9 +627,15 @@ class BucketSchema {
 	function getQuotedTableName( IDatabase $dbw ): string {
 		return $dbw->addIdentifierQuotes( $this->getTableName() );
 	}
+
+	public function jsonSerialize(): mixed {
+		$fields = $this->getFields();
+		$fields['_time'] = $this->timestamp;
+		return $fields;
+	}
 }
 
-class BucketSchemaField {
+class BucketSchemaField implements JsonSerializable {
 	private string $fieldName;
 	private ValueType $type;
 	private bool $indexed;
@@ -647,20 +664,26 @@ class BucketSchemaField {
 		return $this->repeated;
 	}
 
-	function getJson(): string {
-		return json_encode( [
-			$this->getFieldName() => [
-				'type' => $this->getType()->value,
-				'index' => $this->getIndexed(),
-				'repeated' => $this->getRepeated()
-			]
-		] );
+	public function jsonSerialize(): mixed {
+		return [
+			'type' => $this->getType()->value,
+			'index' => $this->getIndexed(),
+			'repeated' => $this->getRepeated()
+		];
 	}
 
-	static function fromJson( string $json ): BucketSchemaField {
+	/**
+	 * Example json: {"type":"INTEGER","index":false,"repeated":false}
+	 */
+	static function fromJson( string $fieldName, string $json ): BucketSchemaField {
 		$jsonRow = json_decode( $json, true );
-		$fieldName = array_key_first( $jsonRow );
-		$jsonRow = $jsonRow[$fieldName];
+		// This is the old style (Pre-July 2025) of table comment formatting.
+		// Example json: {"_page_id":{"type":"INTEGER","index":false,"repeated":false}}
+		// This can be removed once old buckets are no longer used (after Bucket is in prod and the dev env has been reset)
+		if ( isset( $jsonRow[$fieldName] ) && isset( $jsonRow[$fieldName]['type'] ) ) {
+			$jsonRow = $jsonRow[$fieldName];
+		}
+		// End old style handling
 		return new BucketSchemaField( $fieldName, ValueType::from( $jsonRow['type'] ), $jsonRow['index'], $jsonRow['repeated'] );
 	}
 
