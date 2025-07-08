@@ -32,6 +32,7 @@
 
     "bucket-general-error": "Error",
     "bucket-general-warning": "Warning",
+    "bucket-php-type-error": "A type error has occured: $1",
     "bucket-no-bucket-defined-warning": "No Bucket name defined for writing",
     "bucket-cannot-write-to-system-bucket": "Writing to system Buckets is not allowed",
     "bucket-invalid-name-warning": "Bucket name $1 is invalid",

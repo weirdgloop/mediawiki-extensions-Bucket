@@ -5,6 +5,7 @@ namespace MediaWiki\Extension\Bucket;
 use MediaWiki\Extension\Scribunto\Engines\LuaCommon\LibraryBase;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Title\MalformedTitleException;
+use TypeError;
 use Wikimedia\Rdbms\DBQueryTimeoutError;
 
 class LuaLibrary extends LibraryBase {
@@ -52,11 +53,12 @@ class LuaLibrary extends LibraryBase {
 			$data = self::convertFromLuaTable( $data );
 			$rows = BucketQuery::runSelect( $data );
 			return [ self::convertToLuaTable( $rows ) ];
-		// TODO catch PHP type errors to be extra safe
 		} catch ( QueryException $e ) {
 			return [ 'error' => $e->getMessage() ];
 		} catch ( DBQueryTimeoutError $e ) {
 			return [ 'error' => wfMessage( 'bucket-query-long-execution-time' )->text() ];
+		} catch ( TypeError $e ) {
+			return [ 'error' => wfMessage( 'bucket-php-type-error', $e->getMessage() )->text() ];
 		}
 	}
 
