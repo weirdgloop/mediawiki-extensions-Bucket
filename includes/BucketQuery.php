@@ -225,28 +225,37 @@ class BucketQuery {
 	static Query $query;
 
 	private static function parseSelect( $data ) {
-		// Populate the schema cache
-		if ( empty( self::$schemaCache ) ) {
+		// Ensure schema cache is populated with all used buckets
+		$neededSchemas = [];
+		if ( !isset( self::$schemaCache[$data['bucketName']] ) ) {
+			$neededSchemas[] = $data['bucketName'];
+		}
+		foreach ( $data['joins'] as $join ) {
+			if ( !isset( self::$schemaCache[$join['bucketName']] ) ) {
+				$neededSchemas[] = $join['bucketName'];
+			}
+		}
+		// Populate the schema cache with missing schemas
+		if ( !empty( $neededSchemas ) ) {
 			$dbw = Bucket::getDB();
 			$res = $dbw->newSelectQueryBuilder()
 				->from( 'bucket_schemas' )
 				->select( [ 'bucket_name', 'schema_json' ] )
 				->lockInShareMode()
+				->where( [ 'bucket_name' => $neededSchemas ] )
 				->caller( __METHOD__ )
 				->fetchResultSet();
+			// Flip array so that we can unset based on name
+			$neededSchemas = array_flip( $neededSchemas );
 			foreach ( $res as $row ) {
 				self::$schemaCache[$row->bucket_name] = json_decode( $row->schema_json, true );
+				unset( $neededSchemas[$row->bucket_name] ); // Indicate we have found this bucket
 			}
 		}
 
-		// Check that all used buckets exist.
-		if ( !isset( self::$schemaCache[$data['bucketName']] ) ) {
-			throw new QueryException( wfMessage( 'bucket-no-exist', $data['bucketName'] ) );
-		}
-		foreach ( $data['joins'] as $join ) {
-			if ( !isset( self::$schemaCache[$join['bucketName']] ) ) {
-				throw new QueryException( wfMessage( 'bucket-no-exist', $join ) );
-			}
+		// Check that all needed schemas were retrieved
+		if ( count( $neededSchemas ) > 0 ) {
+			throw new QueryException( wfMessage( 'bucket-no-exist', array_key_first( $neededSchemas ) ) );
 		}
 
 		// Create the query object, using previously retrieved schemas
