@@ -651,7 +651,6 @@ class FieldSelector extends Selector {
 		}
 		$fields = $this->schema->getFields();
 		if ( !isset( $fields[$fieldName] ) ) {
-			debug_print_backtrace();
 			throw new QueryException( wfMessage( 'bucket-query-field-not-found-in-bucket', $fieldName, $this->schema->getName() ) );
 		}
 		$this->schemaField = $fields[$fieldName];

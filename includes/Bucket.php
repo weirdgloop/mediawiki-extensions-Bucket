@@ -102,7 +102,7 @@ class Bucket {
 				->fetchResultSet();
 		$schemas = [];
 		foreach ( $res as $row ) {
-			$schemas[$row->bucket_name] = BucketSchema::fromJson( $row->bucket_name, $row->schema_json );
+			$schemas[$row->bucket_name] = new BucketSchema( $row->bucket_name, json_decode( $row->schema_json, false ) );
 		}
 
 		foreach ( $puts as $bucketName => $bucketData ) {
@@ -615,15 +615,6 @@ class BucketSchema {
 
 	function getQuotedTableName( IDatabase $dbw ): string {
 		return $dbw->addIdentifierQuotes( $this->getTableName() );
-	}
-
-	static function fromJson( string $name, string $json ): BucketSchema {
-		$obj = json_decode( $json, true );
-		$fields = [];
-		foreach ( $obj as $name => $entry ) {
-			$fields[] = new BucketSchemaField( $name, ValueType::from( $entry['type'] ), $entry['index'], $entry['repeated'] );
-		}
-		return new BucketSchema( $name, $fields );
 	}
 }
 
