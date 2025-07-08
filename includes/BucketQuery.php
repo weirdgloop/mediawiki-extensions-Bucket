@@ -47,13 +47,13 @@ class BucketQuery {
 				$ret[] = self::cast( $subVal, $nonRepeatedData );
 			}
 			return $ret;
-		} elseif ( $type === 'TEXT' || $type === 'PAGE' ) {
+		} elseif ( $type === ValueType::Text || $type === ValueType::Page ) {
 			return $value;
-		} elseif ( $type === 'DOUBLE' ) {
+		} elseif ( $type === ValueType::Double ) {
 			return floatval( $value );
-		} elseif ( $type === 'INTEGER' ) {
+		} elseif ( $type === ValueType::Integer ) {
 			return intval( $value );
-		} elseif ( $type === 'BOOLEAN' ) {
+		} elseif ( $type === ValueType::Boolean ) {
 			return boolval( $value );
 		}
 	}
@@ -808,82 +808,5 @@ class Value {
 
 	function getQuotedValue( IDatabase $dbw ) {
 		return $dbw->addQuotes( $this->value );
-	}
-}
-
-/**
- * @property BucketSchemaField[] $fields
- */
-class BucketSchema {
-	private string $bucketName;
-	private array $fields = [];
-
-	function __construct( string $bucketName, array $schema ) {
-		if ( $bucketName == '' ) {
-			throw new QueryException( wfMessage( 'bucket-empty-bucket-name' ) );
-		}
-		$this->bucketName = $bucketName;
-
-		foreach ( $schema as $name => $val ) {
-			// Skip the _time field, its not a real field
-			if ( $name == '_time' ) {
-				continue;
-			}
-			$this->fields[$name] = new BucketSchemaField(
-				$name,
-				$val['type'],
-				$val['index'],
-				$val['repeated']
-			);
-		}
-	}
-
-	/**
-	 * @return BucketSchemaField[]
-	 */
-	function getFields(): array {
-		return $this->fields;
-	}
-
-	function getName(): string {
-		return $this->bucketName;
-	}
-
-	function getTableName(): string {
-		return Bucket::getBucketTableName( $this->bucketName );
-	}
-
-	function getQuotedTableName( IDatabase $dbw ): string {
-		return $dbw->addIdentifierQuotes( $this->getTableName() );
-	}
-}
-
-class BucketSchemaField {
-	private string $fieldName;
-	private string $type;
-	private bool $indexed;
-	private bool $repeated;
-
-	function __construct( string $fieldName, string $type, bool $indexed, bool $repeated ) {
-		$this->fieldName = $fieldName;
-		$this->type = $type;
-		$this->indexed = $indexed;
-		$this->repeated = $repeated;
-	}
-
-	function getFieldName(): string {
-		return $this->fieldName;
-	}
-
-	function getType(): string {
-		return $this->type;
-	}
-
-	function getIndexed(): bool {
-		return $this->indexed;
-	}
-
-	function getRepeated(): bool {
-		return $this->repeated;
 	}
 }

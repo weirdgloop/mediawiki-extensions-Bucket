@@ -9,31 +9,15 @@ use Wikimedia\Rdbms\IDatabase;
 use Wikimedia\Rdbms\IMaintainableDatabase;
 
 class Bucket {
-	public const EXTENSION_DATA_KEY = 'bucket:puts';
-	public const MESSAGE_BUCKET = 'bucket_message';
+	public const string EXTENSION_DATA_KEY = 'bucket:puts';
+	public const string MESSAGE_BUCKET = 'bucket_message';
 
-	private static $logs = [];
-	private static $db = null;
-	private static $specialBucketUser = false;
-
-	private static $dataTypes = [
-		'BOOLEAN' => 'BOOLEAN',
-		'DOUBLE' => 'DOUBLE',
-		'INTEGER' => 'INTEGER',
-		'JSON' => 'JSON',
-		'TEXT' => 'TEXT',
-		'PAGE' => 'TEXT'
-	];
-
-	private static $requiredFields = [
-			'_page_id' => [ 'type' => 'INTEGER', 'index' => false, 'repeated' => false ],
-			'_index' => [ 'type' => 'INTEGER', 'index' => false, 'repeated' => false ],
-			'page_name' => [ 'type' => 'PAGE', 'index' => true, 'repeated' => false ],
-			'page_name_sub' => [ 'type' => 'PAGE', 'index' => true, 'repeated' => false ],
-	];
+	private static array $logs = [];
+	private static IMaintainableDatabase $db;
+	private static bool $specialBucketUser = false;
 
 	public static function getDB(): IMaintainableDatabase {
-		if ( self::$db != null && self::$db->isOpen() ) {
+		if ( isset( self::$db ) && self::$db->isOpen() ) {
 			return self::$db;
 		}
 		$config = MediaWikiServices::getInstance()->getMainConfig();
@@ -66,14 +50,14 @@ class Bucket {
 		return MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnection( DB_PRIMARY );
 	}
 
-	private static function getBucketDBUser() {
+	private static function getBucketDBUser(): string {
 		$config = MediaWikiServices::getInstance()->getMainConfig();
 		$dbUser = $config->get( 'BucketDBuser' );
 		$dbServer = $config->get( 'BucketDBserver' );
 		return "$dbUser@'$dbServer'";
 	}
 
-	public static function logMessage( string $bucket, string $property, string $type, string $message ) {
+	public static function logMessage( string $bucket, string $property, string $type, string $message ): void {
 		if ( $bucket != '' ) {
 			$bucket = 'Bucket:' . $bucket;
 		}
@@ -88,10 +72,11 @@ class Bucket {
 		];
 	}
 
-	/*
-	Called when a page is saved containing a bucket.put
-	*/
-	public static function writePuts( int $pageId, string $titleText, array $puts, bool $writingLogs = false ) {
+	/**
+	 * Called when a page is saved containing a bucket.put
+	 * @property BucketSchema[] $schemas
+	 */
+	public static function writePuts( int $pageId, string $titleText, array $puts, bool $writingLogs = false ): void {
 		$dbw = self::getDB();
 
 		$res = $dbw->newSelectQueryBuilder()
@@ -117,7 +102,7 @@ class Bucket {
 				->fetchResultSet();
 		$schemas = [];
 		foreach ( $res as $row ) {
-			$schemas[$row->bucket_name] = json_decode( $row->schema_json, true );
+			$schemas[$row->bucket_name] = BucketSchema::fromJson( $row->bucket_name, $row->schema_json );
 		}
 
 		foreach ( $puts as $bucketName => $bucketData ) {
@@ -147,6 +132,7 @@ class Bucket {
 				self::logMessage( $bucketName, '', 'bucket-general-error', wfMessage( 'bucket-no-exist-error' ) );
 				continue;
 			}
+			$bucketSchema = $schemas[$bucketName];
 
 			$tablePuts = [];
 			$dbTableName = self::getBucketTableName( $bucketName );
@@ -162,7 +148,7 @@ class Bucket {
 			$fieldNames = $res->getFieldNames();
 			foreach ( $fieldNames as $fieldName ) {
 				// If the table has a field that isn't present in the schema, the schema must be out of date.
-				if ( !isset( $schemas[$bucketName][$fieldName] ) ) {
+				if ( !isset( $bucketSchema->getFields()[$fieldName] ) ) {
 					self::logMessage( $bucketName, $fieldName, 'bucket-general-error', wfMessage( 'bucket-schema-outdated-error' ) );
 				} else {
 					$fields[$fieldName] = true;
@@ -183,7 +169,7 @@ class Bucket {
 				$singlePut = [];
 				foreach ( $fields as $key => $_ ) {
 					$value = isset( $singleData[$key] ) ? $singleData[$key] : null;
-					$singlePut[$dbw->addIdentifierQuotes( $key )] = self::castToDbType( $value, self::getDbType( $key, $schemas[$bucketName][$key] ) );
+					$singlePut[$dbw->addIdentifierQuotes( $key )] = $bucketSchema->getField( $key )->castValueForDatabase( $value );
 				}
 				$singlePut[$dbw->addIdentifierQuotes( '_page_id' )] = $pageId;
 				$singlePut[$dbw->addIdentifierQuotes( '_index' )] = $idx;
@@ -197,8 +183,7 @@ class Bucket {
 
 			# Check these puts against the hash of the last time we did puts.
 			sort( $tablePuts );
-			sort( $schemas[$bucketName] );
-			$newHash = hash( 'sha256', json_encode( $tablePuts ) . json_encode( $schemas[$bucketName] ) );
+			$newHash = hash( 'sha256', json_encode( $tablePuts ) . json_encode( $bucketSchema ) );
 			if ( isset( $bucket_hash[ $bucketName ] ) && $bucket_hash[ $bucketName ] == $newHash ) {
 				unset( $bucket_hash[ $bucketName ] );
 				continue;
@@ -262,7 +247,7 @@ class Bucket {
 	/**
 	 * Called for any page save that doesn't have bucket puts
 	 */
-	public static function clearOrphanedData( int $pageId ) {
+	public static function clearOrphanedData( int $pageId ): void {
 		$dbw = self::getDB();
 
 		// Check if any buckets are storing data for this page
@@ -298,10 +283,7 @@ class Bucket {
 		}
 	}
 
-	/**
-	 * @throws SchemaException
-	 */
-	public static function getValidFieldName( ?string $fieldName ) {
+	public static function getValidFieldName( ?string $fieldName ): string {
 		if ( $fieldName != null && preg_match( '/^[a-zA-Z0-9_]+$/', $fieldName ) ) {
 			$cleanName = strtolower( trim( $fieldName ) );
 			// MySQL has a maximum of 64, lets limit it to 60 in case we need to append to fields for some reason later
@@ -312,7 +294,7 @@ class Bucket {
 		throw new SchemaException( wfMessage( 'bucket-schema-invalid-field-name', $fieldName ) );
 	}
 
-	public static function getValidBucketName( string $bucketName ) {
+	public static function getValidBucketName( string $bucketName ): string {
 		if ( ucfirst( $bucketName ) != ucfirst( strtolower( $bucketName ) ) ) {
 			throw new SchemaException( wfMessage( 'bucket-capital-name-error' ) );
 		}
@@ -323,7 +305,7 @@ class Bucket {
 		}
 	}
 
-	public static function canCreateTable( string $bucketName ) {
+	public static function canCreateTable( string $bucketName ): bool {
 		$bucketName = self::getValidBucketName( $bucketName );
 		$dbw = self::getDB();
 		$schemaExists = $dbw->newSelectQueryBuilder()
@@ -341,19 +323,29 @@ class Bucket {
 		}
 	}
 
-	private static function buildSchemaFromComments( string $dbTableName, IDatabase $dbw ): array {
-		$jsonObject = [];
+	/**
+	 * The table comments hold a json representation of the applied Bucket schema
+	 * Example comment for field _page_id: {"_page_id":{"type":"INTEGER","index":false,"repeated":false}}
+	 */
+	private static function buildSchemaFromComments( string $bucketName, IDatabase $dbw ): BucketSchema {
+		$dbTableName = self::getBucketTableName( $bucketName );
 		$res = $dbw->query( "SHOW FULL COLUMNS FROM $dbTableName;", __METHOD__ );
 
+		$fields = [];
 		foreach ( $res as $row => $val ) {
-			$jsonObject[] = json_decode( $val->Comment, true );
+			$fields[] = BucketSchemaField::fromJson( $val->Comment );
 		}
-		return array_merge( ...$jsonObject ); // The ... operator passes each array element as its own parameter.
+		return new BucketSchema( $bucketName, $fields );
 	}
 
-	public static function createOrModifyTable( string $bucketName, object $jsonSchema, bool $isExistingPage ) {
-		$newSchema = array_merge( [], self::$requiredFields );
+	public static function createOrModifyTable( string $bucketName, object $jsonSchema, bool $isExistingPage ): void {
 		$bucketName = self::getValidBucketName( $bucketName );
+		$newSchema = [
+			'_page_id' => new BucketSchemaField( '_page_id', ValueType::Integer, false, false ),
+			'_index' => new BucketSchemaField( '_index', ValueType::Integer, false, false ),
+			'page_name' => new BucketSchemaField( 'page_name', ValueType::Page, true, false ),
+			'page_name_sub' => new BucketSchemaField( 'page_name_sub', ValueType::Page, true, false )
+		];
 
 		if ( $bucketName == self::MESSAGE_BUCKET ) {
 			throw new SchemaException( wfMessage( 'bucket-cannot-create-system-page' ) );
@@ -378,7 +370,8 @@ class Bucket {
 				throw new SchemaException( wfMessage( 'bucket-schema-duplicated-field-name', $fieldName ) );
 			}
 
-			if ( !isset( self::$dataTypes[$fieldData->type] ) ) {
+			$valueType = ValueType::tryFrom( $fieldData->type );
+			if ( $valueType == null ) {
 				throw new SchemaException( wfMessage( 'bucket-schema-invalid-data-type', $fieldName, $fieldData->type ) );
 			}
 
@@ -396,46 +389,46 @@ class Bucket {
 				throw new SchemaException( wfMessage( 'bucket-schema-repeated-must-be-indexed', $fieldName ) );
 			}
 
-			$newSchema[$lcFieldName] = [ 'type' => $fieldData->type, 'index' => $index, 'repeated' => $repeated ];
+			$newSchema[$lcFieldName] = new BucketSchemaField( $lcFieldName, $valueType, $index, $repeated );
 		}
 
 		if ( count( $newSchema ) > 64 ) {
 			throw new SchemaException( wfMessage( 'bucket-schema-too-many-fields' ) );
 		}
 
-		$dbTableName = self::getBucketTableName( $bucketName );
+		$bucketSchema = new BucketSchema( $bucketName, $newSchema );
 		$dbw = self::getDB();
 
-		$dbw->onTransactionCommitOrIdle( function () use ( $dbw, $dbTableName, $newSchema, $bucketName ) {
-			if ( !$dbw->tableExists( $dbTableName, __METHOD__ ) ) {
+		$dbw->onTransactionCommitOrIdle( function () use ( $dbw, $bucketSchema ) {
+			if ( !$dbw->tableExists( $bucketSchema->getTableName(), __METHOD__ ) ) {
 				// We are a new bucket json
-				$statement = self::getCreateTableStatement( $dbTableName, $newSchema, $dbw );
+				$statement = self::getCreateTableStatement( $bucketSchema, $dbw );
 				// Grant perms to the new table
 				if ( self::$specialBucketUser ) {
 					$bucketDBuser = self::getBucketDBUser();
 					$mainDB = self::getMainDB();
 					$mainDB->query( $statement );
-					$escapedTableName = $mainDB->addIdentifierQuotes( $dbTableName );
+					$escapedTableName = $bucketSchema->getQuotedTableName( $dbw );
 					$mainDB->query( "GRANT ALL ON $escapedTableName TO $bucketDBuser;" );
 				} else {
 					$dbw->query( $statement );
 				}
 			} else {
 				// We are an existing bucket json
-				$oldSchema = self::buildSchemaFromComments( $dbTableName, $dbw );
-				$statement = self::getAlterTableStatement( $dbTableName, $newSchema, $oldSchema, $dbw );
+				$oldSchema = self::buildSchemaFromComments( $bucketSchema->getTableName(), $dbw );
+				$statement = self::getAlterTableStatement( $bucketSchema, $oldSchema, $dbw );
 				$dbw->query( $statement );
 			}
 
 			// At this point is is possible that another transaction has changed the table
 			//So we start a transaction, read the column comments (which are the schema), and write that to bucket_schemas
 			$dbw->begin( __METHOD__ );
-			$schemaJson = self::buildSchemaFromComments( $dbTableName, $dbw );
+			$schemaJson = self::buildSchemaFromComments( $bucketSchema->getTableName(), $dbw );
 			$schemaJson['_time'] = time(); // Time is only used so that an edit and then a revert will still count as a new schema.
 			$schemaJson = json_encode( $schemaJson );
 			$dbw->upsert(
 				'bucket_schemas',
-				[ 'bucket_name' => $bucketName, 'schema_json' => $schemaJson ],
+				[ 'bucket_name' => $bucketSchema->getName(), 'schema_json' => $schemaJson ],
 				'bucket_name',
 				[ 'schema_json' => $schemaJson ]
 			);
@@ -443,78 +436,81 @@ class Bucket {
 		}, __METHOD__ );
 	}
 
-	private static function getAlterTableStatement( $dbTableName, $newSchema, $oldSchema, IDatabase $dbw ) {
+	private static function getAlterTableStatement( BucketSchema $bucketSchema, BucketSchema $oldSchema, IDatabase $dbw ): string {
 		$alterTableFragments = [];
 
+		$oldFields = $oldSchema->getFields();
+
 		$previousColumn = 'page_name_sub';
-		foreach ( $newSchema as $fieldName => $fieldData ) {
+		foreach ( $bucketSchema->getFields() as $fieldName => $field ) {
 			$escapedFieldName = $dbw->addIdentifierQuotes( $fieldName );
-			$fieldJson = $dbw->addQuotes( json_encode( [ $fieldName => $fieldData ] ) );
-			if ( isset( $oldSchema[$fieldName] ) ) {
-				$oldDbType = self::getDbType( $fieldName, $oldSchema[$fieldName] );
-				$newDbType = self::getDbType( $fieldName, $fieldData );
+			$fieldJson = $dbw->addQuotes( $field->getJson() );
+			if ( isset( $oldFields[$fieldName] ) ) {
+				$oldDbType = $oldFields[$fieldName]->getDatabaseValueType();
 			}
+			$newDbType = $field->getDatabaseValueType();
 			# Handle new fields
-			if ( !isset( $oldSchema[$fieldName] ) ) {
-				$alterTableFragments[] = "ADD $escapedFieldName " . self::getDbType( $fieldName, $fieldData ) . " COMMENT $fieldJson AFTER {$dbw->addIdentifierQuotes($previousColumn)}";
-				if ( $fieldData['index'] ) {
-					$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $fieldName, $fieldData, $dbw );
+			if ( !isset( $oldFields[$fieldName] ) ) {
+				$alterTableFragments[] = "ADD $escapedFieldName " . $newDbType . " COMMENT $fieldJson AFTER {$dbw->addIdentifierQuotes($previousColumn)}";
+				if ( $field->getIndexed() ) {
+					$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $field, $dbw );
 				}
 			# Handle type changes, including add/drop index
 			} elseif ( $oldDbType !== $newDbType ) {
-				if ( $oldSchema[$fieldName]['index'] ) {
+				if ( $oldFields[$fieldName]->getIndexed() ) {
 					$alterTableFragments[] = "DROP INDEX $escapedFieldName";
 				}
 				$alterTableFragments[] = "DROP $escapedFieldName"; # Always drop and then re-add the column for field type changes.
-				$alterTableFragments[] = "ADD $escapedFieldName " . self::getDbType( $fieldName, $fieldData ) . " COMMENT $fieldJson AFTER {$dbw->addIdentifierQuotes($previousColumn)}";
-				if ( $fieldData['index'] ) {
-					$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $fieldName, $fieldData, $dbw );
+				$alterTableFragments[] = "ADD $escapedFieldName " . $newDbType . " COMMENT $fieldJson AFTER {$dbw->addIdentifierQuotes($previousColumn)}";
+				if ( $field->getIndexed() ) {
+					$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $field, $dbw );
 				}
 			# Handle adding index without type change
-			} elseif ( ( $oldSchema[$fieldName]['index'] === false && $fieldData['index'] === true ) ) {
-				$alterTableFragments[] = "MODIFY $escapedFieldName " . self::getDbType( $fieldName, $fieldData ) . " COMMENT $fieldJson"; // Acts as a no-op except to set the comment
-				$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $fieldName, $fieldData, $dbw );
+			} elseif ( ( $oldFields[$fieldName]->getIndexed() === false && $field->getIndexed() === true ) ) {
+				$alterTableFragments[] = "MODIFY $escapedFieldName " . $newDbType . " COMMENT $fieldJson"; // Acts as a no-op except to set the comment
+				$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $field, $dbw );
 			# Handle removing index
-			} elseif ( ( $oldSchema[$fieldName]['index'] === true && $fieldData['index'] === false ) ) {
-				$alterTableFragments[] = "MODIFY $escapedFieldName " . self::getDbType( $fieldName, $fieldData ) . " COMMENT $fieldJson"; // Acts as a no-op except to set the comment
+			} elseif ( ( $oldFields[$fieldName]->getIndexed() === true && $field->getIndexed() === false ) ) {
+				$alterTableFragments[] = "MODIFY $escapedFieldName " . $newDbType . " COMMENT $fieldJson"; // Acts as a no-op except to set the comment
 				$alterTableFragments[] = "DROP INDEX $escapedFieldName";
 			# Handle changing between types that don't actually change the DB type
-			} elseif ( ( $oldSchema[$fieldName]['type'] != $newSchema[$fieldName]['type'] ) ) {
-				$alterTableFragments[] = "MODIFY $escapedFieldName " . self::getDbType( $fieldName, $fieldData ) . " COMMENT $fieldJson"; // Acts as a no-op except to set the comment
+			} elseif ( ( $oldFields[$fieldName]->getType() != $field->getType() ) ) {
+				$alterTableFragments[] = "MODIFY $escapedFieldName " . $newDbType . " COMMENT $fieldJson"; // Acts as a no-op except to set the comment
 			}
-			unset( $oldSchema[$fieldName] );
+			unset( $oldFields[$fieldName] );
 			$previousColumn = $fieldName;
 		}
 		// Drop unused columns
-		foreach ( $oldSchema as $deletedColumn => $val ) {
+		foreach ( $oldFields as $deletedColumn => $val ) {
 			$escapedDeletedColumn = $dbw->addIdentifierQuotes( $deletedColumn );
-			if ( $oldSchema[$deletedColumn]['repeated'] === true ) {
+			if ( $val->getRepeated() === true ) {
 				$alterTableFragments[] = "DROP INDEX $escapedDeletedColumn"; // We must explicitly drop indexes for repeated fields
 			}
 			$alterTableFragments[] = "DROP $escapedDeletedColumn";
 		}
 
+		$dbTableName = $dbw->addIdentifierQuotes( $bucketSchema->getTableName() );
 		return "ALTER TABLE $dbTableName " . implode( ', ', $alterTableFragments ) . ';';
 	}
 
-	private static function getCreateTableStatement( $dbTableName, $newSchema, IDatabase $dbw ) {
+	private static function getCreateTableStatement( BucketSchema $newSchema, IDatabase $dbw ): string {
 		$createTableFragments = [];
 
-		foreach ( $newSchema as $fieldName => $fieldData ) {
-			$dbType = self::getDbType( $fieldName, $fieldData );
-			$fieldJson = $dbw->addQuotes( json_encode( [ $fieldName => $fieldData ] ) );
-			$createTableFragments[] = "{$dbw->addIdentifierQuotes($fieldName)} {$dbType} COMMENT $fieldJson";
-			if ( $fieldData['index'] ) {
-				$createTableFragments[] = self::getIndexStatement( $fieldName, $fieldData, $dbw );
+		foreach ( $newSchema->getFields() as $field ) {
+			$dbType = $field->getDatabaseValueType()->value;
+			$fieldJson = $dbw->addQuotes( $field->getJson() );
+			$createTableFragments[] = "{$dbw->addIdentifierQuotes($field->getFieldName())} {$dbType} COMMENT $fieldJson";
+			if ( $field->getIndexed() ) {
+				$createTableFragments[] = self::getIndexStatement( $field, $dbw );
 			}
 		}
 		$createTableFragments[] = "PRIMARY KEY ({$dbw->addIdentifierQuotes('_page_id')}, {$dbw->addIdentifierQuotes('_index')})";
 
-		$dbTableName = $dbw->addIdentifierQuotes( $dbTableName );
+		$dbTableName = $dbw->addIdentifierQuotes( $newSchema->getTableName() );
 		return "CREATE TABLE $dbTableName (" . implode( ', ', $createTableFragments ) . ');';
 	}
 
-	public static function deleteTable( $bucketName ) {
+	public static function deleteTable( string $bucketName ): void {
 		$dbw = self::getDB();
 		$bucketName = self::getValidBucketName( $bucketName );
 		$tableName = self::getBucketTableName( $bucketName );
@@ -530,7 +526,7 @@ class Bucket {
 	}
 
 	/**
-	 * @return The number of pages writing to this bucket
+	 * @return int - The number of pages writing to this bucket
 	 */
 	public static function countPagesUsingBucket( string $bucketName ): int {
 		$dbw = self::getDB();
@@ -542,73 +538,190 @@ class Bucket {
 						->fetchRowCount();
 	}
 
-	public static function getDbType( string $fieldName, ?array $fieldData ): string {
-		if ( isset( self::$requiredFields[$fieldName] ) ) {
-			return self::$dataTypes[self::$requiredFields[$fieldName]['type']];
-		} else {
-			if ( isset( $fieldData['repeated'] ) && strlen( $fieldData['repeated'] ) > 0 ) {
-				return 'JSON';
-			} else {
-				return self::$dataTypes[self::$dataTypes[$fieldData['type']]];
-			}
-		}
-	}
-
-	/**
-	 * @param string $fieldName
-	 * @param array $fieldData
-	 * @return string
-	 */
-	private static function getIndexStatement( string $fieldName, array $fieldData, IDatabase $dbw ) {
-		$unescapedFieldName = $fieldName;
-		$fieldName = $dbw->addIdentifierQuotes( $fieldName );
-		switch ( self::getDbType( $unescapedFieldName, $fieldData ) ) {
-			case 'JSON':
+	private static function getIndexStatement( BucketSchemaField $field, IDatabase $dbw ): string {
+		$fieldName = $dbw->addIdentifierQuotes( $field->getFieldName() );
+		switch ( $field->getType() ) {
+			case ValueType::Json:
 				// Typecasting for repeated fields doesn't give us any advantage
+				// return "INDEX $fieldName((CAST($fieldName AS CHAR(512) ARRAY)))"; //TODO Figure out if this larger index is needed or good
 				return "INDEX $fieldName((CAST($fieldName AS CHAR(255) ARRAY)))";
-			case 'TEXT':
-			case 'PAGE':
+			case ValueType::Text:
+			case ValueType::Page:
 				return "INDEX $fieldName($fieldName(255))";
 			default:
 				return "INDEX $fieldName($fieldName)";
 		}
 	}
 
-	public static function castToDbType( $value, $type ) {
-		if ( $value == null ) {
-			return null;
+	public static function getBucketTableName( $bucketName ): string {
+		return 'bucket__' . $bucketName;
+	}
+}
+
+enum ValueType: string {
+	case Text = 'TEXT';
+	case Page = 'PAGE';
+	case Double = 'DOUBLE';
+	case Integer = 'INTEGER';
+	case Boolean = 'BOOLEAN';
+	case Json = 'JSON';
+}
+
+/**
+ * @property BucketSchemaField[] $fields
+ */
+class BucketSchema {
+	private string $bucketName;
+	private array $fields = [];
+
+	function __construct( string $bucketName, array $schema ) {
+		if ( $bucketName == '' ) {
+			throw new QueryException( wfMessage( 'bucket-empty-bucket-name' ) );
 		}
-		if ( $type === 'TEXT' || $type === 'PAGE' ) {
-			if ( $value == '' ) {
-				return null;
-			} else {
-				return $value;
+		$this->bucketName = $bucketName;
+
+		foreach ( $schema as $name => $val ) {
+			// Skip the _time field, its not a real field
+			if ( $name == '_time' ) {
+				continue;
 			}
-		} elseif ( $type === 'DOUBLE' ) {
-			return floatval( $value );
-		} elseif ( $type === 'INTEGER' ) {
-			return intval( $value );
-		} elseif ( $type === 'BOOLEAN' ) {
-			return boolval( $value );
-		} elseif ( $type === 'JSON' ) {
-			if ( !is_array( $value ) ) {
-				if ( $value == '' ) {
-					return null;
-				} else {
-					return json_encode( [ $value ] ); // Wrap single values in an array for compatability
-				}
-			} else {
-				if ( count( $value ) > 0 ) {
-					return json_encode( LuaLibrary::convertFromLuaTable( $value ) );
-				} else {
-					return null;
-				}
-			}
+			$this->fields[$name] = new BucketSchemaField(
+				$name,
+				ValueType::from( $val['type'] ),
+				$val['index'],
+				$val['repeated']
+			);
 		}
 	}
 
-	public static function getBucketTableName( $bucketName ): string {
-		return 'bucket__' . $bucketName;
+	/**
+	 * @return BucketSchemaField[]
+	 */
+	function getFields(): array {
+		return $this->fields;
+	}
+
+	function getField( string $fieldName ): BucketSchemaField {
+		return $this->fields[$fieldName];
+	}
+
+	function getName(): string {
+		return $this->bucketName;
+	}
+
+	function getTableName(): string {
+		return Bucket::getBucketTableName( $this->bucketName );
+	}
+
+	function getQuotedTableName( IDatabase $dbw ): string {
+		return $dbw->addIdentifierQuotes( $this->getTableName() );
+	}
+
+	static function fromJson( string $name, string $json ): BucketSchema {
+		$obj = json_decode( $json, true );
+		$fields = [];
+		foreach ( $obj as $name => $entry ) {
+			$fields[] = new BucketSchemaField( $name, ValueType::from( $entry['type'] ), $entry['index'], $entry['repeated'] );
+		}
+		return new BucketSchema( $name, $fields );
+	}
+}
+
+class BucketSchemaField {
+	private string $fieldName;
+	private ValueType $type;
+	private bool $indexed;
+	private bool $repeated;
+
+	function __construct( string $fieldName, ValueType $type, bool $indexed, bool $repeated ) {
+		$this->fieldName = $fieldName;
+		$this->type = $type;
+		$this->indexed = $indexed;
+		$this->repeated = $repeated;
+	}
+
+	function getFieldName(): string {
+		return $this->fieldName;
+	}
+
+	function getType(): ValueType {
+		return $this->type;
+	}
+
+	function getIndexed(): bool {
+		return $this->indexed;
+	}
+
+	function getRepeated(): bool {
+		return $this->repeated;
+	}
+
+	function getJson(): string {
+		return json_encode( [
+			$this->getFieldName() => [
+				'type' => $this->getType()->value,
+				'index' => $this->getIndexed(),
+				'repeated' => $this->getRepeated()
+			]
+		] );
+	}
+
+	static function fromJson( string $json ): BucketSchemaField {
+		$jsonRow = json_decode( $json, true );
+		$fieldName = array_key_first( $jsonRow );
+		$jsonRow = $jsonRow[$fieldName];
+		return new BucketSchemaField( $fieldName, ValueType::from( $jsonRow['type'] ), $jsonRow['index'], $jsonRow['repeated'] );
+	}
+
+	/**
+	 * The ValueType that this field is stored as in the database.
+	 */
+	public function getDatabaseValueType(): ValueType {
+		if ( $this->getRepeated() ) {
+			return ValueType::Json;
+		} else {
+			// Page is just stored as text in the database
+			if ( $this->getType() == ValueType::Page ) {
+				return ValueType::Text;
+			}
+			return $this->getType();
+		}
+	}
+
+	public function castValueForDatabase( mixed $value ): mixed {
+		if ( $value == null ) {
+			return null;
+		}
+		switch ( $this->getDatabaseValueType() ) {
+			case ValueType::Text:
+			case ValueType::Page:
+				if ( $value == '' ) {
+					return null;
+				} else {
+					return $value;
+				}
+			case ValueType::Double:
+				return floatval( $value );
+			case ValueType::Integer:
+				return intval( $value );
+			case ValueType::Boolean:
+				return boolval( $value );
+			case ValueType::Json:
+				if ( !is_array( $value ) ) {
+					if ( $value == '' ) {
+						return null;
+					} else {
+						return json_encode( [ $value ] ); // Wrap single values in an array for compatability
+					}
+				} else {
+					if ( count( $value ) > 0 ) {
+						return json_encode( LuaLibrary::convertFromLuaTable( $value ) );
+					} else {
+						return null;
+					}
+				}
+		}
+		return null;
 	}
 }
 
