@@ -45,7 +45,10 @@ class LuaLibrary extends LibraryBase {
 
 	public function bucketRun( $data ): array {
 		try {
-			// TODO Add the bucket page as linked to
+			$this->linkToBucket( $data['bucketName'] );
+			foreach ( $data['joins'] as $join ) {
+				$this->linkToBucket( $join['bucketName'] );
+			}
 			$data = self::convertFromLuaTable( $data );
 			$rows = BucketQuery::runSelect( $data );
 			return [ self::convertToLuaTable( $rows ) ];
@@ -55,6 +58,14 @@ class LuaLibrary extends LibraryBase {
 		} catch ( DBQueryTimeoutError $e ) {
 			return [ 'error' => wfMessage( 'bucket-query-long-execution-time' )->text() ];
 		}
+	}
+
+	/**
+	 * Add the bucket page as a linked page. This allows Special:WhatLinksHere on Bucket pages to show a list of pages that read from that bucket.
+	 */
+	private function linkToBucket( $bucketName ) {
+		$title = MediaWikiServices::getInstance()->getTitleParser()->parseTitle( $bucketName, NS_BUCKET );
+		$this->getParser()->getOutput()->addLink( $title );
 	}
 
 	// Go from 0-index to 1-index.

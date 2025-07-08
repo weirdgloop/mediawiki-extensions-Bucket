@@ -649,7 +649,6 @@ class FieldSelector extends Selector {
 			}
 			$this->schema = $usedBuckets[$parts[0]];
 		}
-		// TODO ambiguous checks - I don't think anything can be ambiguous now that everything except the primary bucket requires a bucket name
 		$fields = $this->schema->getFields();
 		if ( !isset( $fields[$fieldName] ) ) {
 			debug_print_backtrace();

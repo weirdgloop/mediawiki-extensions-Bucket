@@ -42,6 +42,8 @@
     "bucket-schema-outdated-error": "The Bucket Schema and table do not match. Please edit the Bucket page to resyncronize the table",
     "bucket-cannot-create-system-page": "Cannot create pages for System Buckets",
     "bucket-put-syntax-error": "bucket.put() argument must be a table",
+    "bucket-put-function-value": "bucket.put() value cannot be a function",
+    "bucket-put-system-field": "Cannot put to reserved field: $1",
     "bucket-put-key-missing-warning": "Key '$1' does not exist in $2",
     "bucket-schema-no-fields-error": "Need at least one field in the schema",
     "bucket-schema-must-be-strings": "All field names must be strings: $1",

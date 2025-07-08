@@ -220,7 +220,18 @@ function QueryBuilder:sub(identifier)
 end
 
 function QueryBuilder:put(data)
-    -- TODO parse
+    if type(data) ~= 'table' then
+        printError('bucket-put-syntax-error', 5)
+    end
+    for field, value in pairs(data) do
+        assertPossibleField(field)
+        if field == '_index' or field == '_page_id' or field == 'page_name' or field == 'page_name_sub' then
+            printError('bucket-put-system-field', 5, field)
+        end
+        if type(value) == 'function' then
+            printError('bucket-put-function-value', 5)
+        end
+    end
     php.put(self, data)
 end
 
