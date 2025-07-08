@@ -82,7 +82,7 @@ class BucketQuery {
 			if ( $selector instanceof CategorySelector ) {
 				return "({$selector->getQuotedSelectorText($dbw)}.cl_to IS NOT NULL)";
 			} elseif ( $selector instanceof FieldSelector ) {
-				if ( $value == '&&NULL&&' ) {
+				if ( $node->getValue()->getValue() == '&&NULL&&' ) {
 					if ( $op == '!=' ) {
 						return "($fieldName IS NOT NULL)";
 					}

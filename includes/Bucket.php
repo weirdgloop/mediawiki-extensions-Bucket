@@ -103,7 +103,7 @@ class Bucket {
 				->fetchResultSet();
 		$schemas = [];
 		foreach ( $res as $row ) {
-			$schemas[$row->bucket_name] = new BucketSchema( $row->bucket_name, json_decode( $row->schema_json, false ) );
+			$schemas[$row->bucket_name] = new BucketSchema( $row->bucket_name, json_decode( $row->schema_json, true ) );
 		}
 
 		foreach ( $puts as $bucketName => $bucketData ) {
