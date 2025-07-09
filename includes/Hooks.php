@@ -78,7 +78,8 @@ class Hooks implements
 		if ( $linksUpdate->getTitle()->inNamespaces( $this->enabledNamespaces() ) ) {
 			if ( $bucketPuts !== null ) {
 				$titleText = $linksUpdate->getTitle()->getPrefixedText();
-				Bucket::writePuts( $pageId, $titleText, $bucketPuts );
+				$bucket = new Bucket();
+				$bucket->writePuts( $pageId, $titleText, $bucketPuts );
 			} else {
 				Bucket::clearOrphanedData( $pageId );
 			}

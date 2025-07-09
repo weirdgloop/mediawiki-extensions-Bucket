@@ -13,9 +13,10 @@ class Bucket {
 	public const string EXTENSION_DATA_KEY = 'bucket:puts';
 	public const string MESSAGE_BUCKET = 'bucket_message';
 
-	private static array $logs = [];
 	private static IMaintainableDatabase $db;
 	private static bool $specialBucketUser = false;
+
+	private array $logs = []; // Cannot be static because RefreshLinks job will run on multiple pages
 
 	public static function getDB(): IMaintainableDatabase {
 		if ( isset( self::$db ) && self::$db->isOpen() ) {
@@ -58,11 +59,11 @@ class Bucket {
 		return "$dbUser@'$dbServer'";
 	}
 
-	public static function logMessage( string $bucket, string $property, string $type, string $message ): void {
+	public function logMessage( string $bucket, string $property, string $type, string $message ): void {
 		if ( $bucket != '' ) {
 			$bucket = 'Bucket:' . $bucket;
 		}
-		self::$logs[] = [
+		$this->logs[] = [
 			'sub' => '',
 			'data' => [
 				'bucket' => $bucket,
@@ -77,7 +78,7 @@ class Bucket {
 	 * Called when a page is saved containing a bucket.put
 	 * @property BucketSchema[] $schemas
 	 */
-	public static function writePuts( int $pageId, string $titleText, array $puts, bool $writingLogs = false ): void {
+	public function writePuts( int $pageId, string $titleText, array $puts, bool $writingLogs = false ): void {
 		$dbw = self::getDB();
 
 		$res = $dbw->newSelectQueryBuilder()
@@ -218,7 +219,7 @@ class Bucket {
 		if ( !$writingLogs ) {
 			// Clean up bucket_pages entries for buckets that are no longer written to on this page.
 			$tablesToDelete = array_keys( $bucket_hash );
-			if ( count( self::$logs ) != 0 ) {
+			if ( count( $this->logs ) != 0 ) {
 				unset( $tablesToDelete[self::MESSAGE_BUCKET] );
 			} else {
 				$tablesToDelete[] = self::MESSAGE_BUCKET;
@@ -239,8 +240,8 @@ class Bucket {
 				}
 			}
 
-			if ( count( self::$logs ) > 0 ) {
-				self::writePuts( $pageId, $titleText, [ self::MESSAGE_BUCKET => self::$logs ], true );
+			if ( count( $this->logs ) > 0 ) {
+				self::writePuts( $pageId, $titleText, [ self::MESSAGE_BUCKET => $this->logs ], true );
 			}
 		}
 	}
