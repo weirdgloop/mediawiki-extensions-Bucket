@@ -26,7 +26,7 @@ class BucketQuery {
 	private QueryNode $where;
 	private int $limit = self::DEFAULT_LIMIT;
 	private int $offset = 0;
-	private ?FieldSelector $orderByField = null;
+	private ?Selector $orderByField = null;
 	private ?string $orderByDirection = null;
 	private int $categoryCount = 0;
 
@@ -135,7 +135,11 @@ class BucketQuery {
 		if ( isset( $data['orderBy'] ) ) {
 			$orderByField = $data['orderBy']['fieldName'];
 			$isSelected = false;
-			$this->orderByField = new FieldSelector( $orderByField, $this );
+			if ( self::isCategory( $orderByField ) ) {
+				$this->orderByField = new CategorySelector( $orderByField, $this );
+			} else {
+				$this->orderByField = new FieldSelector( $orderByField, $this );
+			}
 			foreach ( $this->selects as $select ) {
 				if ( $select == $this->orderByField ) {
 					$isSelected = true;
@@ -164,21 +168,6 @@ class BucketQuery {
 
 	function getCategoryAlias( string $category ): string {
 		return $this->categories[$category];
-	}
-
-	/**
-	 * Recursively walk a QueryNode tree and add all Category conditions to the join list
-	 */
-	private function checkForCategories( QueryNode $node ) {
-		foreach ( $node->getChildren() as $child ) {
-			if ( $child instanceof ComparisonConditionNode ) {
-				$selector = $child->getSelector();
-				if ( $selector instanceof CategorySelector ) {
-					$this->addCategoryJoin( $selector->getInputString() );
-				}
-			}
-			self::checkForCategories( $child );
-		}
 	}
 
 	function getPrimaryBucket(): BucketSchema {
@@ -246,7 +235,7 @@ class BucketQuery {
 		$orderByField = $this->orderByField;
 		$orderByDirection = $this->orderByDirection;
 		if ( $orderByField && $orderByDirection ) {
-			$tmp->orderBy( $orderByField->getInputString(), $orderByDirection );
+			$tmp->orderBy( $orderByField->getSafe( $dbw ), $orderByDirection );
 		}
 		return $tmp;
 	}
@@ -438,7 +427,7 @@ class ComparisonConditionNode extends QueryNode {
 		$value = $this->value->getSafe( $dbw );
 
 		if ( $selector instanceof CategorySelector ) {
-			return "({$selector->getSafe($dbw)}.cl_to IS NOT NULL)";
+			return "({$selector->getSafe($dbw)} IS NOT NULL)";
 		} elseif ( $selector instanceof FieldSelector ) {
 			if ( $this->value->getValue() == '&&NULL&&' ) {
 				if ( $op == '!=' ) {
@@ -476,7 +465,7 @@ class JoinCondition {
 		$selector2 = new FieldSelector( $selector2, $query );
 
 		if ( $selector1->getFieldSchema()->getRepeated() && $selector2->getFieldSchema()->getRepeated() ) {
-			throw new QueryException( wfMessage( 'bucket-invalid-join-two-repeated', $selector1->getInputString(), $selector2->getInputString() ) );
+			throw new QueryException( wfMessage( 'bucket-invalid-join-two-repeated', $selector1->getFieldSchema()->getFieldName(), $selector2->getFieldSchema()->getFieldName() ) );
 		}
 		$this->selector1 = $selector1;
 		$this->selector2 = $selector2;
@@ -492,19 +481,9 @@ class JoinCondition {
 }
 
 abstract class Selector {
-	private string $inputString; // Used to output as the same string that was input
-
 	abstract function getSafe( IDatabase $dbw ): string;
 
 	abstract function getSelectSQL( IDatabase $dbw ): string;
-
-	function getInputString(): string {
-		return $this->inputString;
-	}
-
-	protected function __construct( string $inputString ) {
-		$this->inputString = $inputString;
-	}
 }
 
 class FieldSelector extends Selector {
@@ -512,7 +491,6 @@ class FieldSelector extends Selector {
 	private BucketSchemaField $schemaField;
 
 	function __construct( string $fullSelector, BucketQuery $query ) {
-		parent::__construct( $fullSelector );
 		$parts = explode( '.', $fullSelector ); // Split on period
 		if ( $fullSelector === '' || count( $parts ) > 2 ) {
 			throw new QueryException( wfMessage( 'bucket-query-field-name-invalid', $fullSelector ) );
@@ -552,7 +530,6 @@ class CategorySelector extends Selector {
 	private BucketQuery $query;
 
 	function __construct( string $categoryName, BucketQuery $query ) {
-		parent::__construct( $categoryName );
 		if ( !BucketQuery::isCategory( $categoryName ) ) {
 			throw new QueryException( wfMessage( 'bucket-query-expected-category', $categoryName ) );
 		}
@@ -561,11 +538,11 @@ class CategorySelector extends Selector {
 	}
 
 	function getSafe( IDatabase $dbw ): string {
-		return $dbw->addIdentifierQuotes( $this->query->getCategoryAlias( $this->categoryName ) );
+		return $dbw->addIdentifierQuotes( $this->query->getCategoryAlias( $this->categoryName ) ) . '.cl_to';
 	}
 
 	function getSelectSQL( IDatabase $dbw ): string {
-		return "{$this->getSafe($dbw)}.cl_to IS NOT NULL";
+		return "{$this->getSafe($dbw)} IS NOT NULL";
 	}
 }
 

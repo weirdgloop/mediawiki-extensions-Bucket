@@ -582,9 +582,9 @@ class Bucket {
 				}
 				$field = $fieldNames[$key];
 				if ( $field instanceof FieldSelector ) {
-					$resultRow[$field->getInputString()] = $field->getFieldSchema()->castValueForLua( $value );
+					$resultRow[$userInput['selects'][$key]] = $field->getFieldSchema()->castValueForLua( $value );
 				} else {
-					$resultRow[$field->getInputString()] = boolval( $value );
+					$resultRow[$userInput['selects'][$key]] = boolval( $value );
 				}
 			}
 			$result[] = $resultRow;
