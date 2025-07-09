@@ -564,27 +564,32 @@ class Bucket {
 
 	public static function runSelect( $userInput ) {
 		$query = new BucketQuery( $userInput );
+		$fieldNames = $query->getFields();
 		$selectQueryBuilder = $query->getSelectQueryBuilder();
 
 		$sql_string = '';
+
 		if ( isset( $userInput['debug'] ) ) {
 			$sql_string = $selectQueryBuilder->getSQL();
 		}
 		$res = $selectQueryBuilder->fetchResultSet();
-		$rows = [];
-		foreach ( $res as $row ) {
-			$row = (array)$row;
-			foreach ( $row as $fieldName => $value ) {
-				if ( BucketQuery::isCategory( $fieldName ) ) {
-					$row[$fieldName] = boolval( $value );
+		$result = [];
+		while ( $dataRow = $res->fetchRow() ) {
+			$resultRow = [];
+			foreach ( $dataRow as $key => $value ) {
+				if ( is_numeric( $key ) == false ) {
+					continue;
+				}
+				$field = $fieldNames[$key];
+				if ( $field instanceof FieldSelector ) {
+					$resultRow[$field->getInputString()] = $field->getFieldSchema()->castValueForLua( $value );
 				} else {
-					$selector = new FieldSelector( $fieldName, $query );
-					$row[$selector->getInputString()] = $selector->getFieldSchema()->castValueForLua( $value );
+					$resultRow[$field->getInputString()] = boolval( $value );
 				}
 			}
-			$rows[] = $row;
+			$result[] = $resultRow;
 		}
-		return [ $rows, $sql_string ];
+		return [ $result, $sql_string ];
 	}
 }
 

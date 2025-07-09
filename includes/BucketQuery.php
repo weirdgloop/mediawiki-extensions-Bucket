@@ -120,7 +120,6 @@ class BucketQuery {
 
 		// Parse wheres
 		$where = $this->parseWhere( $data['wheres'] );
-		$this->checkForCategories( $where );
 		$this->where = $where;
 
 		// Parse other options
@@ -180,6 +179,13 @@ class BucketQuery {
 	}
 
 	/**
+	 * @return Selector[]
+	 */
+	function getFields(): array {
+		return $this->selects;
+	}
+
+	/**
 	 * @return BucketSchema[]
 	 */
 	function getUsedBuckets(): array {
@@ -191,7 +197,7 @@ class BucketQuery {
 		$SELECTS = [];
 		$querySelectors = $this->selects;
 		foreach ( $querySelectors as $selector ) {
-			$SELECTS[$selector->getInputString()] = $selector->getSelectSQL( $dbw );
+			$SELECTS[] = $selector->getSelectSQL( $dbw );
 		}
 
 		$LEFT_JOINS = [];
@@ -261,6 +267,7 @@ class BucketQuery {
 		}
 		if ( is_string( $condition ) && self::isCategory( $condition ) || ( is_array( $condition ) && self::isCategory( $condition[0] ) ) ) {
 			$selector = new CategorySelector( $condition );
+			$this->addCategoryJoin( $condition );
 			$op = new Operator( '!=' );
 			$value = new Value( '&&NULL&&' );
 			return new ComparisonConditionNode( $selector, $op, $value );
