@@ -564,13 +564,18 @@ class Bucket {
 
 	public static function runSelect( $data ) {
 		$query = new BucketQuery( $data );
+		$debug = false;
+		if ( isset( $data['debug'] ) ) {
+			$debug = true;
+		}
 		// unset $data so that we cannot cross contaminate
+
 		$data = null;
 
 		$selectQueryBuilder = $query->getSelectQueryBuilder();
 
 		$sql_string = '';
-		if ( $query->getDebug() == true ) {
+		if ( $debug == true ) {
 			$sql_string = $selectQueryBuilder->getSQL();
 		}
 		$res = $selectQueryBuilder->fetchResultSet();

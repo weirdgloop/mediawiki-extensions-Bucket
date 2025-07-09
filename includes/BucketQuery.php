@@ -28,7 +28,6 @@ class BucketQuery {
 	private int $offset = 0;
 	private ?FieldSelector $orderByField = null;
 	private ?string $orderByDirection = null;
-	private bool $debug = false;
 
 	public static function isNot( $condition ) {
 		return is_array( $condition )
@@ -153,10 +152,6 @@ class BucketQuery {
 			}
 			$this->orderByDirection = $direction;
 		}
-
-		if ( isset( $data['debug'] ) ) {
-			$this->debug = true;
-		}
 	}
 
 	private function addCategoryJoin( string $category ) {
@@ -189,10 +184,6 @@ class BucketQuery {
 	 */
 	function getUsedBuckets(): array {
 		return $this->schemas;
-	}
-
-	function getDebug() {
-		return $this->debug;
 	}
 
 	public function getSelectQueryBuilder(): SelectQueryBuilder {
