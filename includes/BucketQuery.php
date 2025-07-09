@@ -316,18 +316,21 @@ class BucketJoin extends Join {
 }
 
 class CategoryJoin extends Join {
-	private CategoryName $category;
+	private string $categoryName;
 
-	function __construct( string $category ) {
-		$this->category = new CategoryName( $category );
+	function __construct( string $categoryName ) {
+		if ( !BucketQuery::isCategory( $categoryName ) ) {
+			throw new QueryException( wfMessage( 'bucket-query-expected-category', $categoryName ) );
+		}
+		$this->categoryName = $categoryName;
 	}
 
 	function getName(): string {
-		return $this->category->getName();
+		return $this->categoryName;
 	}
 
 	function getSafe( IDatabase $dbw ): string {
-		return $this->category->getSafe( $dbw );
+		return $dbw->addIdentifierQuotes( $this->categoryName );
 	}
 
 	function getSQL( BucketQuery $query, IDatabase $dbw ): array {
@@ -531,80 +534,22 @@ class FieldSelector extends Selector {
 }
 
 class CategorySelector extends Selector {
-	private CategoryName $categoryName;
+	private string $categoryName;
 
 	function __construct( string $categoryName ) {
 		parent::__construct( $categoryName );
-		$this->categoryName = new CategoryName( $categoryName );
-	}
-
-	function getSafe( IDatabase $dbw ): string {
-		return $this->categoryName->getSafe( $dbw );
-	}
-
-	function getSelectSQL( IDatabase $dbw ): string {
-		return "{$this->getSafe($dbw)}.cl_to IS NOT NULL";
-	}
-}
-
-abstract class Name {
-	abstract function getName(): string;
-
-	abstract function getSafe( IDatabase $dbw ): string;
-}
-
-class CategoryName extends Name {
-	private string $categoryName;
-
-	function __construct( string $name ) {
-		if ( !BucketQuery::isCategory( $name ) ) {
-			throw new QueryException( wfMessage( 'bucket-query-expected-category', $name ) );
+		if ( !BucketQuery::isCategory( $categoryName ) ) {
+			throw new QueryException( wfMessage( 'bucket-query-expected-category', $categoryName ) );
 		}
-		$this->categoryName = $name;
-	}
-
-	function getName(): string {
-		return $this->categoryName;
+		$this->categoryName = $categoryName;
 	}
 
 	function getSafe( IDatabase $dbw ): string {
 		return $dbw->addIdentifierQuotes( $this->categoryName );
 	}
-}
 
-class BucketName extends Name {
-	private BucketSchema $bucketSchema;
-
-	function __construct( string $name, BucketQuery $query ) {
-		$usedBuckets = $query->getUsedBuckets();
-		if ( !isset( $usedBuckets[$name] ) ) {
-			throw new QueryException( wfMessage( 'bucket-query-bucket-not-found', $name ) );
-		}
-		$this->bucketSchema = $usedBuckets[$name];
-	}
-
-	function getName(): string {
-		return $this->bucketSchema->getName();
-	}
-
-	function getSafe( IDatabase $dbw ): string {
-		return $this->bucketSchema->getSafe( $dbw );
-	}
-}
-
-class FieldName extends Name {
-	private string $fieldName;
-
-	function __construct( string $name ) {
-		$this->fieldName = Bucket::getValidFieldName( $name );
-	}
-
-	function getName(): string {
-		return $this->fieldName;
-	}
-
-	function getSafe( IDatabase $dbw ): string {
-		return $dbw->addIdentifierQuotes( $this->fieldName );
+	function getSelectSQL( IDatabase $dbw ): string {
+		return "{$this->getSafe($dbw)}.cl_to IS NOT NULL";
 	}
 }
 
