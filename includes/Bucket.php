@@ -410,7 +410,7 @@ class Bucket {
 					$bucketDBuser = self::getBucketDBUser();
 					$mainDB = self::getMainDB();
 					$mainDB->query( $statement );
-					$escapedTableName = $bucketSchema->getQuotedTableName( $dbw );
+					$escapedTableName = $bucketSchema->getSafe( $dbw );
 					$mainDB->query( "GRANT ALL ON $escapedTableName TO $bucketDBuser;" );
 				} else {
 					$dbw->query( $statement );
@@ -561,6 +561,34 @@ class Bucket {
 	public static function getBucketTableName( $bucketName ): string {
 		return 'bucket__' . $bucketName;
 	}
+
+	public static function runSelect( $data ) {
+		$query = new BucketQuery( $data );
+		// unset $data so that we cannot cross contaminate
+		$data = null;
+
+		$selectQueryBuilder = $query->getSelectQueryBuilder();
+
+		$sql_string = '';
+		if ( $query->getDebug() == true ) {
+			$sql_string = $selectQueryBuilder->getSQL();
+		}
+		$res = $selectQueryBuilder->fetchResultSet();
+		$rows = [];
+		foreach ( $res as $row ) {
+			$row = (array)$row;
+			foreach ( $row as $fieldName => $value ) {
+				if ( BucketQuery::isCategory( $fieldName ) ) {
+					$row[$fieldName] = boolval( $value );
+				} else {
+					$selector = new FieldSelector( $fieldName, $query );
+					$row[$selector->getInputString()] = $selector->getFieldSchema()->castValueForLua( $value );
+				}
+			}
+			$rows[] = $row;
+		}
+		return [ $rows, $sql_string ];
+	}
 }
 
 enum ValueType: string {
@@ -625,7 +653,7 @@ class BucketSchema implements JsonSerializable {
 		return Bucket::getBucketTableName( $this->bucketName );
 	}
 
-	function getQuotedTableName( IDatabase $dbw ): string {
+	function getSafe( IDatabase $dbw ): string {
 		return $dbw->addIdentifierQuotes( $this->getTableName() );
 	}
 
@@ -737,6 +765,33 @@ class BucketSchemaField implements JsonSerializable {
 				}
 		}
 		return null;
+	}
+
+	public function castValueForLua( $value ) {
+		$type = $this->getType();
+		if ( $this->getRepeated() ) {
+			$ret = [];
+			if ( $value == null ) {
+				$value = '';
+			}
+			$jsonData = json_decode( $value, true );
+			if ( !is_array( $jsonData ) ) { // If we are in a repeated field but only holding a scalar, make it an array anyway.
+				$jsonData = [ $jsonData ];
+			}
+			$nonRepeatedData = new BucketSchemaField( $this->getFieldName(), $this->getType(), $this->getIndexed(), false );
+			foreach ( $jsonData as $subVal ) {
+				$ret[] = $nonRepeatedData->castValueForLua( $subVal );
+			}
+			return $ret;
+		} elseif ( $type === ValueType::Text || $type === ValueType::Page ) {
+			return $value;
+		} elseif ( $type === ValueType::Double ) {
+			return floatval( $value );
+		} elseif ( $type === ValueType::Integer ) {
+			return intval( $value );
+		} elseif ( $type === ValueType::Boolean ) {
+			return boolval( $value );
+		}
 	}
 }
 
