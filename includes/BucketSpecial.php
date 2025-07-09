@@ -125,7 +125,7 @@ class BucketSpecial extends SpecialPage {
 		try {
 			$bucketName = Bucket::getValidFieldName( $bucket );
 		} catch ( SchemaException $e ) {
-			$out->addHTML( BucketPageHelper::printError( wfMessage( 'bucket-query-bucket-invalid', $bucket )->parse() ) );
+			$out->addWikiTextAsContent( BucketPageHelper::printError( wfMessage( 'bucket-query-bucket-invalid', $bucket )->parse() ) );
 			return;
 		}
 
@@ -144,7 +144,7 @@ class BucketSpecial extends SpecialPage {
 		$fullResult = BucketPageHelper::runQuery( $request, $bucket, $select, $where, $limit, $offset );
 
 		if ( isset( $fullResult['error'] ) ) {
-			$out->addHTML( BucketPageHelper::printError( $fullResult['error'] ) );
+			$out->addWikiTextAsContent( BucketPageHelper::printError( $fullResult['error'] ) );
 			return;
 		}
 		if ( isset( $fullResult['bucket'] ) ) {

@@ -31,7 +31,7 @@ class BucketPage extends Article {
 		try {
 			$bucketName = Bucket::getValidFieldName( $this->getTitle()->getDBkey() );
 		} catch ( SchemaException $e ) {
-			$out->addHTML( BucketPageHelper::printError( $e->getMessage() ) );
+			$out->addWikiTextAsContent( BucketPageHelper::printError( $e->getMessage() ) );
 			return;
 		}
 
@@ -54,7 +54,7 @@ class BucketPage extends Article {
 		$fullResult = BucketPageHelper::runQuery( $this->getContext()->getRequest(), $bucketName, $select, $where, $limit, $offset );
 
 		if ( isset( $fullResult['error'] ) ) {
-			$out->addHTML( BucketPageHelper::printError( $fullResult['error'] ) );
+			$out->addWikiTextAsContent( BucketPageHelper::printError( $fullResult['error'] ) );
 			return;
 		}
 
