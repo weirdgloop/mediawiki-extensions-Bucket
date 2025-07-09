@@ -28,6 +28,7 @@ class BucketQuery {
 	private int $offset = 0;
 	private ?FieldSelector $orderByField = null;
 	private ?string $orderByDirection = null;
+	private int $categoryCount = 0;
 
 	public static function isNot( $condition ) {
 		return is_array( $condition )
@@ -111,7 +112,7 @@ class BucketQuery {
 		}
 		foreach ( $data['selects'] as $select ) {
 			if ( self::isCategory( $select ) ) {
-				$this->selects[] = new CategorySelector( $select );
+				$this->selects[] = new CategorySelector( $select, $this );
 				$this->addCategoryJoin( $select );
 			} else {
 				$this->selects[] = new FieldSelector( $select, $this );
@@ -155,8 +156,14 @@ class BucketQuery {
 
 	private function addCategoryJoin( string $category ) {
 		if ( !isset( $this->categories[$category] ) ) {
-			$this->joins[] = new CategoryJoin( $category );
+			$categoryAlias = 'category' . $this->categoryCount++;
+			$this->categories[$category] = $categoryAlias;
+			$this->joins[] = new CategoryJoin( $category, $this );
 		}
+	}
+
+	function getCategoryAlias( string $category ): string {
+		return $this->categories[$category];
 	}
 
 	/**
@@ -200,13 +207,14 @@ class BucketQuery {
 			$SELECTS[] = $selector->getSelectSQL( $dbw );
 		}
 
-		$LEFT_JOINS = [];
+		$BUCKET_JOINS = [];
+		$CATEGORY_JOINS = [];
 		$queryJoins = $this->joins;
 		foreach ( $queryJoins as $join ) {
 			if ( $join instanceof CategoryJoin ) {
-				$LEFT_JOINS[$join->getName()] = $join->getSQL( $this, $dbw );
+				$CATEGORY_JOINS[$join->getAlias( $dbw )] = $join->getSQL( $this, $dbw );
 			} elseif ( $join instanceof BucketJoin ) {
-				$LEFT_JOINS[Bucket::getBucketTableName( $join->getName() )] = $join->getSQL( $dbw );
+				$BUCKET_JOINS[Bucket::getBucketTableName( $join->getName() )] = $join->getSQL( $dbw );
 			}
 		}
 
@@ -229,12 +237,11 @@ class BucketQuery {
 			->options( $OPTIONS )
 			->caller( __METHOD__ )
 			->setMaxExecutionTime( $maxExecutionTime );
-		foreach ( $LEFT_JOINS as $alias => $conds ) {
-			$name = $alias;
-			if ( self::isCategory( $alias ) ) {
-				$name = 'categorylinks';
-			}
-			$tmp->leftJoin( $name, $alias, $conds );
+		foreach ( $BUCKET_JOINS as $alias => $conds ) {
+			$tmp->leftJoin( $alias, $alias, $conds );
+		}
+		foreach ( $CATEGORY_JOINS as $alias => $conds ) {
+			$tmp->leftJoin( 'categorylinks', $alias, $conds );
 		}
 		$orderByField = $this->orderByField;
 		$orderByDirection = $this->orderByDirection;
@@ -266,7 +273,7 @@ class BucketQuery {
 			return new ComparisonConditionNode( $selector, $op, $value );
 		}
 		if ( is_string( $condition ) && self::isCategory( $condition ) || ( is_array( $condition ) && self::isCategory( $condition[0] ) ) ) {
-			$selector = new CategorySelector( $condition );
+			$selector = new CategorySelector( $condition, $this );
 			$this->addCategoryJoin( $condition );
 			$op = new Operator( '!=' );
 			$value = new Value( '&&NULL&&' );
@@ -317,20 +324,26 @@ class BucketJoin extends Join {
 
 class CategoryJoin extends Join {
 	private string $categoryName;
+	private BucketQuery $query;
 
-	function __construct( string $categoryName ) {
+	function __construct( string $categoryName, BucketQuery $query ) {
 		if ( !BucketQuery::isCategory( $categoryName ) ) {
 			throw new QueryException( wfMessage( 'bucket-query-expected-category', $categoryName ) );
 		}
 		$this->categoryName = $categoryName;
+		$this->query = $query;
 	}
 
 	function getName(): string {
 		return $this->categoryName;
 	}
 
+	function getAlias(): string {
+		return $this->query->getCategoryAlias( $this->categoryName );
+	}
+
 	function getSafe( IDatabase $dbw ): string {
-		return $dbw->addIdentifierQuotes( $this->categoryName );
+		return $dbw->addIdentifierQuotes( $this->getAlias() );
 	}
 
 	function getSQL( BucketQuery $query, IDatabase $dbw ): array {
@@ -493,6 +506,7 @@ abstract class Selector {
 		$this->inputString = $inputString;
 	}
 }
+
 class FieldSelector extends Selector {
 	private BucketSchema $schema;
 	private BucketSchemaField $schemaField;
@@ -535,17 +549,19 @@ class FieldSelector extends Selector {
 
 class CategorySelector extends Selector {
 	private string $categoryName;
+	private BucketQuery $query;
 
-	function __construct( string $categoryName ) {
+	function __construct( string $categoryName, BucketQuery $query ) {
 		parent::__construct( $categoryName );
 		if ( !BucketQuery::isCategory( $categoryName ) ) {
 			throw new QueryException( wfMessage( 'bucket-query-expected-category', $categoryName ) );
 		}
 		$this->categoryName = $categoryName;
+		$this->query = $query;
 	}
 
 	function getSafe( IDatabase $dbw ): string {
-		return $dbw->addIdentifierQuotes( $this->categoryName );
+		return $dbw->addIdentifierQuotes( $this->query->getCategoryAlias( $this->categoryName ) );
 	}
 
 	function getSelectSQL( IDatabase $dbw ): string {
