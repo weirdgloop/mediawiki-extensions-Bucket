@@ -562,20 +562,12 @@ class Bucket {
 		return 'bucket__' . $bucketName;
 	}
 
-	public static function runSelect( $data ) {
-		$query = new BucketQuery( $data );
-		$debug = false;
-		if ( isset( $data['debug'] ) ) {
-			$debug = true;
-		}
-		// unset $data so that we cannot cross contaminate
-
-		$data = null;
-
+	public static function runSelect( $userInput ) {
+		$query = new BucketQuery( $userInput );
 		$selectQueryBuilder = $query->getSelectQueryBuilder();
 
 		$sql_string = '';
-		if ( $debug == true ) {
+		if ( isset( $userInput['debug'] ) ) {
 			$sql_string = $selectQueryBuilder->getSQL();
 		}
 		$res = $selectQueryBuilder->fetchResultSet();
