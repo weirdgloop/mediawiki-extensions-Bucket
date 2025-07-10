@@ -203,7 +203,7 @@ class BucketQuery {
 			if ( $join instanceof CategoryJoin ) {
 				$CATEGORY_JOINS[$join->getAlias( $dbw )] = $join->getSQL( $this, $dbw );
 			} elseif ( $join instanceof BucketJoin ) {
-				$BUCKET_JOINS[Bucket::getBucketTableName( $join->getName() )] = $join->getSQL( $dbw );
+				$BUCKET_JOINS[$join->getAlias( $dbw )] = $join->getSQL( $dbw );
 			}
 		}
 
@@ -273,45 +273,47 @@ class BucketQuery {
 }
 
 abstract class Join {
-	abstract function getName(): string;
-
-	abstract function getSafe( IDatabase $dbw ): string;
+	abstract function getAlias(): string;
 }
 
 class BucketJoin extends Join {
 	private BucketSchema $joinedTable;
-	private JoinCondition $joinCondition;
+	private FieldSelector $selector1;
+	private FieldSelector $selector2;
 
 	function __construct( BucketSchema $joinedTable, string $field1, string $field2, BucketQuery $query ) {
 		$this->joinedTable = $joinedTable;
-		$this->joinCondition = new JoinCondition( $field1, $field2, $query );
+		$selector1 = new FieldSelector( $field1, $query );
+		$selector2 = new FieldSelector( $field2, $query );
+		if ( $selector1->getFieldSchema()->getRepeated() && $selector2->getFieldSchema()->getRepeated() ) {
+			throw new QueryException( wfMessage( 'bucket-invalid-join-two-repeated', $selector1->getFieldSchema()->getFieldName(), $selector2->getFieldSchema()->getFieldName() ) );
+		}
+		// TODO we should verify that one of the selected tables is the joined table right?
+		$this->selector1 = $selector1;
+		$this->selector2 = $selector2;
 	}
 
-	function getName(): string {
-		return $this->joinedTable->getName();
-	}
-
-	function getSafe( IDatabase $dbw ): string {
-		return $this->joinedTable->getSafe( $dbw );
+	function getAlias(): string {
+		return $this->joinedTable->getTableName();
 	}
 
 	function getSQL( IDatabase $dbw ): array {
-		$condition = $this->joinCondition;
-		$selector1 = $condition->getSelector1();
-		$selector1Table = $selector1->getSafe( $dbw );
-		$selector2 = $condition->getSelector2();
-		$selector2Table = $selector2->getSafe( $dbw );
+		$selector1 = $this->selector1;
+		$selector1Safe = $selector1->getSafe( $dbw );
+		$selector2 = $this->selector2;
+		$selector2Safe = $selector2->getSafe( $dbw );
 		if ( $selector1->getFieldSchema()->getRepeated() ) {
-			return [ "$selector2Table MEMBER OF($selector1Table)" ];
+			return [ "$selector2Safe MEMBER OF($selector1Safe)" ];
 		} elseif ( $selector2->getFieldSchema()->getRepeated() ) {
-			return [ "$selector1Table MEMBER OF($selector2Table)" ];
+			return [ "$selector1Safe MEMBER OF($selector2Safe)" ];
 		} else {
-			return [ "$selector1Table = $selector2Table" ];
+			return [ "$selector1Safe = $selector2Safe" ];
 		}
 	}
 }
 
 class CategoryJoin extends Join {
+	private CategorySelector $categorySelector;
 	private string $categoryName;
 	private BucketQuery $query;
 
@@ -319,28 +321,21 @@ class CategoryJoin extends Join {
 		if ( !BucketQuery::isCategory( $categoryName ) ) {
 			throw new QueryException( wfMessage( 'bucket-query-expected-category', $categoryName ) );
 		}
+		$this->categorySelector = new CategorySelector( $categoryName, $query );
 		$this->categoryName = $categoryName;
 		$this->query = $query;
-	}
-
-	function getName(): string {
-		return $this->categoryName;
 	}
 
 	function getAlias(): string {
 		return $this->query->getCategoryAlias( $this->categoryName );
 	}
 
-	function getSafe( IDatabase $dbw ): string {
-		return $dbw->addIdentifierQuotes( $this->getAlias() );
-	}
-
 	function getSQL( BucketQuery $query, IDatabase $dbw ): array {
 		$bucketTableName = $query->getPrimaryBucket()->getSafe( $dbw );
-		$categoryNameNoPrefix = Title::newFromText( $this->getName(), NS_CATEGORY )->getDBkey();
+		$categoryNameNoPrefix = Title::newFromText( $this->categoryName, NS_CATEGORY )->getDBkey();
 		return [
-			"{$this->getSafe($dbw)}.cl_from = {$bucketTableName}._page_id", // Must be all in one string to avoid the table name being treated as a string value.
-			"{$this->getSafe($dbw)}.cl_to" => $categoryNameNoPrefix
+			"{$dbw->addIdentifierQuotes( $this->getAlias() )}.cl_from = {$bucketTableName}._page_id", // Must be all in one string to avoid the table name being treated as a string value.
+			"{$this->categorySelector->getSafe($dbw)}" => $categoryNameNoPrefix
 		];
 	}
 }
@@ -457,27 +452,6 @@ class ComparisonConditionNode extends QueryNode {
 }
 
 class JoinCondition {
-	private FieldSelector $selector1;
-	private FieldSelector $selector2;
-
-	function __construct( string $selector1, string $selector2, $query ) {
-		$selector1 = new FieldSelector( $selector1, $query );
-		$selector2 = new FieldSelector( $selector2, $query );
-
-		if ( $selector1->getFieldSchema()->getRepeated() && $selector2->getFieldSchema()->getRepeated() ) {
-			throw new QueryException( wfMessage( 'bucket-invalid-join-two-repeated', $selector1->getFieldSchema()->getFieldName(), $selector2->getFieldSchema()->getFieldName() ) );
-		}
-		$this->selector1 = $selector1;
-		$this->selector2 = $selector2;
-	}
-
-	function getSelector1(): FieldSelector {
-		return $this->selector1;
-	}
-
-	function getSelector2(): FieldSelector {
-		return $this->selector2;
-	}
 }
 
 abstract class Selector {
