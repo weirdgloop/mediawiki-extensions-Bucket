@@ -277,7 +277,9 @@ end
 
 -- This is equivalent to Bucket.php field name validation, but is kept in lua for performance.
 function isPossibleField(fieldName)
-    if fieldName and type(fieldName) == 'string' and string.match(fieldName, '^[a-zA-Z0-9_.]+$') then
+    if fieldName and type(fieldName) == 'string' 
+        and not string.match(fieldName, '^_')
+        and string.match(fieldName, '^[a-zA-Z0-9_.]+$') then
         return true
     end
     return false
