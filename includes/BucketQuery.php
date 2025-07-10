@@ -278,10 +278,19 @@ class BucketJoin extends Join {
 		$this->joinedTable = $joinedTable;
 		$selector1 = new FieldSelector( $field1, $query );
 		$selector2 = new FieldSelector( $field2, $query );
+		// Cannot join two repeated fields
 		if ( $selector1->getFieldSchema()->getRepeated() && $selector2->getFieldSchema()->getRepeated() ) {
 			throw new QueryException( wfMessage( 'bucket-invalid-join-two-repeated', $selector1->getFieldSchema()->getFieldName(), $selector2->getFieldSchema()->getFieldName() ) );
 		}
-		// TODO we should verify that one of the selected tables is the joined table right?
+		// Cannot join with yourself
+		if ( $selector1->getBucketSchema() == $selector2->getBucketSchema() ) {
+			throw new QueryException( wfMessage( 'bucket-query-invalid-join' ) );
+		}
+		// One of the joined fields needs to be in the joined table
+		if ( $selector1->getBucketSchema() != $joinedTable && $selector2->getBucketSchema() != $joinedTable ) {
+			throw new QueryException( wfMessage( 'bucket-query-invalid-join' ) );
+		}
+
 		$this->selector1 = $selector1;
 		$this->selector2 = $selector2;
 	}
@@ -489,6 +498,10 @@ class FieldSelector extends Selector {
 
 	function getFieldSchema(): BucketSchemaField {
 		return $this->schemaField;
+	}
+
+	function getBucketSchema(): BucketSchema {
+		return $this->schema;
 	}
 }
 
