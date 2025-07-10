@@ -50,7 +50,8 @@
 		"ContentModelCanBeUsedOn": "BucketHookHandler",
 		"BeforeDisplayNoArticleText": "BucketHookHandler",
 		"TitleIsAlwaysKnown": "BucketHookHandler",
-		"TitleIsMovable": "BucketHookHandler"
+		"TitleIsMovable": "BucketHookHandler",
+		"AfterImportPage": "BucketHookHandler"
 	},
 	"HookHandlers": {
 		"BucketHookHandler": {

@@ -8,6 +8,7 @@ use MediaWiki\Content\Hook\ContentModelCanBeUsedOnHook;
 use MediaWiki\Context\IContextSource;
 use MediaWiki\Deferred\LinksUpdate\LinksUpdate;
 use MediaWiki\Extension\Scribunto\Hooks\ScribuntoExternalLibrariesHook;
+use MediaWiki\Hook\AfterImportPageHook;
 use MediaWiki\Hook\LinksUpdateCompleteHook;
 use MediaWiki\Hook\MovePageIsValidMoveHook;
 use MediaWiki\Hook\SidebarBeforeOutputHook;
@@ -47,7 +48,8 @@ class Hooks implements
 	ContentModelCanBeUsedOnHook,
 	BeforeDisplayNoArticleTextHook,
 	TitleIsAlwaysKnownHook,
-	TitleIsMovableHook
+	TitleIsMovableHook,
+	AfterImportPageHook
 {
 	private function enabledNamespaces() {
 		$config = MediaWikiServices::getInstance()->getMainConfig();
@@ -157,6 +159,30 @@ class Hooks implements
 			$status->fatal( $e->getWfMessage() );
 			return false;
 		}
+	}
+
+	/**
+	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/AfterImportPage
+	 *
+	 * @param Title $title
+	 * @param Title $origTitle
+	 * @param int $revCount
+	 * @param int $sRevCount
+	 * @param array $pageInfo
+	 */
+	public function onAfterImportPage( $title, $origTitle, $revCount, $sRevCount, $pageInfo ) {
+		if ( $title->getNamespace() !== NS_BUCKET ) {
+			return;
+		}
+		$content = MediaWikiServices::getInstance()->getRevisionLookup()->getRevisionByTitle( $title )->getContent( SlotRecord::MAIN );
+		if ( !$content instanceof JsonContent || !$content->isValid() ) {
+			// This will fail anyway before saving.
+			return;
+		}
+		$jsonSchema = $content->getData()->value;
+		$title = $title->getDBkey();
+		$isExistingPage = $revCount > $sRevCount;
+		Bucket::createOrModifyTable( $title, $jsonSchema, $isExistingPage );
 	}
 
 	/**
