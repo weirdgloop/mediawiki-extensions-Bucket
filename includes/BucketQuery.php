@@ -188,56 +188,47 @@ class BucketQuery {
 		return $this->schemas;
 	}
 
+	private function getWhereSQL(): string|array {
+		$wheres = $this->where->getWhereSQL();
+		if ( $wheres == '' ) {
+			return []; // Select query builder doesn't like an empty string or null.
+		}
+		return $wheres;
+	}
+
 	public function getSelectQueryBuilder(): SelectQueryBuilder {
 		$dbw = Bucket::getDB();
-		$SELECTS = [];
-		$querySelectors = $this->selects;
-		foreach ( $querySelectors as $selector ) {
-			$SELECTS[] = $selector->getSelectSQL( $dbw );
+		$builder = $dbw->newSelectQueryBuilder()
+			->from( Bucket::getBucketTableName( $this->getPrimaryBucket()->getName() ) )
+			->caller( __METHOD__ );
+
+		foreach ( $this->selects as $selector ) {
+			$builder->field( $selector->getSelectSQL( $dbw ) );
 		}
 
-		$BUCKET_JOINS = [];
-		$CATEGORY_JOINS = [];
-		$queryJoins = $this->joins;
-		foreach ( $queryJoins as $join ) {
+		foreach ( $this->joins as $join ) {
 			if ( $join instanceof CategoryJoin ) {
-				$CATEGORY_JOINS[$join->getAlias( $dbw )] = $join->getSQL( $this, $dbw );
-			} elseif ( $join instanceof BucketJoin ) {
-				$BUCKET_JOINS[$join->getAlias( $dbw )] = $join->getSQL( $dbw );
+				$builder->leftJoin( 'categorylinks', $join->getAlias(), $join->getSQL( $dbw ) );
+			} else {
+				$builder->leftJoin( $join->getAlias( $dbw ), $join->getAlias( $dbw ), $join->getSQL( $dbw ) );
 			}
 		}
 
-		$WHERES = $this->where->getWhereSQL();
-		if ( $WHERES == '' ) {
-			$WHERES = []; // Select query builder doesn't like an empty string or null.
-		}
-
-		$OPTIONS = [];
-		$OPTIONS['LIMIT'] = $this->limit;
-		$OPTIONS['OFFSET'] = $this->offset;
+		$builder->where( $this->getWhereSQL() );
+		$builder->option( 'LIMIT', $this->limit );
+		$builder->option( 'OFFSET', $this->offset );
 
 		$config = MediaWikiServices::getInstance()->getMainConfig();
 		$maxExecutionTime = $config->get( 'BucketMaxExecutionTime' );
+		$builder->setMaxExecutionTime( $maxExecutionTime );
 
-		$tmp = $dbw->newSelectQueryBuilder()
-			->from( Bucket::getBucketTableName( $this->getPrimaryBucket()->getName() ) )
-			->select( $SELECTS )
-			->where( $WHERES )
-			->options( $OPTIONS )
-			->caller( __METHOD__ )
-			->setMaxExecutionTime( $maxExecutionTime );
-		foreach ( $BUCKET_JOINS as $alias => $conds ) {
-			$tmp->leftJoin( $alias, $alias, $conds );
-		}
-		foreach ( $CATEGORY_JOINS as $alias => $conds ) {
-			$tmp->leftJoin( 'categorylinks', $alias, $conds );
-		}
 		$orderByField = $this->orderByField;
 		$orderByDirection = $this->orderByDirection;
 		if ( $orderByField && $orderByDirection ) {
-			$tmp->orderBy( $orderByField->getSafe( $dbw ), $orderByDirection );
+			$builder->orderBy( $orderByField->getSafe( $dbw ), $orderByDirection );
 		}
-		return $tmp;
+
+		return $builder;
 	}
 
 	private function parseWhere( array|string $condition ): QueryNode {
@@ -273,6 +264,8 @@ class BucketQuery {
 }
 
 abstract class Join {
+	abstract function getSQL( IDatabase $dbw ): array;
+
 	abstract function getAlias(): string;
 }
 
@@ -330,8 +323,8 @@ class CategoryJoin extends Join {
 		return $this->query->getCategoryAlias( $this->categoryName );
 	}
 
-	function getSQL( BucketQuery $query, IDatabase $dbw ): array {
-		$bucketTableName = $query->getPrimaryBucket()->getSafe( $dbw );
+	function getSQL( IDatabase $dbw ): array {
+		$bucketTableName = $this->query->getPrimaryBucket()->getSafe( $dbw );
 		$categoryNameNoPrefix = Title::newFromText( $this->categoryName, NS_CATEGORY )->getDBkey();
 		return [
 			"{$dbw->addIdentifierQuotes( $this->getAlias() )}.cl_from = {$bucketTableName}._page_id", // Must be all in one string to avoid the table name being treated as a string value.
