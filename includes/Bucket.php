@@ -10,8 +10,8 @@ use Wikimedia\Rdbms\IDatabase;
 use Wikimedia\Rdbms\IMaintainableDatabase;
 
 class Bucket {
-	public const string EXTENSION_DATA_KEY = 'bucket:puts';
-	public const string MESSAGE_BUCKET = 'bucket_message';
+	public const EXTENSION_DATA_KEY = 'bucket:puts';
+	public const MESSAGE_BUCKET = 'bucket_message';
 
 	private static IMaintainableDatabase $db;
 	private static bool $specialBucketUser = false;
