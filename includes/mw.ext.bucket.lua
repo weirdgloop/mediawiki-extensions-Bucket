@@ -100,7 +100,7 @@ function standardizeWhere(...)
             end
             return {op = 'NOT', operand = operand}
         end
-    elseif type(val) == "table" then
+    else
         if #val > 0 and type(val[1]) == "table" then
             -- .where{{"a", ">", 0}, {"b", "=", "5"}})
             local op = val['op'] and val['op'] or 'AND' -- Apply implicit AND
@@ -129,10 +129,11 @@ function standardizeWhere(...)
                 assertScalarValue(val[3])
                 return {val[1], val[2], val[3]}
             end
-        end
-    else -- If we aren't a table
-        if type(val) == "string" then
+        elseif val[1] or type(val) == "string" then
             -- .where("Category:Foo")
+            if type(val) == "table" then
+                val = val[1]
+            end
             if not isCategory(val) then
                 printError('bucket-schema-invalid-field-name', 5, val or '')
             end
