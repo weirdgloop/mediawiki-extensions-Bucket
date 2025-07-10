@@ -76,7 +76,7 @@ function standardizeWhere(...)
     local val = ...
 
     if hasOp(val) then
-        if val['operands'] then
+        if val['operands'] ~= nil then
             local children = {}
             for k, operand in pairs(val['operands']) do
                 if k ~= 'op' then
@@ -116,7 +116,7 @@ function standardizeWhere(...)
             else
                 return standardizeWhere(operands[1])
             end
-        elseif val[1] and val[2] then
+        elseif val[1] ~= nil and val[2] ~= nil then
             assertScalarValue(val[1])
             assertScalarValue(val[2])
             -- .where({a, "foo"})
@@ -129,7 +129,7 @@ function standardizeWhere(...)
                 assertScalarValue(val[3])
                 return {val[1], val[2], val[3]}
             end
-        elseif val[1] or type(val) == "string" then
+        elseif val[1] ~= nil or type(val) == "string" then
             -- .where("Category:Foo")
             if type(val) == "table" then
                 val = val[1]
@@ -287,14 +287,14 @@ function isPossibleField(fieldName)
 end
 
 function isCategory(fieldName)
-    if fieldName and type(fieldName) == 'string' and string.match(fieldName, '^Category:') then
+    if fieldName ~= nil and type(fieldName) == 'string' and string.match(fieldName, '^Category:') then
         return true
     end
     return false
 end
 
 function assertScalarValue(value)
-    if type(value) ~= 'string' and type(value) ~= 'number' then
+    if type(value) ~= 'string' and type(value) ~= 'number' and type(value) ~= 'boolean' then
         printError('bucket-query-non-scalar', 6)
     end
 end
