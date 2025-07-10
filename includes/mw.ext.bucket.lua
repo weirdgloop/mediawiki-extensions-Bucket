@@ -158,11 +158,11 @@ function QueryBuilder:join(bucketName, fieldOne, fieldTwo)
     local bucketTwo = string.match(fieldTwo, '([^%.]+)%.')
 
     if bucketOne == bucketTwo then -- We cannot join a bucket with itself
-        printError('bucket-query-invalid-join', 5, mw.text.jsonEncode({bucketName, fieldOne, fieldTwo}))
+        printError('bucket-query-invalid-join', 4, mw.text.jsonEncode({bucketName, fieldOne, fieldTwo}))
     end
 
     if bucketOne ~= bucketName and bucketTwo ~= bucketName then -- One of the fields must be for the joined table
-        printError('bucket-query-invalid-join', 5, mw.text.jsonEncode({bucketName, fieldOne, fieldTwo}))
+        printError('bucket-query-invalid-join', 4, mw.text.jsonEncode({bucketName, fieldOne, fieldTwo}))
     end
 
     table.insert(self.joins, {bucketName = bucketName, cond = {fieldOne, fieldTwo}})
@@ -171,7 +171,7 @@ end
 
 function QueryBuilder:limit(arg)
     if type(arg) ~= "number" then
-        printError('bucket-query-must-be-type', 5, 'limit()', 'number')
+        printError('bucket-query-must-be-type', 4, 'limit()', 'number')
     end
     self.limit = arg
     return self
@@ -179,7 +179,7 @@ end
 
 function QueryBuilder:offset(arg)
     if type(arg) ~= "number" then
-        printError('bucket-query-must-be-type', 5, 'offset()', 'number')
+        printError('bucket-query-must-be-type', 4, 'offset()', 'number')
     end
     self.offset = arg
     return self
@@ -220,8 +220,8 @@ function QueryBuilder:run()
 end
 
 function QueryBuilder:sub(identifier)
-    if type(identifier) ~= 'string' then
-        printError('bucket-query-must-be-type', 5, 'sub()', 'string')
+    if type(identifier) ~= 'string' and type(identifier) ~= 'number' then
+        printError('bucket-query-must-be-type', 4, 'sub()', 'string')
     end
     self.subversion = identifier
     return self
@@ -229,15 +229,15 @@ end
 
 function QueryBuilder:put(data)
     if type(data) ~= 'table' then
-        printError('bucket-put-syntax-error', 5)
+        printError('bucket-put-syntax-error', 4)
     end
     for field, value in pairs(data) do
         assertPossibleField(field)
         if field == '_index' or field == '_page_id' or field == 'page_name' or field == 'page_name_sub' then
-            printError('bucket-put-system-field', 5, field)
+            printError('bucket-put-system-field', 4, field)
         end
         if type(value) == 'function' then
-            printError('bucket-put-function-value', 5)
+            printError('bucket-put-function-value', 4)
         end
     end
     php.put(self, data)
