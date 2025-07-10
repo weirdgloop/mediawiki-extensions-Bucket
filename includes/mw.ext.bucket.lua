@@ -55,6 +55,11 @@ function QueryBuilder:select(...)
 end
 
 function QueryBuilder:where(...)
+    local isGood, message = pcall(mw.text.jsonEncode, {...}) -- Easy error checking, we don't use the result otherwise.
+    if isGood ~= true then
+        error("Bucket: " .. message, 3) -- We cannot use a translation string here because mw.text.jsonEncode doesn't use one
+    end
+
     local args = standardizeWhere({...})
     table.insert(self.wheres.operands, args)
     return self
@@ -112,6 +117,8 @@ function standardizeWhere(...)
                 return standardizeWhere(operands[1])
             end
         elseif val[1] and val[2] then
+            assertScalarValue(val[1])
+            assertScalarValue(val[2])
             -- .where({a, "foo"})
             if #val == 2 then
                 return {val[1], '=', val[2]}
@@ -119,6 +126,7 @@ function standardizeWhere(...)
                 if val[3] == bucket.Null() and val[2] ~= '=' and val[2] ~= '!=' then
                     printError('bucket-query-null-invalid-operator', 5, val[2] or '')
                 end
+                assertScalarValue(val[3])
                 return {val[1], val[2], val[3]}
             end
         end
@@ -280,6 +288,12 @@ function isCategory(fieldName)
         return true
     end
     return false
+end
+
+function assertScalarValue(value)
+    if type(value) ~= 'string' and type(value) ~= 'number' then
+        printError('bucket-query-non-scalar', 6)
+    end
 end
 
 -- Return a lua error using a mediawiki message
