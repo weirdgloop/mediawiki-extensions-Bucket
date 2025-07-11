@@ -10,10 +10,8 @@ use MediaWiki\Deferred\LinksUpdate\LinksUpdate;
 use MediaWiki\Extension\Scribunto\Hooks\ScribuntoExternalLibrariesHook;
 use MediaWiki\Hook\AfterImportPageHook;
 use MediaWiki\Hook\LinksUpdateCompleteHook;
-use MediaWiki\Hook\MovePageIsValidMoveHook;
 use MediaWiki\Hook\SidebarBeforeOutputHook;
 use MediaWiki\Hook\TitleIsAlwaysKnownHook;
-use MediaWiki\Hook\TitleIsMovableHook;
 use MediaWiki\Installer\Hook\LoadExtensionSchemaUpdatesHook;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Page\Article;
@@ -42,13 +40,11 @@ class Hooks implements
 	ScribuntoExternalLibrariesHook,
 	SidebarBeforeOutputHook,
 	ArticleFromTitleHook,
-	MovePageIsValidMoveHook,
 	PageDeleteHook,
 	PageDeleteCompleteHook,
 	ContentModelCanBeUsedOnHook,
 	BeforeDisplayNoArticleTextHook,
 	TitleIsAlwaysKnownHook,
-	TitleIsMovableHook,
 	AfterImportPageHook
 {
 	private function enabledNamespaces() {
@@ -224,32 +220,6 @@ class Hooks implements
 			return;
 		}
 		$article = new BucketPage( $title );
-	}
-
-	/**
-	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/TitleIsMovable
-	 */
-	public function onTitleIsMovable( $title, &$result ) {
-		if ( $title->getNamespace() !== NS_BUCKET ) {
-			return;
-		}
-
-		$result = false;
-	}
-
-	/**
-	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/MovePageIsValidMove
-	 */
-	public function onMovePageIsValidMove( $oldTitle, $newTitle, $status ) {
-		if ( $oldTitle->getNamespace() !== NS_BUCKET && $newTitle->getNamespace() !== NS_BUCKET ) {
-			return;
-		}
-
-		if ( $oldTitle->getNamespace() !== NS_BUCKET ) {
-			$status->fatal( 'bucket-namespace-move-into' );
-		} else {
-			$status->fatal( 'bucket-namespace-move' );
-		}
 	}
 
 	/**
