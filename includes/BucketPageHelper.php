@@ -2,7 +2,7 @@
 
 namespace MediaWiki\Extension\Bucket;
 
-use ApiMain;
+use MediaWiki\Api\ApiMain;
 use MediaWiki\Request\DerivativeRequest;
 use OOUI;
 

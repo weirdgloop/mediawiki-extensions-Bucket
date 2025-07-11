@@ -2,9 +2,9 @@
 
 namespace MediaWiki\Extension\Bucket;
 
-use JsonContent;
 use ManualLogEntry;
 use MediaWiki\Content\Hook\ContentModelCanBeUsedOnHook;
+use MediaWiki\Content\JsonContent;
 use MediaWiki\Context\IContextSource;
 use MediaWiki\Deferred\LinksUpdate\LinksUpdate;
 use MediaWiki\Extension\Scribunto\Hooks\ScribuntoExternalLibrariesHook;
@@ -97,7 +97,7 @@ class Hooks implements
 		}
 		$title = $page->getDBkey();
 		try {
-			if ( Bucket::canCreateTable( $title ) ) {
+			if ( BucketDatabase::canCreateTable( $title ) ) {
 				return true;
 			} else {
 				$status->fatal( 'bucket-undelete-error' );
@@ -126,7 +126,7 @@ class Hooks implements
 		$jsonSchema = $content->getData()->value;
 		$title = $page->getDBkey();
 		$isExistingPage = $revRecord->getParentId() > 0;
-		Bucket::createOrModifyTable( $title, $jsonSchema, $isExistingPage );
+		BucketDatabase::createOrModifyTable( $title, $jsonSchema, $isExistingPage );
 	}
 
 	/**
@@ -154,7 +154,7 @@ class Hooks implements
 		$title = $page->getDBkey();
 		$isExistingPage = $revRecord->getParentId() > 0;
 		try {
-			Bucket::createOrModifyTable( $title, $jsonSchema, $isExistingPage );
+			BucketDatabase::createOrModifyTable( $title, $jsonSchema, $isExistingPage );
 		} catch ( BucketException $e ) {
 			$status->fatal( $e->getWfMessage() );
 			return false;
@@ -182,7 +182,7 @@ class Hooks implements
 		$jsonSchema = $content->getData()->value;
 		$title = $title->getDBkey();
 		$isExistingPage = $revCount > $sRevCount;
-		Bucket::createOrModifyTable( $title, $jsonSchema, $isExistingPage );
+		BucketDatabase::createOrModifyTable( $title, $jsonSchema, $isExistingPage );
 	}
 
 	/**
@@ -284,7 +284,7 @@ class Hooks implements
 			return;
 		}
 		try {
-			Bucket::deleteTable( $page->getDBkey() );
+			BucketDatabase::deleteTable( $page->getDBkey() );
 		// If we somehow get a page that isn't a valid Bucket name, it will throw a schema exception.
 		} catch ( SchemaException $e ) {
 			return;

@@ -20,7 +20,7 @@ class BucketAction extends Action {
 		$pageId = $this->getArticle()->getPage()->getId();
 		$out->setPageTitle( "Bucket View: $title" );
 
-		$dbw = Bucket::getDB();
+		$dbw = BucketDatabase::getDB();
 
 		$res = $dbw->newSelectQueryBuilder()
 			->from( 'bucket_pages' )

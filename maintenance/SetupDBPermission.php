@@ -2,7 +2,7 @@
 
 namespace MediaWiki\Extension\Bucket;
 
-use Maintenance;
+use MediaWiki\Maintenance\Maintenance;
 use MediaWiki\MediaWikiServices;
 
 $IP = getenv( 'MW_INSTALL_PATH' );

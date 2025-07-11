@@ -129,7 +129,7 @@ class BucketSpecial extends SpecialPage {
 			return;
 		}
 
-		$dbw = Bucket::getDB();
+		$dbw = BucketDatabase::getDB();
 		$res = $dbw->newSelectQueryBuilder()
 		->from( 'bucket_schemas' )
 		->select( [ 'bucket_name', 'schema_json' ] )

@@ -17,7 +17,7 @@ class AllBucketsSpecial extends SpecialPage {
 
 		$out->setPageTitle( wfMessage( 'bucket-specialpage-all-buckets-title' ) );
 
-		$dbw = Bucket::getDB();
+		$dbw = BucketDatabase::getDB();
 		$res = $dbw->newSelectQueryBuilder()
 			->from( 'bucket_schemas' )
 			->select( [ 'bucket_name', 'schema_json' ] )

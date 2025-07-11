@@ -2,12 +2,12 @@
 
 namespace MediaWiki\Extension\Bucket;
 
-use ApiBase;
+use MediaWiki\Api\ApiBase;
 use MediaWiki\Extension\Scribunto\Scribunto;
 use MediaWiki\Extension\Scribunto\ScribuntoException;
 use MediaWiki\MediaWikiServices;
-use Parser;
-use ParserOptions;
+use MediaWiki\Parser\Parser;
+use MediaWiki\Parser\ParserOptions;
 use Wikimedia\ParamValidator\ParamValidator;
 use Wikimedia\ParamValidator\TypeDef\IntegerDef;
 
@@ -42,7 +42,7 @@ class BucketApi extends ApiBase {
 			// Select everything if input is *
 			$selectNames = [];
 			if ( $select == '*' || $select == '' ) {
-				$dbw = Bucket::getDB();
+				$dbw = BucketDatabase::getDB();
 				$res = $dbw->newSelectQueryBuilder()
 					->from( 'bucket_schemas' )
 					->select( [ 'bucket_name', 'schema_json' ] )

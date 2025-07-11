@@ -62,7 +62,7 @@ class BucketQuery {
 		}
 		// Populate the schema cache with missing schemas
 		if ( !empty( $neededSchemas ) ) {
-			$dbw = Bucket::getDB();
+			$dbw = BucketDatabase::getDB();
 			$res = $dbw->newSelectQueryBuilder()
 				->from( 'bucket_schemas' )
 				->select( [ 'bucket_name', 'schema_json' ] )
@@ -197,9 +197,9 @@ class BucketQuery {
 	}
 
 	public function getSelectQueryBuilder(): SelectQueryBuilder {
-		$dbw = Bucket::getDB();
+		$dbw = BucketDatabase::getDB();
 		$builder = $dbw->newSelectQueryBuilder()
-			->from( Bucket::getBucketTableName( $this->getPrimaryBucket()->getName() ) )
+			->from( BucketDatabase::getBucketTableName( $this->getPrimaryBucket()->getName() ) )
 			->caller( __METHOD__ );
 
 		foreach ( $this->selects as $selector ) {
@@ -380,7 +380,7 @@ class OrNode extends QueryNode {
 		$childSQLs = array_map( static function ( QueryNode $child ) {
 			return $child->getWhereSQL();
 		}, $this->children );
-		return Bucket::getDB()->makeList( $childSQLs, IDatabase::LIST_OR );
+		return BucketDatabase::getDB()->makeList( $childSQLs, IDatabase::LIST_OR );
 	}
 }
 
@@ -396,7 +396,7 @@ class AndNode extends QueryNode {
 		$childSQLs = array_map( static function ( QueryNode $child ) {
 			return $child->getWhereSQL();
 		}, $this->children );
-		return Bucket::getDB()->makeList( $childSQLs, IDatabase::LIST_AND );
+		return BucketDatabase::getDB()->makeList( $childSQLs, IDatabase::LIST_AND );
 	}
 }
 
@@ -417,7 +417,7 @@ class ComparisonConditionNode extends QueryNode {
 	}
 
 	function getWhereSQL(): string {
-		$dbw = Bucket::getDB();
+		$dbw = BucketDatabase::getDB();
 		$selector = $this->selector;
 		$fieldName = $selector->getSafe( $dbw );
 		$op = $this->operator->getOperator();
@@ -489,7 +489,7 @@ class FieldSelector extends Selector {
 	}
 
 	function getSafe( IDatabase $dbw ): string {
-		return $dbw->addIdentifierQuotes( Bucket::getBucketTableName( $this->schema->getName() ) ) . '.' . $dbw->addIdentifierQuotes( $this->schemaField->getFieldName() );
+		return $dbw->addIdentifierQuotes( BucketDatabase::getBucketTableName( $this->schema->getName() ) ) . '.' . $dbw->addIdentifierQuotes( $this->schemaField->getFieldName() );
 	}
 
 	function getSelectSQL( IDatabase $dbw ): string {

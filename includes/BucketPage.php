@@ -1,11 +1,8 @@
 <?php
 
-namespace Mediawiki\Extension\Bucket;
+namespace MediaWiki\Extension\Bucket;
 
 use Article;
-use MediaWiki\Extension\Bucket\Bucket;
-use MediaWiki\Extension\Bucket\BucketPageHelper;
-use MediaWiki\Extension\Bucket\SchemaException;
 use MediaWiki\MediaWikiServices;
 use Mediawiki\Title\Title;
 use MediaWiki\Title\TitleValue;
@@ -25,7 +22,7 @@ class BucketPage extends Article {
 		$title = $this->getTitle();
 		$out->setPageTitle( $title );
 
-		$dbw = Bucket::getDB();
+		$dbw = BucketDatabase::getDB();
 		$linkRenderer = MediaWikiServices::getInstance()->getLinkRenderer();
 
 		try {
@@ -68,7 +65,7 @@ class BucketPage extends Article {
 
 		$maxCount = $dbw->newSelectQueryBuilder()
 			->select( 'COUNT(*)' )
-			->from( Bucket::getBucketTableName( $bucketName ) )
+			->from( BucketDatabase::getBucketTableName( $bucketName ) )
 			->fetchField();
 		$out->addWikiTextAsContent( 'Bucket entries: ' . $maxCount );
 
