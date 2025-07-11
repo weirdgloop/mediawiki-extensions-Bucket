@@ -109,13 +109,14 @@
 		"BucketDBpassword": {
 			"value": null
 		},
-		"BucketDBserver": {
+		"BucketDBhostname": {
 			"value": "%"
 		},
 		"BucketMaxExecutionTime": {
 			"value": 500
 		}
 	},
+	"callback": "MediaWiki\\Extension\\Bucket\\Hooks::onRegistration",
 	"ConfigRegistry": {
 		"bucket": "GlobalVarConfig::newInstance"
 	},

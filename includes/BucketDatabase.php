@@ -8,12 +8,6 @@ use Wikimedia\Rdbms\IMaintainableDatabase;
 
 class BucketDatabase {
 	private static IMaintainableDatabase $db;
-	private static bool $specialBucketUser = false;
-
-	private static function getMainDB(): IMaintainableDatabase {
-		// Note: Cannot be used to write Bucket data due to json requiring a utf8 connection
-		return MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnection( DB_PRIMARY );
-	}
 
 	public static function getDB(): IMaintainableDatabase {
 		if ( isset( self::$db ) && self::$db->isOpen() ) {
@@ -23,14 +17,7 @@ class BucketDatabase {
 		$bucketDBuser = $config->get( 'BucketDBuser' );
 		$bucketDBpassword = $config->get( 'BucketDBpassword' );
 
-		$mainDB = self::getMainDB();
-		if ( $bucketDBuser == null || $bucketDBpassword == null ) {
-			// TODO need to set utf8Mode for this if you want to be able to store repeated fields
-			self::$db = $mainDB;
-			self::$specialBucketUser = false;
-			return self::$db;
-		}
-
+		$mainDB = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnection( DB_PRIMARY );
 		$params = [
 			'host' => $mainDB->getServer(),
 			'user' => $bucketDBuser,
@@ -40,14 +27,13 @@ class BucketDatabase {
 		];
 
 		self::$db = MediaWikiServices::getInstance()->getDatabaseFactory()->create( $mainDB->getType(), $params );
-		self::$specialBucketUser = true;
 		return self::$db;
 	}
 
 	private static function getBucketDBUser(): string {
 		$config = MediaWikiServices::getInstance()->getMainConfig();
 		$dbUser = $config->get( 'BucketDBuser' );
-		$dbServer = $config->get( 'BucketDBserver' );
+		$dbServer = $config->get( 'BucketDBhostname' );
 		return "$dbUser@'$dbServer'";
 	}
 
@@ -149,16 +135,12 @@ class BucketDatabase {
 			if ( !$dbw->tableExists( $bucketSchema->getTableName(), __METHOD__ ) ) {
 				// We are a new bucket json
 				$statement = self::getCreateTableStatement( $bucketSchema, $dbw );
-				// Grant perms to the new table
-				if ( self::$specialBucketUser ) {
-					$bucketDBuser = self::getBucketDBUser();
-					$mainDB = self::getMainDB();
-					$mainDB->query( $statement );
-					$escapedTableName = $bucketSchema->getSafe( $dbw );
-					$mainDB->query( "GRANT ALL ON $escapedTableName TO $bucketDBuser;" );
-				} else {
-					$dbw->query( $statement );
-				}
+				$bucketDBuser = self::getBucketDBUser();
+				$escapedTableName = $bucketSchema->getSafe( $dbw );
+				// Note: The main database connection is only used to grant access to the new table.
+				MediaWikiServices::getInstance()->getDBLoadBalancer()
+					->getConnection( DB_PRIMARY )->query( "GRANT ALL ON $escapedTableName TO $bucketDBuser;" );
+				$dbw->query( $statement );
 			} else {
 				// We are an existing bucket json
 				$oldSchema = self::buildSchemaFromComments( $bucketSchema->getName(), $dbw );
