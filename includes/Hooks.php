@@ -3,7 +3,6 @@
 namespace MediaWiki\Extension\Bucket;
 
 use ManualLogEntry;
-use MediaWiki\Config\ConfigException;
 use MediaWiki\Content\Hook\ContentModelCanBeUsedOnHook;
 use MediaWiki\Content\JsonContent;
 use MediaWiki\Context\IContextSource;
@@ -27,7 +26,6 @@ use MediaWiki\Permissions\Authority;
 use MediaWiki\Revision\RenderedRevision;
 use MediaWiki\Revision\RevisionRecord;
 use MediaWiki\Revision\SlotRecord;
-use MediaWiki\Settings\SettingsBuilder;
 use MediaWiki\Status\Status;
 use MediaWiki\Storage\Hook\MultiContentSaveHook;
 use MediaWiki\Title\Title;
@@ -295,16 +293,6 @@ class Hooks implements
 
 		if ( strtolower( str_replace( ' ', '_', $title->getRootText() ) ) == Bucket::MESSAGE_BUCKET ) {
 			$isKnown = true;
-		}
-	}
-
-	public static function onRegistration( array $data, SettingsBuilder $settings ) {
-		$config = $settings->getConfig();
-		$bucketDBuser = $config->get( 'BucketDBuser' );
-		$bucketDBpassword = $config->get( 'BucketDBpassword' );
-
-		if ( $bucketDBuser == null || $bucketDBpassword == null ) {
-			throw new ConfigException( 'BucketDBuser and BucketDBpassword are required config options' );
 		}
 	}
 }

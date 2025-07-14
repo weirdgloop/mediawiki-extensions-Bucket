@@ -2,6 +2,7 @@
 
 namespace MediaWiki\Extension\Bucket;
 
+use MediaWiki\Config\ConfigException;
 use MediaWiki\MediaWikiServices;
 use Wikimedia\Rdbms\IDatabase;
 use Wikimedia\Rdbms\IMaintainableDatabase;
@@ -17,6 +18,10 @@ class BucketDatabase {
 		$bucketDBuser = $config->get( 'BucketDBuser' );
 		$bucketDBpassword = $config->get( 'BucketDBpassword' );
 
+		if ( $bucketDBuser == null || $bucketDBpassword == null ) {
+			throw new ConfigException( 'BucketDBuser and BucketDBpassword are required config options' );
+		}
+
 		$mainDB = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnection( DB_PRIMARY );
 		$params = [
 			'host' => $mainDB->getServer(),
@@ -28,6 +33,11 @@ class BucketDatabase {
 		];
 
 		self::$db = MediaWikiServices::getInstance()->getDatabaseFactory()->create( $mainDB->getType(), $params );
+
+		// MySQL 8.0.17 or higher is required for the implementation of repeated fields.
+		if ( self::$db->getType() != 'mysql' || version_compare( self::$db->getServerVersion(), '8.0.17', '<' ) ) {
+			throw new ConfigException( 'Bucket requires MySQL 8.0.17 or higher' );
+		}
 		return self::$db;
 	}
 
