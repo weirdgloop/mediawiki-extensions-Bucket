@@ -73,16 +73,12 @@ class Hooks implements
 	 * @return bool|void
 	 */
 	public function onLinksUpdateComplete( $linksUpdate, $ticket ) {
-		$bucketPuts = $linksUpdate->getParserOutput()->getExtensionData( Bucket::EXTENSION_DATA_KEY );
+		$bucketPuts = $linksUpdate->getParserOutput()->getExtensionData( Bucket::EXTENSION_DATA_KEY ) ?? [];
 		$pageId = $linksUpdate->getTitle()->getArticleID();
 		if ( $linksUpdate->getTitle()->inNamespaces( $this->enabledNamespaces() ) ) {
-			if ( $bucketPuts !== null ) {
-				$titleText = $linksUpdate->getTitle()->getPrefixedText();
-				$bucket = new Bucket();
-				$bucket->writePuts( $pageId, $titleText, $bucketPuts );
-			} else {
-				Bucket::clearOrphanedData( $pageId );
-			}
+			$titleText = $linksUpdate->getTitle()->getPrefixedText();
+			$bucket = new Bucket();
+			$bucket->writePuts( $pageId, $titleText, $bucketPuts );
 		}
 	}
 
@@ -252,7 +248,8 @@ class Hooks implements
 	 */
 	public function onPageDeleteComplete( ProperPageIdentity $page, Authority $deleter, string $reason, int $pageID, RevisionRecord $deletedRev, ManualLogEntry $logEntry, int $archivedRevisionCount ) {
 		if ( $page->getNamespace() !== NS_BUCKET ) {
-			Bucket::clearOrphanedData( $page->getId() );
+			$bucket = new Bucket();
+			$bucket->writePuts( $page->getId(), '', [] );
 			return;
 		}
 		try {

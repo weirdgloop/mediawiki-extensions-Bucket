@@ -23,7 +23,8 @@ class BucketDatabase {
 			'user' => $bucketDBuser,
 			'password' => $bucketDBpassword,
 			'dbname' => $mainDB->getDBname(),
-			'utf8Mode' => true
+			'utf8Mode' => true,
+			'defaultMaxExecutionTimeForQueries' => 500 // WeirdGloop specific tweak
 		];
 
 		self::$db = MediaWikiServices::getInstance()->getDatabaseFactory()->create( $mainDB->getType(), $params );

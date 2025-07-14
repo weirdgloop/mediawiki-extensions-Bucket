@@ -12,6 +12,7 @@ class Bucket {
 	public const MESSAGE_BUCKET = 'bucket_message';
 
 	private array $logs = []; // Cannot be static because RefreshLinks job will run on multiple pages
+	private array $newPuts = [];
 
 	public function logMessage( string $bucket, string $property, string $type, string $message ): void {
 		if ( $bucket != '' ) {
@@ -37,7 +38,7 @@ class Bucket {
 
 		$res = $dbw->newSelectQueryBuilder()
 				->from( 'bucket_pages' )
-				->select( [ '_page_id', 'bucket_name', 'put_hash' ] )
+				->select( [ 'bucket_name', 'put_hash' ] )
 				->forUpdate()
 				->where( [ '_page_id' => $pageId ] )
 				->caller( __METHOD__ )
@@ -47,18 +48,20 @@ class Bucket {
 			$bucket_hash[ $row->bucket_name ] = $row->put_hash;
 		}
 
-		// Combine existing written bucket list and new written bucket list.
-		$relevantBuckets = array_merge( array_keys( $puts ), array_keys( $bucket_hash ) );
-		$res = $dbw->newSelectQueryBuilder()
-				->from( 'bucket_schemas' )
-				->select( [ 'bucket_name', 'schema_json' ] )
-				->lockInShareMode()
-				->where( [ 'bucket_name' => $relevantBuckets ] )
-				->caller( __METHOD__ )
-				->fetchResultSet();
-		$schemas = [];
-		foreach ( $res as $row ) {
-			$schemas[$row->bucket_name] = new BucketSchema( $row->bucket_name, json_decode( $row->schema_json, true ) );
+		if ( count( $puts ) > 0 ) {
+			// Combine existing written bucket list and new written bucket list.
+			$relevantBuckets = array_merge( array_keys( $puts ), array_keys( $bucket_hash ) );
+			$res = $dbw->newSelectQueryBuilder()
+					->from( 'bucket_schemas' )
+					->select( [ 'bucket_name', 'schema_json' ] )
+					->lockInShareMode()
+					->where( [ 'bucket_name' => $relevantBuckets ] )
+					->caller( __METHOD__ )
+					->fetchResultSet();
+			$schemas = [];
+			foreach ( $res as $row ) {
+				$schemas[$row->bucket_name] = new BucketSchema( $row->bucket_name, json_decode( $row->schema_json, true ) );
+			}
 		}
 
 		foreach ( $puts as $bucketName => $bucketData ) {
@@ -147,6 +150,7 @@ class Bucket {
 
 			// Remove the bucket_hash entry so we can it as a list of removed buckets at the end.
 			unset( $bucket_hash[ $bucketName ] );
+			$this->newPuts[$bucketName] = [ '_page_id' => $pageId, 'bucket_name' => $bucketName, 'put_hash' => $newHash ];
 
 			$dbw->newDeleteQueryBuilder()
 				->deleteFrom( $dbw->addIdentifierQuotes( $dbTableName ) )
@@ -158,79 +162,36 @@ class Bucket {
 				->rows( $tablePuts )
 				->caller( __METHOD__ )
 				->execute();
-			$dbw->newDeleteQueryBuilder() // TODO gether up the deletes/puts for bucket_pages and do them all at once outside of the loop
-				->deleteFrom( 'bucket_pages' )
-				->where( [ '_page_id' => $pageId, 'bucket_name' => $bucketName ] )
-				->caller( __METHOD__ )
-				->execute();
-			$dbw->newInsertQueryBuilder()
-				->insert( 'bucket_pages' )
-				->rows( [ '_page_id' => $pageId, 'bucket_name' => $bucketName, 'put_hash' => $newHash ] )
+		}
+
+		if ( $writingLogs ) {
+			return;
+		}
+
+		if ( count( $this->logs ) > 0 ) {
+			self::writePuts( $pageId, $titleText, [ self::MESSAGE_BUCKET => $this->logs ], true );
+			unset( $bucket_hash[self::MESSAGE_BUCKET] );
+		}
+
+		// Insert new/updated hashes to bucket_pages
+		if ( count( $this->newPuts ) > 0 ) {
+			$dbw->newReplaceQueryBuilder()
+				->replaceInto( 'bucket_pages' )
+				->uniqueIndexFields( [ '_page_id', 'bucket_name' ] )
+				->rows( array_values( $this->newPuts ) )
 				->caller( __METHOD__ )
 				->execute();
 		}
 
-		if ( !$writingLogs ) {
-			// Clean up bucket_pages entries for buckets that are no longer written to on this page.
-			$tablesToDelete = array_keys( $bucket_hash );
-			if ( count( $this->logs ) != 0 ) {
-				unset( $tablesToDelete[self::MESSAGE_BUCKET] );
-			} else {
-				$tablesToDelete[] = self::MESSAGE_BUCKET;
-			}
-
-			if ( count( $tablesToDelete ) > 0 ) {
-				$dbw->newDeleteQueryBuilder()
-					->deleteFrom( 'bucket_pages' )
-					->where( [ '_page_id' => $pageId, 'bucket_name' => $tablesToDelete ] )
-					->caller( __METHOD__ )
-					->execute();
-				foreach ( $tablesToDelete as $name ) {
-					$dbw->newDeleteQueryBuilder()
-						->deleteFrom( BucketDatabase::getBucketTableName( $name ) )
-						->where( [ '_page_id' => $pageId ] )
-						->caller( __METHOD__ )
-						->execute();
-				}
-			}
-
-			if ( count( $this->logs ) > 0 ) {
-				self::writePuts( $pageId, $titleText, [ self::MESSAGE_BUCKET => $this->logs ], true );
-			}
-		}
-	}
-
-	/**
-	 * Called for any page save that doesn't have bucket puts
-	 */
-	public static function clearOrphanedData( int $pageId ): void {
-		// TODO just call writePuts with empty $puts, add a conditional check for loading the schemas
-		$dbw = BucketDatabase::getDB();
-
-		// Check if any buckets are storing data for this page
-		$res = $dbw->newSelectQueryBuilder()
-				->from( 'bucket_pages' )
-				->select( [ 'bucket_name' ] )
-				->forUpdate()
-				->where( [ '_page_id' => $pageId ] )
-				->groupBy( 'bucket_name' )
-				->caller( __METHOD__ )
-				->fetchResultSet();
-
-		// If there is data associated with this page, delete it.
-		if ( $res->count() > 0 ) {
+		// Clean up bucket_pages entries for buckets that are no longer written to on this page.
+		$tablesToDelete = array_keys( $bucket_hash );
+		if ( count( $tablesToDelete ) > 0 ) {
 			$dbw->newDeleteQueryBuilder()
 				->deleteFrom( 'bucket_pages' )
-				->where( [ '_page_id' => $pageId ] )
+				->where( [ '_page_id' => $pageId, 'bucket_name' => $tablesToDelete ] )
 				->caller( __METHOD__ )
 				->execute();
-			$table = [];
-			foreach ( $res as $row ) {
-				$table[] = $row->bucket_name;
-			}
-
-			foreach ( $table as $name ) {
-				// Clear this pages data from the bucket
+			foreach ( $tablesToDelete as $name ) {
 				$dbw->newDeleteQueryBuilder()
 					->deleteFrom( BucketDatabase::getBucketTableName( $name ) )
 					->where( [ '_page_id' => $pageId ] )
