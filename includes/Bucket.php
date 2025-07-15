@@ -4,7 +4,6 @@ namespace MediaWiki\Extension\Bucket;
 
 use JsonSerializable;
 use LogicException;
-use MediaWiki\Message\Message;
 use Wikimedia\Rdbms\IDatabase;
 
 class Bucket {
@@ -475,26 +474,10 @@ class BucketSchemaField implements JsonSerializable {
 }
 
 class BucketException extends LogicException {
-	private ?Message $wfMessage = null;
-
-	public function getWfMessage(): Message {
-		return $this->wfMessage;
-	}
-
-	function __construct( $msg ) {
-		$this->wfMessage = $msg;
-		parent::__construct( $msg );
-	}
 }
 
 class SchemaException extends BucketException {
-	function __construct( $msg ) {
-		parent::__construct( $msg );
-	}
 }
 
 class QueryException extends BucketException {
-	function __construct( $msg ) {
-		parent::__construct( $msg );
-	}
 }

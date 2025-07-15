@@ -96,7 +96,7 @@ class Hooks implements
 				return false;
 			}
 		} catch ( BucketException $e ) {
-			$status->fatal( $e->getWfMessage() );
+			$status->fatal( $e->getMessage() );
 			return false;
 		}
 	}
@@ -148,7 +148,7 @@ class Hooks implements
 		try {
 			BucketDatabase::createOrModifyTable( $title, $jsonSchema, $isExistingPage );
 		} catch ( BucketException $e ) {
-			$status->fatal( $e->getWfMessage() );
+			$status->fatal( $e->getMessage() );
 			return false;
 		}
 	}
@@ -235,8 +235,8 @@ class Hooks implements
 				return false;
 			}
 		// If we somehow get a page that isn't a valid Bucket name, it will throw a schema exception.
-		} catch ( SchemaException $e ) {
-			$status->warning( $e->getWfMessage() );
+		} catch ( BucketException $e ) {
+			$status->warning( $e->getMessage() );
 			return true;
 		}
 	}
@@ -253,7 +253,7 @@ class Hooks implements
 		try {
 			BucketDatabase::deleteTable( $page->getDBkey() );
 		// If we somehow get a page that isn't a valid Bucket name, it will throw a schema exception.
-		} catch ( SchemaException $e ) {
+		} catch ( BucketException $e ) {
 			return;
 		}
 	}

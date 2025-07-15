@@ -53,7 +53,7 @@ class LuaLibrary extends LibraryBase {
 			$data = self::convertFromLuaTable( $data );
 			$rows = Bucket::runSelect( $data );
 			return [ self::convertToLuaTable( $rows ) ];
-		} catch ( QueryException $e ) {
+		} catch ( BucketException $e ) {
 			return [ 'error' => $e->getMessage() ];
 		} catch ( DBQueryTimeoutError $e ) {
 			return [ 'error' => wfMessage( 'bucket-query-long-execution-time' )->text() ];
