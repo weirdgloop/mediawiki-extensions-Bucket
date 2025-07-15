@@ -2,9 +2,13 @@
 
 namespace MediaWiki\Extension\Bucket;
 
+use InvalidArgumentException;
+use MediaWiki\Extension\Bucket\Expression\MemberOfExpression;
+use MediaWiki\Extension\Bucket\Expression\NotExpression;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Title\Title;
 use Wikimedia\Rdbms\IDatabase;
+use Wikimedia\Rdbms\IExpression;
 use Wikimedia\Rdbms\SelectQueryBuilder;
 
 /**
@@ -120,8 +124,9 @@ class BucketQuery {
 		}
 
 		// Parse wheres
-		$where = $this->parseWhere( $data['wheres'] );
-		$this->where = $where;
+		if ( count( $data['wheres']['operands'] ) > 0 ) {
+			$this->where = $this->parseWhere( $data['wheres'] );
+		}
 
 		// Parse other options
 		if ( isset( $data['limit'] ) && is_int( $data['limit'] ) && $data['limit'] > 0 ) {
@@ -188,12 +193,20 @@ class BucketQuery {
 		return $this->schemas;
 	}
 
-	private function getWhereSQL(): string|array {
-		$wheres = $this->where->getWhereSQL();
-		if ( $wheres == '' ) {
-			return []; // Select query builder doesn't like an empty string or null.
+	private function getWhereSQL( IDatabase $dbw ): IExpression|array {
+		if ( isset( $this->where ) ) {
+			try {
+				$wheres = $this->where->getWhereSQL( $dbw );
+				return $wheres;
+			} catch ( InvalidArgumentException $e ) {
+				// The rdbms query builder throws InvalidArgumentException for input it doesn't like.
+				// We shouldn't be passing anything that it doesn't like, but better to catch here
+				// so we can turn it into a non fatal BucketException
+				throw new BucketException( $e->getMessage() );
+			}
+		} else {
+			return [];
 		}
-		return $wheres;
 	}
 
 	public function getSelectQueryBuilder(): SelectQueryBuilder {
@@ -214,7 +227,7 @@ class BucketQuery {
 			}
 		}
 
-		$builder->where( $this->getWhereSQL() );
+		$builder->where( $this->getWhereSQL( $dbw ) );
 		$builder->option( 'LIMIT', $this->limit );
 		$builder->option( 'OFFSET', $this->offset );
 
@@ -249,14 +262,18 @@ class BucketQuery {
 		if ( is_array( $condition ) && isset( $condition[0] ) && isset( $condition[1] ) && isset( $condition[2] ) ) {
 			$selector = new FieldSelector( $condition[0], $this );
 			$op = new Operator( $condition[1] );
-			$value = new Value( $condition[2] );
+			if ( $condition[2] == '&&NULL&&' ) { // Lua cannot store nil, so we convert the null string into real null value.
+				$value = new Value( null );
+			} else {
+				$value = new Value( $condition[2] );
+			}
 			return new ComparisonConditionNode( $selector, $op, $value );
 		}
 		if ( is_string( $condition ) && self::isCategory( $condition ) || ( is_array( $condition ) && self::isCategory( $condition[0] ) ) ) {
 			$selector = new CategorySelector( $condition, $this );
 			$this->addCategoryJoin( $condition );
 			$op = new Operator( '!=' );
-			$value = new Value( '&&NULL&&' );
+			$value = new Value( null );
 			return new ComparisonConditionNode( $selector, $op, $value );
 		}
 		throw new QueryException( wfMessage( 'bucket-query-where-confused', json_encode( $condition ) ) );
@@ -348,23 +365,18 @@ class CategoryJoin extends Join {
 abstract class QueryNode {
 	protected array $children;
 
-	/**
-	 * @return QueryNode[]
-	 */
-	function getChildren(): array {
-		return $this->children;
-	}
-
-	abstract function getWhereSQL(): string;
+	abstract function getWhereSQL( IDatabase $dbw ): IExpression;
 }
 
 class NotNode extends QueryNode {
+	private QueryNode $child;
+
 	function __construct( QueryNode $child ) {
-		$this->children = [ $child ];
+		$this->child = $child;
 	}
 
-	function getWhereSQL(): string {
-		return "(NOT ({$this->children[0]->getWhereSQL()}))";
+	function getWhereSQL( IDatabase $dbw ): IExpression {
+		return new NotExpression( $this->child->getWhereSQL( $dbw ) );
 	}
 }
 
@@ -376,11 +388,11 @@ class OrNode extends QueryNode {
 		$this->children = $children;
 	}
 
-	function getWhereSQL(): string {
-		$childSQLs = array_map( static function ( QueryNode $child ) {
-			return $child->getWhereSQL();
+	function getWhereSQL( IDatabase $dbw ): IExpression {
+		$childSQLs = array_map( static function ( QueryNode $child ) use ( $dbw ) {
+			return $child->getWhereSQL( $dbw );
 		}, $this->children );
-		return BucketDatabase::getDB()->makeList( $childSQLs, IDatabase::LIST_OR );
+		return $dbw->orExpr( $childSQLs );
 	}
 }
 
@@ -392,11 +404,11 @@ class AndNode extends QueryNode {
 		$this->children = $children;
 	}
 
-	function getWhereSQL(): string {
-		$childSQLs = array_map( static function ( QueryNode $child ) {
-			return $child->getWhereSQL();
+	function getWhereSQL( IDatabase $dbw ): IExpression {
+		$childSQLs = array_map( static function ( QueryNode $child ) use ( $dbw ) {
+			return $child->getWhereSQL( $dbw );
 		}, $this->children );
-		return BucketDatabase::getDB()->makeList( $childSQLs, IDatabase::LIST_AND );
+		return $dbw->andExpr( $childSQLs );
 	}
 }
 
@@ -406,58 +418,38 @@ class ComparisonConditionNode extends QueryNode {
 	private Value $value;
 
 	function __construct( Selector $selector, Operator $operator, Value $value ) {
-		$this->children = [];
 		$this->selector = $selector;
 		$this->operator = $operator;
 		$this->value = $value;
 	}
 
-	function getSelector(): Selector {
-		return $this->selector;
-	}
-
-	function getWhereSQL(): string {
+	function getWhereSQL( IDatabase $dbw ): IExpression {
 		$dbw = BucketDatabase::getDB();
 		$selector = $this->selector;
-		$fieldName = $selector->getSafe( $dbw );
+		$fieldName = $selector->getUnsafe( $dbw );
 		$op = $this->operator->getOperator();
-		$value = $this->value->getSafe( $dbw );
+		$value = $this->value->getValue();
 
-		if ( $selector instanceof CategorySelector ) {
-			return "({$selector->getSafe($dbw)} IS NOT NULL)";
-		} elseif ( $selector instanceof FieldSelector ) {
-			if ( $this->value->getValue() == '&&NULL&&' ) {
-				if ( $op == '!=' ) {
-					return "($fieldName IS NOT NULL)";
-				}
-				return "($fieldName IS NULL)";
-			} elseif ( $selector->getFieldSchema()->getRepeated() == true ) {
-				if ( $op == '=' ) {
-					return "$value MEMBER OF($fieldName)";
-				}
-				if ( $op == '!=' ) {
-					return "NOT $value MEMBER OF($fieldName)";
-				}
-				throw new QueryException( wfMessage( 'bucket-query-where-repeated-unsupported', $op, $fieldName ) );
-			} else {
-				if ( in_array( $op, [ '>', '>=', '<', '<=' ] ) ) {
-					return $dbw->buildComparison( $op, [ $fieldName => $this->value->getValue() ] ); // Intentionally get the unquoted value, buildComparison quotes it.
-				} elseif ( $op == '=' ) {
-					return $dbw->makeList( [ $fieldName => $this->value->getValue() ], IDatabase::LIST_AND ); // Intentionally get the unquoted value, makeList quotes it.
-				} elseif ( $op == '!=' ) {
-					return "($fieldName $op $value)";
-				}
+		if (
+			$selector instanceof FieldSelector
+			&& $value !== null // Null check is the same for repeated and non repeated fields
+			&& $selector->getFieldSchema()->getRepeated() == true
+		) {
+			if ( $op === '=' || $op === '!=' ) {
+				return new MemberOfExpression( $fieldName, $op, $value );
 			}
+			throw new QueryException( wfMessage( 'bucket-query-where-repeated-unsupported', $op, $fieldName ) );
+		} else {
+			return $dbw->expr( $selector->getUnsafe(), $op, $value );
 		}
 		throw new QueryException( wfMessage( 'bucket-query-where-confused', json_encode( $this ) ) );
 	}
 }
 
-class JoinCondition {
-}
-
 abstract class Selector {
 	abstract function getSafe( IDatabase $dbw ): string;
+
+	abstract function getUnsafe(): string;
 
 	abstract function getSelectSQL( IDatabase $dbw ): string;
 }
@@ -492,6 +484,10 @@ class FieldSelector extends Selector {
 		return $dbw->addIdentifierQuotes( BucketDatabase::getBucketTableName( $this->schema->getName() ) ) . '.' . $dbw->addIdentifierQuotes( $this->schemaField->getFieldName() );
 	}
 
+	function getUnsafe(): string {
+		return BucketDatabase::getBucketTableName( $this->schema->getName() ) . '.' . $this->schemaField->getFieldName();
+	}
+
 	function getSelectSQL( IDatabase $dbw ): string {
 		return $this->getSafe( $dbw );
 	}
@@ -521,8 +517,12 @@ class CategorySelector extends Selector {
 		return $dbw->addIdentifierQuotes( $this->query->getCategoryAlias( $this->categoryName ) ) . '.cl_to';
 	}
 
+	function getUnsafe(): string {
+		return $this->query->getCategoryAlias( $this->categoryName ) . '.cl_to';
+	}
+
 	function getSelectSQL( IDatabase $dbw ): string {
-		return "{$this->getSafe($dbw)} IS NOT NULL";
+		return $dbw->expr( $this->getUnsafe( $dbw ), '!=', null )->toSql( $dbw );
 	}
 }
 
@@ -554,7 +554,7 @@ class Value {
 	private $value;
 
 	function __construct( $value ) {
-		if ( !is_scalar( $value ) ) {
+		if ( $value != null && !is_scalar( $value ) ) {
 			throw new QueryException( wfMessage( 'bucket-query-non-scalar' ) );
 		}
 		$this->value = $value;
@@ -562,9 +562,5 @@ class Value {
 
 	function getValue() {
 		return $this->value;
-	}
-
-	function getSafe( IDatabase $dbw ) {
-		return $dbw->addQuotes( $this->value );
 	}
 }
