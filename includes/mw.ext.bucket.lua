@@ -151,6 +151,11 @@ end
 
 --bucketName is the string of a bucket to join, with fieldOne == fieldTwo being the join condition.
 function QueryBuilder:join(bucketName, fieldOne, fieldTwo)
+    if bucketName == nil or type(bucketName) ~= string
+    or fieldOne == nil or type(fieldOne) ~= string
+    or fieldTwo == nil or type(fieldTwo) ~= string then
+        printError('bucket-query-join-syntax', 4)
+    end
     assertPossibleField(bucketName)
     assertPossibleField(fieldOne)
     assertPossibleField(fieldTwo)

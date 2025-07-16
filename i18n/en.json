@@ -70,6 +70,7 @@
     "bucket-query-select-duplicate-join": "Bucket $1 is already used in bucket.join() and cannot be used again",
     "bucket-query-invalid-join": "Invalid bucket.join() condition: $1",
     "bucket-query-invalid-join-two-repeated": "Cannot use bucket.join() on two repeated fields: $1, $2",
+    "bucket-query-join-syntax": "Invalid syntax for bucket.join()",
     "bucket-query-non-scalar": "Invalid value in where statement. All values must be scalars",
     "bucket-query-order-by-must-select": "orderBy() field must also be present in select(). Found $1",
     "bucket-query-order-by-direction": "orderBy() direction must be ASC or DESC. Found: $1",
