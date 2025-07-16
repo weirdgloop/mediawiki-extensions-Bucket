@@ -25,7 +25,7 @@ class BucketPageHelper {
 		return $api->getResult()->getResultData();
 	}
 
-	public static function formatValue( $value, $dataType, $repeated ) {
+	private static function formatValue( mixed $value, string $dataType, bool $repeated ): string {
 		if ( $repeated ) {
 			if ( !is_array( $value ) ) {
 				$json = json_decode( $value );
@@ -42,7 +42,7 @@ class BucketPageHelper {
 			return implode( '', $returns );
 		}
 		if ( $dataType == 'PAGE' && strlen( $value ) > 0 ) {
-			return "[[$value]]";
+			return '[[:' . wfEscapeWikiText( $value ) . ']]';
 		}
 		if ( $dataType == 'TEXT' ) {
 			return wfEscapeWikiText( $value );
