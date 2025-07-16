@@ -7,13 +7,13 @@
     background-color: unset;
 }
 
-#mw-content-text > .mw-json > tbody {
+#mw-content-text > .noresize > .mw-json > tbody {
     display: flex;
     flex-direction: row;
     flex-wrap: wrap;
 }
 
-#mw-content-text > .mw-json > tbody > tr > th {
+#mw-content-text > .noresize > .mw-json > tbody > tr > th {
     display: table-caption;
 }
 
