@@ -151,9 +151,9 @@ end
 
 --bucketName is the string of a bucket to join, with fieldOne == fieldTwo being the join condition.
 function QueryBuilder:join(bucketName, fieldOne, fieldTwo)
-    if bucketName == nil or type(bucketName) ~= string
-    or fieldOne == nil or type(fieldOne) ~= string
-    or fieldTwo == nil or type(fieldTwo) ~= string then
+    if bucketName == nil or type(bucketName) ~= 'string'
+    or fieldOne == nil or type(fieldOne) ~= 'string'
+    or fieldTwo == nil or type(fieldTwo) ~= 'string' then
         printError('bucket-query-join-syntax', 4)
     end
     assertPossibleField(bucketName)
@@ -283,7 +283,7 @@ end
 
 -- This is equivalent to Bucket.php field name validation, but is kept in lua for performance.
 function isPossibleField(fieldName)
-    if fieldName and type(fieldName) == 'string' 
+    if fieldName ~= nil and type(fieldName) == 'string' 
         and not string.match(fieldName, '^_')
         and string.match(fieldName, '^[a-zA-Z0-9_.]+$') then
         return true
