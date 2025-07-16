@@ -35,6 +35,8 @@ function QueryBuilder:new(bucketName)
         joins = {},
         orderBy = nil,
         subversion = "",
+        limit = nil,
+        offset = nil,
         debug = false
     }
     setmetatable(queryBuilder, self)
@@ -176,16 +178,16 @@ function QueryBuilder:join(bucketName, fieldOne, fieldTwo)
 end
 
 function QueryBuilder:limit(arg)
-    if type(arg) ~= "number" then
-        printError('bucket-query-must-be-type', 4, 'limit()', 'number')
+    if arg ~= nil and type(arg) ~= "number" then
+        printError('bucket-query-must-be-type', 4, 'limit()', 'number or nil', type(arg))
     end
     self.limit = arg
     return self
 end
 
 function QueryBuilder:offset(arg)
-    if type(arg) ~= "number" then
-        printError('bucket-query-must-be-type', 4, 'offset()', 'number')
+    if arg ~= nil and type(arg) ~= "number" then
+        printError('bucket-query-must-be-type', 4, 'offset()', 'number or nil', type(arg))
     end
     self.offset = arg
     return self
@@ -226,8 +228,8 @@ function QueryBuilder:run()
 end
 
 function QueryBuilder:sub(identifier)
-    if type(identifier) ~= 'string' and type(identifier) ~= 'number' then
-        printError('bucket-query-must-be-type', 4, 'sub()', 'string')
+    if identifier ~= nil and type(identifier) ~= 'string' and type(identifier) ~= 'number' then
+        printError('bucket-query-must-be-type', 4, 'sub()', 'string or nil', type(identifier))
     end
     self.subversion = identifier
     return self
