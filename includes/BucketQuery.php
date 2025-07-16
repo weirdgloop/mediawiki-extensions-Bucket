@@ -270,6 +270,9 @@ class BucketQuery {
 			return new ComparisonConditionNode( $selector, $op, $value );
 		}
 		if ( is_string( $condition ) && self::isCategory( $condition ) || ( is_array( $condition ) && self::isCategory( $condition[0] ) ) ) {
+			if ( is_array( $condition ) ) {
+				$condition = $condition[0];
+			}
 			$selector = new CategorySelector( $condition, $this );
 			$this->addCategoryJoin( $condition );
 			$op = new Operator( '!=' );
