@@ -20,24 +20,24 @@ class SetupDBPermission extends Maintenance {
 		$this->requireExtension( 'Bucket' );
 		$this->addDescription( 'Sets up the required permissions for a Bucket database user.' );
 		$this->addOption( 'bucket_user', 'The database user name to grant permissions to. Defaults to $wgBucketDBuser.', false, true );
-		$this->addOption( 'bucket_server', 'The database hostname. Defaults to $wgBucketDBserver.', false, true );
+		$this->addOption( 'bucket_hostname', 'The database hostname. Defaults to $wgBucketDBhostname.', false, true );
 		$this->addOption( 'dry-run', 'Only print the commands without executing them.', false, false );
 	}
 
 	public function execute() {
 		$config = MediaWikiServices::getInstance()->getMainConfig();
 		$bucketDBuser = $this->getOption( 'bucket_user', $config->get( 'BucketDBuser' ) );
-		$bucketDBserver = $this->getOption( 'bucket_server', $config->get( 'BucketDBserver' ) );
+		$bucketDBhostname = $this->getOption( 'bucket_hostname', $config->get( 'BucketDBhostname' ) );
 
 		if ( $bucketDBuser == null ) {
-			$this->output( "Cannot find a Bucket username.\nThis script is only required to be run when using a non-default Bucket user.\nEither pass --bucket_user or set \$wgBucketDBuser.\n" );
+			$this->output( "Cannot find a Bucket username.\nEither pass --bucket_user or set \$wgBucketDBuser.\n" );
 			return false;
 		}
 		$dbw = $this->getDB( DB_PRIMARY );
-		$fullUserName = "$bucketDBuser@'$bucketDBserver'";
+		$fullUserName = "$bucketDBuser@'$bucketDBhostname'";
 
 		// Check if user actually exists
-		$res = $dbw->query( "SELECT EXISTS(SELECT 1 from mysql.user WHERE user = '$bucketDBuser' AND host = '$bucketDBserver')" );
+		$res = $dbw->query( "SELECT EXISTS(SELECT 1 from mysql.user WHERE user = '$bucketDBuser' AND host = '$bucketDBhostname')" );
 		if ( $res->fetchRow()[0] == 1 ) {
 			print( "User $fullUserName exists.\n" );
 		} else {
