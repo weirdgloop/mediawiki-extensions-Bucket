@@ -183,42 +183,41 @@ class BucketDatabase {
 		foreach ( $bucketSchema->getFields() as $fieldName => $field ) {
 			$escapedFieldName = $dbw->addIdentifierQuotes( $fieldName );
 			$fieldJson = $dbw->addQuotes( json_encode( $field ) );
+			$newDbType = $field->getDatabaseValueType()->value;
+			$newColumn = true;
 			if ( isset( $oldFields[$fieldName] ) ) {
 				$oldDbType = $oldFields[$fieldName]->getDatabaseValueType()->value;
+				$newColumn = false;
 			}
+			$typeChange = ( $oldDbType !== $newDbType );
 			$after = '';
 			if ( isset( $previousColumn ) ) {
 				$after = " AFTER {$dbw->addIdentifierQuotes($previousColumn)}";
 			}
-			$newDbType = $field->getDatabaseValueType()->value;
-			# Handle new fields
-			if ( !isset( $oldFields[$fieldName] ) ) {
-				$alterTableFragments[] = "ADD $escapedFieldName " . $newDbType . " COMMENT $fieldJson" . $after;
-				if ( $field->getIndexed() ) {
-					$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $field, $dbw );
-				}
-			# Handle type changes, including add/drop index
-			} elseif ( $oldDbType !== $newDbType ) {
+
+			if ( !$newColumn ) {
+				# If the old schema has an index, check if it needs to be dropped
 				if ( $oldFields[$fieldName]->getIndexed() ) {
-					$alterTableFragments[] = "DROP INDEX $escapedFieldName";
+					if ( $typeChange || $field->getIndexed() === false ) {
+						$alterTableFragments[] = "DROP INDEX $escapedFieldName";
+					}
 				}
-				$alterTableFragments[] = "DROP $escapedFieldName"; # Always drop and then re-add the column for field type changes.
+				# Always drop and then re-add the column for field type changes.
+				if ( $typeChange ) {
+					$alterTableFragments[] = "DROP $escapedFieldName";
+				}
+			}
+
+			if ( $newColumn || $typeChange ) {
 				$alterTableFragments[] = "ADD $escapedFieldName " . $newDbType . " COMMENT $fieldJson" . $after;
 				if ( $field->getIndexed() ) {
 					$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $field, $dbw );
 				}
-			# Handle adding index without type change
-			} elseif ( ( $oldFields[$fieldName]->getIndexed() === false && $field->getIndexed() === true ) ) {
-				$alterTableFragments[] = "MODIFY $escapedFieldName " . $newDbType . " COMMENT $fieldJson"; // Acts as a no-op except to set the comment
-				$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $field, $dbw );
-			# Handle removing index
-			} elseif ( ( $oldFields[$fieldName]->getIndexed() === true && $field->getIndexed() === false ) ) {
-				$alterTableFragments[] = "MODIFY $escapedFieldName " . $newDbType . " COMMENT $fieldJson"; // Acts as a no-op except to set the comment
-				$alterTableFragments[] = "DROP INDEX $escapedFieldName";
-			# Handle changing between types that don't actually change the DB type
-			} elseif ( ( $oldFields[$fieldName]->getType() != $field->getType() ) ) {
-				$alterTableFragments[] = "MODIFY $escapedFieldName " . $newDbType . " COMMENT $fieldJson"; // Acts as a no-op except to set the comment
+			} else {
+				# Acts as a no-op except to update the comment and column position.
+				$alterTableFragments[] = "MODIFY $escapedFieldName " . $newDbType . " COMMENT $fieldJson" . $after;
 			}
+
 			unset( $oldFields[$fieldName] );
 			$previousColumn = $fieldName;
 		}
