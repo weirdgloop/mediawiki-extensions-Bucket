@@ -2,6 +2,7 @@
 
 namespace MediaWiki\Extension\Bucket;
 
+use ArrayObject;
 use MediaWiki\Config\ConfigException;
 use MediaWiki\MediaWikiServices;
 use Wikimedia\Rdbms\IDatabase;
@@ -178,8 +179,11 @@ class BucketDatabase {
 		$alterTableFragments = [];
 
 		$oldFields = $oldSchema->getFields();
+		// Used to iterate over the oldFields at the same time as iterating over the new fields
+		$oldFieldsIterator = ( new ArrayObject( $oldFields ) )->getIterator();
 
 		$previousColumn = null;
+		$oldPreviousColumn = null;
 		foreach ( $bucketSchema->getFields() as $fieldName => $field ) {
 			$escapedFieldName = $dbw->addIdentifierQuotes( $fieldName );
 			$fieldJson = $dbw->addQuotes( json_encode( $field ) );
@@ -214,12 +218,17 @@ class BucketDatabase {
 					$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $field, $dbw );
 				}
 			} else {
-				# Acts as a no-op except to update the comment and column position.
-				$alterTableFragments[] = "MODIFY $escapedFieldName " . $newDbType . " COMMENT $fieldJson" . $after;
+				// If an existing column has the same DB type, check for moved position or a change between TEXT/PAGE
+				if ( $previousColumn !== $oldPreviousColumn || $oldFields[$fieldName]->getType() !== $field->getType() ) {
+					# Acts as a no-op except to update the comment and column position.
+					$alterTableFragments[] = "MODIFY $escapedFieldName " . $newDbType . " COMMENT $fieldJson" . $after;
+				}
 			}
 
-			unset( $oldFields[$fieldName] );
+			$oldPreviousColumn = $oldFieldsIterator->key();
+			$oldFieldsIterator->next();
 			$previousColumn = $fieldName;
+			unset( $oldFields[$fieldName] );
 		}
 		// Drop unused columns
 		foreach ( $oldFields as $deletedColumn => $val ) {
@@ -271,8 +280,7 @@ class BucketDatabase {
 		switch ( $field->getDatabaseValueType() ) {
 			case ValueType::Json:
 				// Typecasting for repeated fields doesn't give us any advantage
-				// return "INDEX $fieldName((CAST($fieldName AS CHAR(512) ARRAY)))"; //TODO Figure out if this larger index is needed or good
-				return "INDEX $fieldName((CAST($fieldName AS CHAR(255) ARRAY)))";
+				return "INDEX $fieldName((CAST($fieldName AS CHAR(512) ARRAY)))";
 			case ValueType::Text:
 			case ValueType::Page:
 				return "INDEX $fieldName($fieldName(255))";
