@@ -137,7 +137,7 @@ function standardizeWhere(...)
                 val = val[1]
             end
             if not isCategory(val) then
-                printError('bucket-schema-invalid-field-name', 5, val or '')
+                printError('bucket-query-where-confused', 5, val or '')
             end
             return val
         end
