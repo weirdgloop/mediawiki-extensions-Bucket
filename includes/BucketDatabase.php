@@ -265,14 +265,12 @@ class BucketDatabase {
 		$bucketName = Bucket::getValidBucketName( $bucketName );
 		$tableName = self::getBucketTableName( $bucketName );
 
-		if ( Bucket::countPagesUsingBucket( $bucketName ) > 0 ) {
-			$dbw->newDeleteQueryBuilder()
-				->table( 'bucket_schemas' )
-				->where( [ 'bucket_name' => $bucketName ] )
-				->caller( __METHOD__ )
-				->execute();
-			$dbw->query( "DROP TABLE IF EXISTS $tableName" );
-		}
+		$dbw->newDeleteQueryBuilder()
+			->table( 'bucket_schemas' )
+			->where( [ 'bucket_name' => $bucketName ] )
+			->caller( __METHOD__ )
+			->execute();
+		$dbw->query( "DROP TABLE IF EXISTS $tableName" );
 	}
 
 	private static function getIndexStatement( BucketSchemaField $field, IDatabase $dbw ): string {
