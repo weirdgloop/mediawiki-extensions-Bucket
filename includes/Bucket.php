@@ -9,6 +9,7 @@ use Wikimedia\Rdbms\IDatabase;
 class Bucket {
 	public const EXTENSION_DATA_KEY = 'bucket:puts';
 	public const MESSAGE_BUCKET = 'bucket_message';
+	public const REPEATED_CHARACTER_LIMIT = 512;
 
 	private array $logs = []; // Cannot be static because RefreshLinks job will run on multiple pages
 	private array $newPuts = [];
@@ -127,7 +128,11 @@ class Bucket {
 				$singlePut = [];
 				foreach ( $fields as $key => $_ ) {
 					$value = isset( $singleData[$key] ) ? $singleData[$key] : null;
-					$singlePut[$dbw->addIdentifierQuotes( $key )] = $bucketSchema->getField( $key )->castValueForDatabase( $value );
+					try {
+						$singlePut[$dbw->addIdentifierQuotes( $key )] = $bucketSchema->getField( $key )->castValueForDatabase( $value );
+					} catch ( BucketException $e ) {
+						self::logMessage( $bucketName, $key, 'bucket-general-error', wfMessage( $e->getMessage(), self::REPEATED_CHARACTER_LIMIT ) );
+					}
 				}
 				$singlePut[$dbw->addIdentifierQuotes( '_page_id' )] = $pageId;
 				$singlePut[$dbw->addIdentifierQuotes( '_index' )] = $idx;
@@ -432,14 +437,20 @@ class BucketSchemaField implements JsonSerializable {
 					if ( $value == '' ) {
 						return null;
 					} else {
-						return json_encode( [ $value ] ); // Wrap single values in an array for compatability
+						$value = [ $value ]; // Wrap single values in an array for compatability
 					}
+				}
+				$value = array_values( $value );
+				if ( count( $value ) > 0 ) {
+					foreach ( $value as $single ) {
+						// Repeated fields can only store up to 512 characters in an individual value
+						if ( is_string( $single ) && strlen( $single ) > Bucket::REPEATED_CHARACTER_LIMIT ) {
+							throw new BucketException( 'bucket-put-repeated-too-long' );
+						}
+					}
+					return json_encode( $value );
 				} else {
-					if ( count( $value ) > 0 ) {
-						return json_encode( LuaLibrary::convertFromLuaTable( $value ) );
-					} else {
-						return null;
-					}
+					return null;
 				}
 		}
 		return null;
