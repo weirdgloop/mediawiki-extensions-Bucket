@@ -199,7 +199,7 @@ class BucketDatabase {
 				$after = " AFTER {$dbw->addIdentifierQuotes($previousColumn)}";
 			}
 
-			if ( !$newColumn ) {
+			if ( $newColumn === false ) {
 				# If the old schema has an index, check if it needs to be dropped
 				if ( $oldFields[$fieldName]->getIndexed() ) {
 					if ( $typeChange || $field->getIndexed() === false ) {
@@ -214,14 +214,16 @@ class BucketDatabase {
 
 			if ( $newColumn || $typeChange ) {
 				$alterTableFragments[] = "ADD $escapedFieldName " . $newDbType . " COMMENT $fieldJson" . $after;
-				if ( $field->getIndexed() ) {
-					$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $field, $dbw );
-				}
 			} else {
 				// If an existing column has the same DB type, check for moved position or a change between TEXT/PAGE
 				if ( $previousColumn !== $oldPreviousColumn || $oldFields[$fieldName]->getType() !== $field->getType() ) {
 					# Acts as a no-op except to update the comment and column position.
 					$alterTableFragments[] = "MODIFY $escapedFieldName " . $newDbType . " COMMENT $fieldJson" . $after;
+				}
+			}
+			if ( $field->getIndexed() ) {
+				if ( $newColumn || $typeChange || $oldFields[$fieldName]->getIndexed() === false ) {
+					$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $field, $dbw );
 				}
 			}
 
