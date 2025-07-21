@@ -12,7 +12,6 @@ class LuaLibrary extends LibraryBase {
 	public function register() {
 		$lib = [
 			'put' => [ $this, 'bucketPut' ],
-			'get' => [ $this, 'bucketGet' ],
 			'run' => [ $this, 'bucketRun' ],
 		];
 		return $this->getEngine()->registerInterface( __DIR__ . '/mw.ext.bucket.lua', $lib, [] );
