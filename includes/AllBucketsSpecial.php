@@ -2,9 +2,7 @@
 
 namespace MediaWiki\Extension\Bucket;
 
-use MediaWiki\MediaWikiServices;
 use MediaWiki\SpecialPage\SpecialPage;
-use MediaWiki\Title\TitleValue;
 
 class AllBucketsSpecial extends SpecialPage {
 	public function __construct() {
@@ -24,13 +22,14 @@ class AllBucketsSpecial extends SpecialPage {
 			->caller( __METHOD__ )
 			->fetchResultSet();
 
-		$out->addHTML( '<table class="wikitable">' );
-		$out->addHTML( '<tr><th>' . wfMessage( 'allbuckets-heading' )->parse() . '</th></tr>' );
-		$linkRenderer = MediaWikiServices::getInstance()->getLinkRenderer();
+		$list = [];
+		$list[] = '{|class="wikitable"';
+		$list[] = '!' . wfMessage( 'allbuckets-heading' )->parse();
 		foreach ( $res as $row ) {
-			$out->addHTML( '<tr><td>' . $linkRenderer->makePreloadedLink( new TitleValue( NS_BUCKET, $row->bucket_name ) ) . '</td></tr>' );
+			$list[] = "|-\n|[[Bucket:$row->bucket_name]]";
 		}
-		$out->addHTML( '</table>' );
+		$list[] = '|} ';
+		$out->addWikiTextAsContent( implode( "\n", $list ) );
 	}
 
 	function getGroupName() {
