@@ -117,7 +117,7 @@ class Hooks implements
 		}
 		$jsonSchema = $content->getData()->value;
 		$title = $page->getDBkey();
-		$isExistingPage = $revRecord->getParentId() > 0;
+		$isExistingPage = $revRecord->getParentId() !== null;
 		BucketDatabase::createOrModifyTable( $title, $jsonSchema, $isExistingPage );
 	}
 
@@ -144,7 +144,7 @@ class Hooks implements
 		}
 		$jsonSchema = $content->getData()->value;
 		$title = $page->getDBkey();
-		$isExistingPage = $revRecord->getParentId() > 0;
+		$isExistingPage = $revRecord->getParentId() !== null;
 		try {
 			BucketDatabase::createOrModifyTable( $title, $jsonSchema, $isExistingPage );
 		} catch ( BucketException $e ) {
