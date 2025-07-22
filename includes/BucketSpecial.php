@@ -151,11 +151,13 @@ class BucketSpecial extends SpecialPage {
 			$queryResult = $fullResult['bucket'];
 		}
 
+		$out->addHTML( '<h2>'  . $out->msg( 'bucket-view-result' ) .'</h2>' );
+
 		$resultCount = count( $fullResult['bucket'] );
 		$endResult = $offset + $resultCount;
-		$out->addHTML( wfMessage( 'bucket-page-result-counter', $resultCount, $offset, $endResult ) . '<br>' );
+		$out->addHTML( wfMessage( 'showingresultsinrange', $resultCount, $offset, $endResult ) . '<br>' );
 
-		$pageLinks = BucketPageHelper::getPageLinks( $this->getFullTitle(), $limit, $offset, $request->getQueryValues(), ( $resultCount == $limit ) );
+		$pageLinks = BucketPageHelper::getPageLinks( $out, $this->getFullTitle(), $limit, $offset, $request->getQueryValues(), ( $resultCount == $limit ) );
 
 		$out->addHTML( $pageLinks );
 		$out->addWikiTextAsContent( BucketPageHelper::getResultTable( $schemas[$bucketName], $fullResult['fields'], $queryResult ) );

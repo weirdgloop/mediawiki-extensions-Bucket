@@ -21,6 +21,7 @@ class BucketPage extends Article {
 		$out->addModuleStyles( 'ext.bucket.bucketpage.css' );
 		$title = $this->getTitle();
 		$out->setPageTitle( $title );
+		// $out->addHelpLink( 'https://meta.runescape.wiki/w/User:Cook_Me_Plox/Bucket', true );
 
 		$dbw = BucketDatabase::getDB();
 		$linkRenderer = MediaWikiServices::getInstance()->getLinkRenderer();
@@ -67,19 +68,19 @@ class BucketPage extends Article {
 			->select( 'COUNT(*)' )
 			->from( BucketDatabase::getBucketTableName( $bucketName ) )
 			->fetchField();
-		$out->addWikiTextAsContent( 'Bucket entries: ' . $maxCount );
-
-		$out->addWikiMsg( 'bucket-page-result-counter', $resultCount, $offset, $endResult );
 
 		$specialQueryValues = $context->getRequest()->getQueryValues();
 		unset( $specialQueryValues['action'] );
 		unset( $specialQueryValues['title'] );
 		$specialQueryValues['bucket'] = $bucketName;
-		$out->addHTML( ' ' );
-		$out->addHTML( $linkRenderer->makeKnownLink( new TitleValue( NS_SPECIAL, 'Bucket' ), wfMessage( 'bucket-page-dive-into' ), [], $specialQueryValues ) );
-		$out->addHTML( '<br>' );
 
-		$pageLinks = BucketPageHelper::getPageLinks( $title, $limit, $offset, $context->getRequest()->getQueryValues(), ( $resultCount == $limit ) );
+		$out->addHTML( $linkRenderer->makeKnownLink( new TitleValue( NS_SPECIAL, 'Bucket' ), wfMessage( 'bucket-page-dive-into' ), [], $specialQueryValues ) );
+
+		$out->addHTML( '<h2>'  . $out->msg( 'bucket-view' ) .'</h2>' );
+
+		$out->addWikiMsg( 'bucket-showingresultsinrange-total', $resultCount, $offset, $endResult, $maxCount );
+
+		$pageLinks = BucketPageHelper::getPageLinks( $out, $title, $limit, $offset, $context->getRequest()->getQueryValues(), ( $resultCount == $limit ) );
 
 		$out->addHTML( $pageLinks );
 		$out->addWikiTextAsContent( BucketPageHelper::getResultTable( $schemas[$bucketName], $fullResult['fields'], $queryResult ) );

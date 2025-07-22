@@ -1,33 +1,32 @@
 {
+    "bucket-description": "Store things",
+
     "bucket": "Bucket browse",
     "allbuckets": "All Buckets",
-    "bucket-sidebar-action": "View Bucket",
-    "bucket-description": "Store things",
+    "specialpages-group-bucket": "Bucket",
+
     "bucket-view-help-bucket-name": "The current bucket name",
     "bucket-view-help-select": "Names of fields to select, seperated by a space. Such as page_name uses_material",
     "bucket-view-help-where": "A valid lua string to be run inside bucket.where()",
     "bucket-view-help-limit": "The number of results to return per page. Maximum 500",
     "bucket-view-help-offset": "How far to offset the returned values",
     "bucket-view-submit": "Submit",
-    "bucket-previous": "Previous",
-    "bucket-previous-results": "Previous $1 results",
-    "bucket-next": "Next",
-    "bucket-next-results": "Next $1 results",
-    "specialpages-group-bucket": "Bucket",
-    "bucket-specialpage-search": "Bucket Search",
+	"bucket-view-result": "Result",
 
-    "allbuckets-heading": "Bucket",
+	"allbuckets-heading": "Bucket",
 
     "bucket-action-title": "View Bucket: $1",
-    "bucket-action-writes-empty": "No Buckets are written to from this page.",
+    "bucket-sidebar-action": "View Bucket",
+    "bucket-action-writes-empty": "No Buckets are written to from this page",
 
     "bucket-api-help-query": "Invalidates all other params. Must be a fully valid lua Bucket call",
     "bucket-api-help-bucket": "A valid Bucket name. Required if query param is not set",
     "bucket-api-help-select": "A list of fields to select, seperated by spaces",
     "bucket-api-help-where": "A lua string that goes inside of bucket.where()",
 
-    "bucket-page-result-counter": "Displaying $1 results $2 – $3",
+    "bucket-showingresultsinrange-total": "Showing below up to {{PLURAL:$1|<strong>1</strong> result|<strong>$1</strong> results}} in range #<strong>$2</strong> to #<strong>$3</strong>, from {{PLURAL:$4|<strong>1</strong> result|<strong>$4</strong> results}} in total.",
     "bucket-page-dive-into": "Dive into this Bucket",
+    "bucket-view": "Bucket view",
 
     "bucket-namespace-move-into": "Cannot move pages to the Bucket namespace",
     "bucket-namespace-move": "Cannot move Bucket pages",

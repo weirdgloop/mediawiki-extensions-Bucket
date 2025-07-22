@@ -3,6 +3,7 @@
 namespace MediaWiki\Extension\Bucket;
 
 use MediaWiki\Api\ApiMain;
+use MediaWiki\Navigation\PagerNavigationBuilder;
 use MediaWiki\Request\DerivativeRequest;
 use OOUI;
 
@@ -84,36 +85,27 @@ class BucketPageHelper {
 		return '';
 	}
 
-	public static function getPageLinks( $title, $limit, $offset, $query, $hasNext = true ) {
-		$links = [];
+	public static function getPageLinks(
+		$messageLocalizer, $title, $limit, $offset, $query, $hasNext = true
+	) {
+		$navBuilder = new PagerNavigationBuilder( $messageLocalizer );
+		$navBuilder
+			->setPage( $title )
+			->setLinkQuery( [ 'limit' => $limit, 'offset' => $offset ] + $query )
+			->setLimitLinkQueryParam( 'limit' )
+			->setCurrentLimit( $limit )
+			->setPrevTooltipMsg( 'prevn-title' )
+			->setNextTooltipMsg( 'nextn-title' )
+			->setLimitTooltipMsg( 'shown-title' );
 
-		$previousOffset = max( 0, $offset - $limit );
-		$links[] = new OOUI\ButtonWidget( [
-			'href' => $title->getLocalURL( [ 'limit' => $limit, 'offset' => max( 0, $previousOffset ) ] + $query ),
-			'title' => wfMessage( 'bucket-previous-results', $limit ),
-			'label' => wfMessage( 'bucket-previous' ) . " $limit",
-			'disabled' => ( $offset == 0 )
-		] );
-
-		foreach ( [ 20, 50, 100, 250, 500 ] as $num ) {
-			$query = [ 'limit' => $num, 'offset' => $offset ] + $query;
-			$tooltip = "Show $num results per page.";
-			$links[] = new OOUI\ButtonWidget( [
-				'href' => $title->getLocalURL( $query ),
-				'title' => $tooltip,
-				'label' => $num,
-				'active' => ( $num == $limit )
-			] );
+		if ( $offset > 0 ) {
+			$navBuilder->setPrevLinkQuery( [ 'offset' => (string)max( $offset - $limit, 0 ) ] );
+		}
+		if ( $hasNext ) {
+			$navBuilder->setNextLinkQuery( [ 'offset' => (string)( $offset + $limit ) ] );
 		}
 
-		$links[] = new OOUI\ButtonWidget( [
-			'href' => $title->getLocalURL( [ 'limit' => $limit, 'offset' => $offset + $limit ] + $query ),
-			'title' => wfMessage( 'bucket-next-results', $limit ),
-			'label' => wfMessage( 'bucket-next' ) . " $limit",
-			'disabled' => !$hasNext
-		] );
-
-		return new OOUI\ButtonGroupWidget( [ 'items' => $links ] );
+		return $navBuilder->getHtml();
 	}
 
 	/**
