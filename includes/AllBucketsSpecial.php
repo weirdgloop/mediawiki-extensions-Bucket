@@ -15,7 +15,7 @@ class AllBucketsSpecial extends SpecialPage {
 		$out = $this->getOutput();
 		$this->setHeaders();
 
-		$out->setPageTitle( wfMessage( 'bucket-specialpage-all-buckets-title' ) );
+		$out->setPageTitleMsg( wfMessage( 'allbuckets' ) );
 
 		$dbw = BucketDatabase::getDB();
 		$res = $dbw->newSelectQueryBuilder()
@@ -25,7 +25,7 @@ class AllBucketsSpecial extends SpecialPage {
 			->fetchResultSet();
 
 		$out->addHTML( '<table class="wikitable">' );
-		$out->addHTML( '<tr><th>Bucket</th></tr>' );
+		$out->addHTML( '<tr><th>' . wfMessage( 'allbuckets-heading' )->parse() . '</th></tr>' );
 		$linkRenderer = MediaWikiServices::getInstance()->getLinkRenderer();
 		foreach ( $res as $row ) {
 			$out->addHTML( '<tr><td>' . $linkRenderer->makePreloadedLink( new TitleValue( NS_BUCKET, $row->bucket_name ) ) . '</td></tr>' );

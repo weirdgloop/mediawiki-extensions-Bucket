@@ -15,8 +15,11 @@
     "bucket-next-results": "Next $1 results",
     "specialpages-group-bucket": "Bucket",
     "bucket-specialpage-search": "Bucket Search",
-    "bucket-specialpage-all-buckets-title": "All Buckets",
-    "bucket-action-writes-empty": "No Buckets are written to from this page",
+
+    "allbuckets-heading": "Bucket",
+
+    "bucket-action-title": "View Bucket: $1",
+    "bucket-action-writes-empty": "No Buckets are written to from this page.",
 
     "bucket-api-help-query": "Invalidates all other params. Must be a fully valid lua Bucket call",
     "bucket-api-help-bucket": "A valid Bucket name. Required if query param is not set",
