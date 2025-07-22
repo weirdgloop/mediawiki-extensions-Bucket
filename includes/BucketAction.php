@@ -3,6 +3,7 @@
 namespace MediaWiki\Extension\Bucket;
 
 use Action;
+use MediaWiki\Html\Html;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Title\TitleValue;
 
@@ -18,7 +19,10 @@ class BucketAction extends Action {
 		$out = $this->getOutput();
 		$title = $this->getArticle()->getTitle();
 		$pageId = $this->getArticle()->getPage()->getId();
-		$out->setPageTitle( "Bucket View: $title" );
+		$out->setPageTitleMsg( wfMessage( 'bucket-action-title', $title ) );
+		$out->addModuleStyles( [
+			'mediawiki.codex.messagebox.styles'
+		] );
 
 		$dbw = BucketDatabase::getDB();
 
@@ -35,7 +39,7 @@ class BucketAction extends Action {
 		}
 
 		if ( count( $buckets ) == 0 ) {
-			$out->addWikiTextAsContent( wfMessage( 'bucket-action-writes-empty' ) );
+			$out->addHTML( Html::noticeBox( $out->msg( 'bucket-action-writes-empty' )->parse(), '' ) );
 			return;
 		}
 
