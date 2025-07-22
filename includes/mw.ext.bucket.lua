@@ -21,6 +21,45 @@ function bucket.setupInterface( options )
     package.loaded['mw.ext.bucket'] = bucket
 end
 
+-- Return a lua error using a mediawiki message
+local function printError(msg, depth, ...)
+    error(mw.message.new(msg, ...):plain(), depth)
+end
+
+-- Validation functions
+-- We cannot definitively validate while in lua, since its always possible
+-- to modify the QueryBuilder data structures directly from untrusted lua code
+-- However this validation allows us to return meaningful error messages to users instead of waiting for .run()
+
+-- This is equivalent to Bucket.php field name validation, but is kept in lua for performance.
+local function isPossibleField(fieldName)
+    if fieldName ~= nil and type(fieldName) == 'string'
+        and not string.match(fieldName, '^_')
+        and string.match(fieldName, '^[a-zA-Z0-9_.]+$') then
+        return true
+    end
+    return false
+end
+
+local function isCategory(fieldName)
+    if fieldName ~= nil and type(fieldName) == 'string' and string.match(fieldName, '^Category:') then
+        return true
+    end
+    return false
+end
+
+local function assertPossibleField(fieldName)
+    if (not isCategory(fieldName)) and (not isPossibleField(fieldName)) then
+        printError('bucket-schema-invalid-field-name', 5, fieldName or '')
+    end
+end
+
+local function assertScalarValue(value)
+    if type(value) ~= 'string' and type(value) ~= 'number' and type(value) ~= 'boolean' then
+        printError('bucket-query-non-scalar', 6)
+    end
+end
+
 local QueryBuilder = {}
 
 function QueryBuilder:new(bucketName)
@@ -56,15 +95,10 @@ function QueryBuilder:select(...)
     return self
 end
 
-function QueryBuilder:where(...)
-    local isGood, message = pcall(mw.text.jsonEncode, {...}) -- Easy error checking, we don't use the result otherwise.
-    if isGood ~= true then
-        error("Bucket: " .. message, 3) -- We cannot use a translation string here because mw.text.jsonEncode doesn't use one
-    end
-
-    local args = standardizeWhere({...})
-    table.insert(self.wheres.operands, args)
-    return self
+local function hasOp(condition)
+    return type(condition) == "table"
+        and condition['op']
+        and ( condition['operands'] or condition['operand'] )
 end
 
 -- There are multiple accepted formats for where conditions.
@@ -74,7 +108,7 @@ end
 -- .where(a = 1, b = 2)
 -- .where("id", 100)
 -- .where("id", ">", 100)
-function standardizeWhere(...)
+local function standardizeWhere(...)
     local val = ...
 
     if hasOp(val) then
@@ -145,10 +179,15 @@ function standardizeWhere(...)
     printError('bucket-query-where-confused', 5, val or '')
 end
 
-function hasOp(condition)
-    return type(condition) == "table"
-        and condition['op']
-        and ( condition['operands'] or condition['operand'] )
+function QueryBuilder:where(...)
+    local isGood, message = pcall(mw.text.jsonEncode, {...}) -- Easy error checking, we don't use the result otherwise.
+    if isGood ~= true then
+        error("Bucket: " .. message, 3) -- We cannot use a translation string here because mw.text.jsonEncode doesn't use one
+    end
+
+    local args = standardizeWhere({...})
+    table.insert(self.wheres.operands, args)
+    return self
 end
 
 --bucketName is the string of a bucket to join, with fieldOne == fieldTwo being the join condition.
@@ -272,43 +311,5 @@ setmetatable(bucket, {
         return QueryBuilder:new(bucketName)
     end
 })
-
--- Validation functions
--- We cannot definitively validate while in lua, since its always possible 
--- to modify the QueryBuilder data structures directly from untrusted lua code
--- However this validation allows us to return meaningful error messages to users instead of waiting for .run()
-function assertPossibleField(fieldName)
-    if (not isCategory(fieldName)) and (not isPossibleField(fieldName)) then
-        printError('bucket-schema-invalid-field-name', 5, fieldName or '')
-    end
-end
-
--- This is equivalent to Bucket.php field name validation, but is kept in lua for performance.
-function isPossibleField(fieldName)
-    if fieldName ~= nil and type(fieldName) == 'string' 
-        and not string.match(fieldName, '^_')
-        and string.match(fieldName, '^[a-zA-Z0-9_.]+$') then
-        return true
-    end
-    return false
-end
-
-function isCategory(fieldName)
-    if fieldName ~= nil and type(fieldName) == 'string' and string.match(fieldName, '^Category:') then
-        return true
-    end
-    return false
-end
-
-function assertScalarValue(value)
-    if type(value) ~= 'string' and type(value) ~= 'number' and type(value) ~= 'boolean' then
-        printError('bucket-query-non-scalar', 6)
-    end
-end
-
--- Return a lua error using a mediawiki message
-function printError(msg, depth, ...)
-    error(mw.message.new(msg, ...):plain(), depth)
-end
 
 return bucket
