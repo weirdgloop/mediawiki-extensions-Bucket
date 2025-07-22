@@ -114,6 +114,9 @@
 		},
 		"BucketMaxExecutionTime": {
 			"value": 500
+		},
+		"BucketMaxPageExecutionTime": {
+			"value": 10000
 		}
 	},
 	"ConfigRegistry": {

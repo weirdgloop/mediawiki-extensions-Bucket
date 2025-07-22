@@ -81,5 +81,9 @@
     "bucket-query-long-execution-time": "Bucket query took longer than the allowed time",
     "bucket-query-must-be-type": "$1 argument must be of type $2, found type $3",
     "bucket-query-null-invalid-operator": "Only = and != are valid comparisons for bucket.Null(). Found $1",
-    "bucket-query-expected-category": "Expected Category, found $1"
+    "bucket-query-expected-category": "Expected Category, found $1",
+    "bucket-query-total-time-expired": "The time allocated for running Bucket queries has expired",
+
+    "bucket-limitreport-run-time": "Bucket time usage",
+    "bucket-limitreport-run-time-value": "$1/$2 seconds"
 }

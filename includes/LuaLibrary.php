@@ -9,6 +9,9 @@ use TypeError;
 use Wikimedia\Rdbms\DBQueryTimeoutError;
 
 class LuaLibrary extends LibraryBase {
+	private static $elapsedTime = 0;
+	private static $currentPage = null;
+
 	public function register() {
 		$lib = [
 			'put' => [ $this, 'bucketPut' ],
@@ -44,6 +47,16 @@ class LuaLibrary extends LibraryBase {
 	}
 
 	public function bucketRun( $data ): array {
+		// Reset counter when we begin parsing a different page.
+		if ( !isset( self::$currentPage ) || !$this->getParser()->getPage()->isSamePageAs( self::$currentPage ) ) {
+			self::$currentPage = $this->getParser()->getPage();
+			self::$elapsedTime = 0;
+		}
+		$startTime = hrtime( true );
+		$maxTime = MediaWikiServices::getInstance()->getMainConfig()->get( 'BucketMaxPageExecutionTime' );
+		if ( self::$elapsedTime > $maxTime ) {
+			return [ 'error' => wfMessage( 'bucket-query-total-time-expired' )->text() ];
+		}
 		try {
 			$this->linkToBucket( $data['bucketName'] );
 			foreach ( $data['joins'] as $join ) {
@@ -58,6 +71,13 @@ class LuaLibrary extends LibraryBase {
 			return [ 'error' => wfMessage( 'bucket-query-long-execution-time' )->text() ];
 		} catch ( TypeError $e ) {
 			return [ 'error' => wfMessage( 'bucket-php-type-error', $e->getMessage() )->text() ];
+		} finally {
+			self::$elapsedTime += ( ( hrtime( true ) - $startTime ) / 1000000 ); // Convert nanoseconds to milliseconds
+			$this->getParser()->getOutput()->setLimitReportData( 'bucket-limitreport-run-time', [
+					sprintf( '%.3f', self::$elapsedTime / 1000 ), // Milliseconds to seconds
+					// Strip trailing .0s
+					rtrim( rtrim( sprintf( '%.3f', $maxTime / 1000 ), '0' ), '.' )
+			] );
 		}
 	}
 
