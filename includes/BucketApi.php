@@ -28,7 +28,7 @@ class BucketApi extends ApiBase {
 			$limit = $params['limit'];
 			$offset = $params['offset'];
 
-			if ( $bucket == null ) {
+			if ( $bucket === null ) {
 				$this->getResult()->addValue( null, 'error', wfMessage( 'bucket-empty-bucket-name' ) );
 				return;
 			}
@@ -41,7 +41,7 @@ class BucketApi extends ApiBase {
 
 			// Select everything if input is *
 			$selectNames = [];
-			if ( $select == '*' || $select == '' ) {
+			if ( $select === '*' || $select === '' ) {
 				$dbw = BucketDatabase::getDB();
 				$res = $dbw->newSelectQueryBuilder()
 					->from( 'bucket_schemas' )

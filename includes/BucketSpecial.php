@@ -155,7 +155,7 @@ class BucketSpecial extends SpecialPage {
 		$endResult = $offset + $resultCount;
 		$out->addHTML( wfMessage( 'bucket-page-result-counter', $resultCount, $offset, $endResult ) . '<br>' );
 
-		$pageLinks = BucketPageHelper::getPageLinks( $this->getFullTitle(), $limit, $offset, $request->getQueryValues(), ( $resultCount == $limit ) );
+		$pageLinks = BucketPageHelper::getPageLinks( $this->getFullTitle(), $limit, $offset, $request->getQueryValues(), ( $resultCount === $limit ) );
 
 		$out->addHTML( $pageLinks );
 		$out->addWikiTextAsContent( BucketPageHelper::getResultTable( $schemas[$bucketName], $fullResult['fields'], $queryResult ) );

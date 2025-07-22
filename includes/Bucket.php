@@ -15,7 +15,7 @@ class Bucket {
 	private array $newPuts = [];
 
 	public function logMessage( string $bucket, string $property, string $type, string $message ): void {
-		if ( $bucket != '' ) {
+		if ( $bucket !== '' ) {
 			$bucket = 'Bucket:' . $bucket;
 		}
 		$this->logs[] = [
@@ -65,7 +65,7 @@ class Bucket {
 		}
 
 		foreach ( $puts as $bucketName => $bucketData ) {
-			if ( $bucketName == '' ) {
+			if ( $bucketName === '' ) {
 				self::logMessage( $bucketName, '', 'bucket-general-error', wfMessage( 'bucket-no-bucket-defined-warning' ) );
 				continue;
 			}
@@ -77,12 +77,12 @@ class Bucket {
 				continue;
 			}
 
-			if ( $bucketNameTmp != $bucketName ) {
+			if ( $bucketNameTmp !== $bucketName ) {
 				self::logMessage( $bucketName, '', 'bucket-general-warning', wfMessage( 'bucket-capital-name-warning' ) );
 			}
 			$bucketName = $bucketNameTmp;
 
-			if ( $bucketName == self::MESSAGE_BUCKET && $writingLogs == false ) {
+			if ( $bucketName === self::MESSAGE_BUCKET && $writingLogs === false ) {
 				self::logMessage( $bucketName, self::MESSAGE_BUCKET, 'bucket-general-error', wfMessage( 'bucket-cannot-write-to-system-bucket' ) );
 				continue;
 			}
@@ -116,7 +116,7 @@ class Bucket {
 			foreach ( $bucketData as $idx => $singleData ) {
 				$sub = $singleData['sub'];
 				$singleData = $singleData['data'];
-				if ( gettype( $singleData ) != 'array' ) {
+				if ( !is_array( $singleData ) ) {
 					self::logMessage( $bucketName, '', 'bucket-general-error', wfMessage( 'bucket-put-syntax-error' ) );
 					continue;
 				}
@@ -147,7 +147,7 @@ class Bucket {
 			# Check these puts against the hash of the last time we did puts.
 			sort( $tablePuts );
 			$newHash = hash( 'sha256', json_encode( $tablePuts ) . json_encode( $bucketSchema ) );
-			if ( isset( $bucket_hash[ $bucketName ] ) && $bucket_hash[ $bucketName ] == $newHash ) {
+			if ( isset( $bucket_hash[ $bucketName ] ) && $bucket_hash[ $bucketName ] === $newHash ) {
 				unset( $bucket_hash[ $bucketName ] );
 				continue;
 			}
@@ -206,8 +206,8 @@ class Bucket {
 	}
 
 	public static function getValidFieldName( ?string $fieldName ): string {
-		if ( $fieldName != null
-			&& is_numeric( $fieldName ) == false // Disallow numeric field names because the MediaWiki RDBMS treats numeric tables names as numbers in some circumstances.
+		if ( $fieldName !== null
+			&& is_numeric( $fieldName ) === false // Disallow numeric field names because the MediaWiki RDBMS treats numeric tables names as numbers in some circumstances.
 			&& substr( $fieldName, 0, 1 ) !== '_'
 			&& preg_match( '/^[a-zA-Z0-9_]+$/', $fieldName ) ) {
 			$cleanName = strtolower( trim( $fieldName ) );
@@ -220,7 +220,7 @@ class Bucket {
 	}
 
 	public static function getValidBucketName( string $bucketName ): string {
-		if ( ucfirst( $bucketName ) != ucfirst( strtolower( $bucketName ) ) ) {
+		if ( ucfirst( $bucketName ) !== ucfirst( strtolower( $bucketName ) ) ) {
 			throw new SchemaException( wfMessage( 'bucket-capital-name-error' ) );
 		}
 		try {
@@ -258,7 +258,7 @@ class Bucket {
 		while ( $dataRow = $res->fetchRow() ) {
 			$resultRow = [];
 			foreach ( $dataRow as $key => $value ) {
-				if ( is_numeric( $key ) == false ) {
+				if ( is_numeric( $key ) === false ) {
 					continue;
 				}
 				$field = $fieldNames[$key];
@@ -293,7 +293,7 @@ class BucketSchema implements JsonSerializable {
 
 	function __construct( string $bucketName, array $schema, int $timestamp = 0 ) {
 		$this->timestamp = $timestamp;
-		if ( $bucketName == '' ) {
+		if ( $bucketName === '' ) {
 			throw new QueryException( wfMessage( 'bucket-empty-bucket-name' ) );
 		}
 		$this->bucketName = $bucketName;
@@ -303,7 +303,7 @@ class BucketSchema implements JsonSerializable {
 				$this->fields[$val->getFieldName()] = $val;
 			} else {
 				// Skip the _time field, its not a real field
-				if ( $name == '_time' ) {
+				if ( $name === '_time' ) {
 					$this->timestamp = $val;
 					continue;
 				}
@@ -407,7 +407,7 @@ class BucketSchemaField implements JsonSerializable {
 			return ValueType::Json;
 		} else {
 			// Page is just stored as text in the database
-			if ( $this->getType() == ValueType::Page ) {
+			if ( $this->getType() === ValueType::Page ) {
 				return ValueType::Text;
 			}
 			return $this->getType();
@@ -415,13 +415,13 @@ class BucketSchemaField implements JsonSerializable {
 	}
 
 	public function castValueForDatabase( mixed $value ): mixed {
-		if ( $value == null ) {
+		if ( $value === null ) {
 			return null;
 		}
 		switch ( $this->getDatabaseValueType() ) {
 			case ValueType::Text:
 			case ValueType::Page:
-				if ( $value == '' ) {
+				if ( $value === '' ) {
 					return null;
 				} else {
 					return $value;
@@ -431,10 +431,10 @@ class BucketSchemaField implements JsonSerializable {
 			case ValueType::Integer:
 				return intval( $value );
 			case ValueType::Boolean:
-				return boolval( $value );
+				return (int)filter_var( $value, FILTER_VALIDATE_BOOL ); // MySQL uses 1 for true, 0 for false
 			case ValueType::Json:
 				if ( !is_array( $value ) ) {
-					if ( $value == '' ) {
+					if ( $value === '' ) {
 						return null;
 					} else {
 						$value = [ $value ]; // Wrap single values in an array for compatability
@@ -460,7 +460,7 @@ class BucketSchemaField implements JsonSerializable {
 		$type = $this->getType();
 		if ( $this->getRepeated() ) {
 			$ret = [];
-			if ( $value == null ) {
+			if ( $value === null ) {
 				$value = '';
 			}
 			$jsonData = json_decode( $value, true );

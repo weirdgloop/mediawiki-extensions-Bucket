@@ -35,19 +35,19 @@ class BucketPageHelper {
 			$returns = [];
 			foreach ( $json as $val ) {
 				$formatted_val = self::formatValue( $val, $dataType, false );
-				if ( $formatted_val != '' ) {
+				if ( $formatted_val !== '' ) {
 					$returns[] = '<li class="bucket-list">' . $formatted_val;
 				}
 			}
 			return implode( '', $returns );
 		}
-		if ( $dataType == 'PAGE' && strlen( $value ) > 0 ) {
+		if ( $dataType === 'PAGE' && strlen( $value ) > 0 ) {
 			return '[[:' . wfEscapeWikiText( $value ) . ']]';
 		}
-		if ( $dataType == 'TEXT' ) {
+		if ( $dataType === 'TEXT' ) {
 			return wfEscapeWikiText( $value );
 		}
-		if ( $dataType == 'BOOLEAN' ) {
+		if ( $dataType === 'BOOLEAN' ) {
 			if ( $value ) {
 				return 'True';
 			} else {
@@ -92,7 +92,7 @@ class BucketPageHelper {
 			'href' => $title->getLocalURL( [ 'limit' => $limit, 'offset' => max( 0, $previousOffset ) ] + $query ),
 			'title' => wfMessage( 'bucket-previous-results', $limit ),
 			'label' => wfMessage( 'bucket-previous' ) . " $limit",
-			'disabled' => ( $offset == 0 )
+			'disabled' => ( $offset === 0 )
 		] );
 
 		foreach ( [ 20, 50, 100, 250, 500 ] as $num ) {
@@ -102,7 +102,7 @@ class BucketPageHelper {
 				'href' => $title->getLocalURL( $query ),
 				'title' => $tooltip,
 				'label' => $num,
-				'active' => ( $num == $limit )
+				'active' => ( $num === $limit )
 			] );
 		}
 

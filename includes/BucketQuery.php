@@ -37,7 +37,7 @@ class BucketQuery {
 	public static function isNot( $condition ) {
 		return is_array( $condition )
 		&& isset( $condition['op'] )
-		&& $condition['op'] == 'NOT'
+		&& $condition['op'] === 'NOT'
 		&& isset( $condition['operand'] );
 	}
 
@@ -50,7 +50,7 @@ class BucketQuery {
 	}
 
 	public static function isCategory( $fieldName ): bool {
-		return substr( strtolower( trim( $fieldName ) ), 0, 9 ) == 'category:';
+		return substr( strtolower( trim( $fieldName ) ), 0, 9 ) === 'category:';
 	}
 
 	public function __construct( $data ) {
@@ -92,7 +92,7 @@ class BucketQuery {
 		$this->primarySchema = $primarySchema;
 
 		foreach ( $data['joins'] as $join ) {
-			if ( !is_array( $join['cond'] ) || !count( $join['cond'] ) == 2 ) {
+			if ( !is_array( $join['cond'] ) || !count( $join['cond'] ) === 2 ) {
 				throw new QueryException( wfMessage( 'bucket-query-invalid-join', json_encode( $join ) ) );
 			}
 			$joinTable = $join['bucketName'];
@@ -156,7 +156,7 @@ class BucketQuery {
 			}
 
 			$direction = $data['orderBy']['direction'];
-			if ( $direction != 'ASC' && $direction != 'DESC' ) {
+			if ( $direction !== 'ASC' && $direction !== 'DESC' ) {
 				throw new QueryException( wfMessage( 'bucket-query-order-by-direction', $direction ) );
 			}
 			$this->orderByDirection = $direction;
@@ -262,7 +262,7 @@ class BucketQuery {
 		if ( is_array( $condition ) && isset( $condition[0] ) && isset( $condition[1] ) && isset( $condition[2] ) ) {
 			$selector = new FieldSelector( $condition[0], $this );
 			$op = new Operator( $condition[1] );
-			if ( $condition[2] == '&&NULL&&' ) { // Lua cannot store nil, so we convert the null string into real null value.
+			if ( $condition[2] === '&&NULL&&' ) { // Lua cannot store nil, so we convert the null string into real null value.
 				$value = new Value( null );
 			} else {
 				$value = new Value( $condition[2] );
@@ -303,11 +303,11 @@ class BucketJoin extends Join {
 			throw new QueryException( wfMessage( 'bucket-invalid-join-two-repeated', $selector1->getFieldSchema()->getFieldName(), $selector2->getFieldSchema()->getFieldName() ) );
 		}
 		// Cannot join with yourself
-		if ( $selector1->getBucketSchema() == $selector2->getBucketSchema() ) {
+		if ( $selector1->getBucketSchema() === $selector2->getBucketSchema() ) {
 			throw new QueryException( wfMessage( 'bucket-query-invalid-join' ) );
 		}
 		// One of the joined fields needs to be in the joined table
-		if ( $selector1->getBucketSchema() != $joinedTable && $selector2->getBucketSchema() != $joinedTable ) {
+		if ( $selector1->getBucketSchema() !== $joinedTable && $selector2->getBucketSchema() !== $joinedTable ) {
 			throw new QueryException( wfMessage( 'bucket-query-invalid-join' ) );
 		}
 
@@ -436,7 +436,7 @@ class ComparisonConditionNode extends QueryNode {
 		if (
 			$selector instanceof FieldSelector
 			&& $value !== null // Null check is the same for repeated and non repeated fields
-			&& $selector->getFieldSchema()->getRepeated() == true
+			&& $selector->getFieldSchema()->getRepeated() === true
 		) {
 			if ( $op === '=' || $op === '!=' ) {
 				return new MemberOfExpression( $fieldName, $op, $value );
@@ -467,7 +467,7 @@ class FieldSelector extends Selector {
 			throw new QueryException( wfMessage( 'bucket-query-field-name-invalid', $fullSelector ) );
 		}
 		$fieldName = end( $parts );
-		if ( count( $parts ) == 1 ) { // If we don't have a period, we are the primary bucket.
+		if ( count( $parts ) === 1 ) { // If we don't have a period, we are the primary bucket.
 			$this->schema = $query->getPrimaryBucket();
 		} else {
 			$usedBuckets = $query->getUsedBuckets();
@@ -557,7 +557,7 @@ class Value {
 	private $value;
 
 	function __construct( $value ) {
-		if ( $value != null && !is_scalar( $value ) ) {
+		if ( $value !== null && !is_scalar( $value ) ) {
 			throw new QueryException( wfMessage( 'bucket-query-non-scalar' ) );
 		}
 		$this->value = $value;

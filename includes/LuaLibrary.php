@@ -32,7 +32,7 @@ class LuaLibrary extends LibraryBase {
 				$title = MediaWikiServices::getInstance()->getTitleParser()->parseTitle( $bucketName, NS_BUCKET );
 				$bucketPage = MediaWikiServices::getInstance()->getWikiPageFactory()->newFromLinkTarget( $title );
 				$bucketRevisionRecord = $bucketPage->getRevisionRecord();
-				if ( $bucketRevisionRecord != null ) {
+				if ( $bucketRevisionRecord !== null ) {
 					$parserOutput->addTemplate( $title, $bucketPage->getId(), $bucketRevisionRecord->getId() );
 				}
 			} catch ( MalformedTitleException $e ) {

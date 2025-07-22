@@ -228,7 +228,7 @@ class Hooks implements
 
 		try {
 			$pagesCount = Bucket::countPagesUsingBucket( $page->getDBkey() );
-			if ( $pagesCount == 0 ) {
+			if ( $pagesCount === 0 ) {
 				return true;
 			} else {
 				$status->fatal( 'bucket-delete-fail-in-use', $pagesCount );
@@ -264,7 +264,7 @@ class Hooks implements
 	public function onContentModelCanBeUsedOn( $contentModel, $title, &$ok ) {
 		if ( $title->getNamespace() !== NS_BUCKET ) {
 			return;
-		} elseif ( $contentModel != 'json' ) {
+		} elseif ( $contentModel !== 'json' ) {
 			$ok = false;
 			return false;
 		}
@@ -278,7 +278,7 @@ class Hooks implements
 			return;
 		}
 
-		if ( strtolower( str_replace( ' ', '_', $article->getTitle()->getRootText() ) ) == Bucket::MESSAGE_BUCKET ) {
+		if ( strtolower( str_replace( ' ', '_', $article->getTitle()->getRootText() ) ) === Bucket::MESSAGE_BUCKET ) {
 			return false;
 		}
 	}
@@ -291,7 +291,7 @@ class Hooks implements
 			return;
 		}
 
-		if ( strtolower( str_replace( ' ', '_', $title->getRootText() ) ) == Bucket::MESSAGE_BUCKET ) {
+		if ( strtolower( str_replace( ' ', '_', $title->getRootText() ) ) === Bucket::MESSAGE_BUCKET ) {
 			$isKnown = true;
 		}
 	}

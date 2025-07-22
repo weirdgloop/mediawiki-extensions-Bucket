@@ -29,7 +29,7 @@ class SetupDBPermission extends Maintenance {
 		$bucketDBuser = $this->getOption( 'bucket_user', $config->get( 'BucketDBuser' ) );
 		$bucketDBhostname = $this->getOption( 'bucket_hostname', $config->get( 'BucketDBhostname' ) );
 
-		if ( $bucketDBuser == null ) {
+		if ( $bucketDBuser === null ) {
 			$this->output( "Cannot find a Bucket username.\nEither pass --bucket_user or set \$wgBucketDBuser.\n" );
 			return false;
 		}

@@ -19,7 +19,7 @@ class BucketDatabase {
 		$bucketDBuser = $config->get( 'BucketDBuser' );
 		$bucketDBpassword = $config->get( 'BucketDBpassword' );
 
-		if ( $bucketDBuser == null || $bucketDBpassword == null ) {
+		if ( $bucketDBuser === null || $bucketDBpassword === null ) {
 			throw new ConfigException( 'BucketDBuser and BucketDBpassword are required config options' );
 		}
 
@@ -36,7 +36,7 @@ class BucketDatabase {
 		self::$db = MediaWikiServices::getInstance()->getDatabaseFactory()->create( $mainDB->getType(), $params );
 
 		// MySQL 8.0.17 or higher is required for the implementation of repeated fields.
-		if ( self::$db->getType() != 'mysql' || version_compare( self::$db->getServerVersion(), '8.0.17', '<' ) ) {
+		if ( self::$db->getType() !== 'mysql' || version_compare( self::$db->getServerVersion(), '8.0.17', '<' ) ) {
 			throw new ConfigException( 'Bucket requires MySQL 8.0.17 or higher' );
 		}
 		return self::$db;
@@ -91,7 +91,7 @@ class BucketDatabase {
 			'page_name_sub' => new BucketSchemaField( 'page_name_sub', ValueType::Page, true, false )
 		];
 
-		if ( $bucketName == Bucket::MESSAGE_BUCKET ) {
+		if ( $bucketName === Bucket::MESSAGE_BUCKET ) {
 			throw new SchemaException( wfMessage( 'bucket-cannot-create-system-page' ) );
 		}
 
@@ -115,7 +115,7 @@ class BucketDatabase {
 			}
 
 			$valueType = ValueType::tryFrom( $fieldData->type );
-			if ( $valueType == null ) {
+			if ( $valueType === null ) {
 				throw new SchemaException( wfMessage( 'bucket-schema-invalid-data-type', $fieldName, $fieldData->type ) );
 			}
 
@@ -129,7 +129,7 @@ class BucketDatabase {
 				$repeated = boolval( $fieldData->repeated );
 			}
 
-			if ( $repeated == true && $index == false ) {
+			if ( $repeated === true && $index === false ) {
 				throw new SchemaException( wfMessage( 'bucket-schema-repeated-must-be-indexed', $fieldName ) );
 			}
 
