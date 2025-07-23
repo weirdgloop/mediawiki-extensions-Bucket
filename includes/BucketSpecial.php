@@ -3,135 +3,105 @@
 namespace MediaWiki\Extension\Bucket;
 
 use MediaWiki\Html\Html;
-use MediaWiki\SpecialPage\SpecialPage;
-use MediaWiki\Widget\TitleInputWidget;
-use OOUI;
+use MediaWiki\HTMLForm\HTMLForm;
+use MediaWiki\SpecialPage\FormSpecialPage;
 
-class BucketSpecial extends SpecialPage {
+class BucketSpecial extends FormSpecialPage {
+	private array $formData;
+
 	public function __construct() {
 		parent::__construct( 'Bucket' );
 	}
 
-	private function getQueryBuilder( $lastQuery, $bucket, $select, $where, $limit, $offset ) {
-		$inputs = [];
-		$inputs[] = new OOUI\HiddenInputWidget(
-			[
-				'name' => 'title',
-				'value' => 'Special:Bucket'
-			]
-		);
-		$inputs[] = new OOUI\FieldLayout(
-			new TitleInputWidget(
-				[
-					'namespace' => NS_BUCKET,
-					'name' => 'bucket',
-					'value' => $bucket,
-					'infusable' => true,
-				]
-			),
-			[
-				'align' => 'right',
-				'label' => 'Bucket',
-				'help' => wfMessage( 'bucket-view-help-bucket-name' )
-			]
-		);
-		$inputs[] = new OOUI\FieldLayout(
-			new OOUI\TextInputWidget(
-				[
-					'name' => 'select',
-					'value' => $select,
-				]
-			),
-			[
-				'align' => 'right',
-				'label' => 'Select',
-				'help' => wfMessage( 'bucket-view-help-select' )
-			]
-		);
-		$inputs[] = new OOUI\FieldLayout(
-			new OOUI\TextInputWidget(
-				[
-					'name' => 'where',
-					'value' => $where,
-				]
-			),
-			[
-				'align' => 'right',
-				'label' => 'Where',
-				'help' => wfMessage( 'bucket-view-help-where' )
-			]
-		);
-		$inputs[] = new OOUI\FieldLayout(
-			new OOUI\NumberInputWidget(
-				[
-					'name' => 'limit',
-					'value' => $limit,
-					'min' => 1,
-					'max' => 500
-				]
-			),
-			[
-				'align' => 'right',
-				'label' => 'Limit',
-				'help' => wfMessage( 'bucket-view-help-limit' )
-			]
-		);
-		$inputs[] = new OOUI\FieldLayout(
-			new OOUI\NumberInputWidget(
-				[
-					'name' => 'offset',
-					'value' => $offset,
-					'min' => 0
-				]
-			),
-			[
-				'align' => 'right',
-				'label' => 'Offset',
-				'help' => wfMessage( 'bucket-view-help-offset' )
-			]
-		);
-		$inputs[] = new OOUI\FieldLayout(
-			new OOUI\ButtonInputWidget(
-				[
-					'type' => 'submit',
-					'label' => wfMessage( 'bucket-view-submit' ),
-					'align' => 'center'
-
-				] ),
-				[
-					'label' => ' '
-				]
-		);
-
-		$form = new OOUI\FormLayout( [
-			'items' => $inputs,
-			'action' => 'Special:Bucket',
-			'method' => 'get'
-		] );
-
-		return $form . '<br>';
-	}
-
-	public function execute( $par ) {
-		$request = $this->getRequest();
+	protected function getFormFields() {
 		$out = $this->getOutput();
-		$this->setHeaders();
-		$out->enableOOUI();
-		$out->setPageTitleMsg( $out->msg( 'bucket' ) );
 		$out->addModules( [
 			'ext.bucket.form'
 		] );
 		$out->addModuleStyles( [
-			'mediawiki.codex.messagebox.styles'
+			'mediawiki.codex.messagebox.styles',
+			'mediawiki.special'
 		] );
 
-		$bucket = $request->getText( 'bucket', '' );
-		$select = $request->getText( 'select', '*' );
-		$where = $request->getText( 'where', '' );
-		$limit = $request->getInt( 'limit', 20 );
-		$offset = $request->getInt( 'offset', 0 );
+		return [
+			'bucket' => [
+				'type' => 'title',
+				'name' => 'bucket',
+				'label-message' => 'bucket-view-bucket-name',
+				'help-message' => 'bucket-view-help-bucket-name',
+				'help-inline' => false,
+				'namespace' => NS_BUCKET,
+				'relative' => true,
+			],
+			'select' => [
+				'type' => 'text',
+				'name' => 'select',
+				'label-message' => 'bucket-view-select',
+				'help-message' => 'bucket-view-help-select',
+				'help-inline' => false,
+				'default' => '*',
+			],
+			'where' => [
+				'type' => 'textarea',
+				'name' => 'where',
+				'label-message' => 'bucket-view-where',
+				'help-message' => 'bucket-view-help-where',
+				'help-inline' => false,
+				'rows' => 3,
+			],
+			'limit' => [
+				'type' => 'int',
+				'name' => 'limit',
+				'label-message' => 'bucket-view-limit',
+				'help-message' => 'bucket-view-help-limit',
+				'help-inline' => false,
+				'default' => 20,
+				'min' => 1,
+				'max' => 500,
+			],
+			'offset' => [
+				'type' => 'int',
+				'name' => 'offset',
+				'label-message' => 'bucket-view-offset',
+				'help-message' => 'bucket-view-help-offset',
+				'help-inline' => false,
+				'default' => 0,
+				'min' => 0,
+			],
+		];
+	}
 
-		$out->addHTML( $this->getQueryBuilder( $request, $bucket, $select, $where, $limit, $offset ) );
+	protected function alterForm( HTMLForm $form ) {
+		$form->setWrapperLegendMsg( 'bucket' );
+	}
+
+	public function onSubmit(array $data /* HTMLForm $form = null */) {
+		$this->formData = $data;
+		return true;
+	}
+
+	protected function getShowAlways() {
+		return true;
+	}
+
+	public function requiresPost() {
+		return false;
+	}
+
+	protected function getDisplayFormat() {
+		return 'ooui';
+	}
+
+	public function onSuccess() {
+		$out = $this->getOutput();
+		$this->setHeaders();
+
+		$bucket = $this->formData['bucket'] ?? '';
+		$select = $this->formData['select'] ?? '*';
+		$where = $this->formData['where'] ?? '';
+		$limit = $this->formData['limit'] ?? 20;
+		$offset = $this->formData['offset'] ?? 0;
+
 		try {
 			$bucketName = Bucket::getValidFieldName( $bucket );
 		} catch ( SchemaException $e ) {
@@ -151,7 +121,7 @@ class BucketSpecial extends SpecialPage {
 			$schemas[$row->bucket_name] = json_decode( $row->schema_json, true );
 		}
 
-		$fullResult = BucketPageHelper::runQuery( $request, $bucket, $select, $where, $limit, $offset );
+		$fullResult = BucketPageHelper::runQuery( $this->getRequest(), $bucket, $select, $where, $limit, $offset );
 
 		if ( isset( $fullResult['error'] ) ) {
 			$out->addWikiTextAsContent( BucketPageHelper::printError( $fullResult['error'] ) );
@@ -170,7 +140,7 @@ class BucketSpecial extends SpecialPage {
 			return $out->addHTML( Html::noticeBox( $out->msg( 'bucket-empty-query' )->parse(), '' ) );
 		}
 
-		$pageLinks = BucketPageHelper::getPageLinks( $out, $this->getFullTitle(), $limit, $offset, null, $request->getQueryValues(), ( $resultCount === $limit ) );
+		$pageLinks = BucketPageHelper::getPageLinks( $out, $this->getFullTitle(), $limit, $offset, null, $this->getRequest()->getQueryValues(), ( $resultCount === $limit ) );
 
 		$out->addHTML( $pageLinks );
 		$out->addWikiTextAsContent( BucketPageHelper::getResultTable( $schemas[$bucketName], $fullResult['fields'], $queryResult ) );
