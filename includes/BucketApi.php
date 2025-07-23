@@ -10,6 +10,7 @@ use MediaWiki\Parser\Parser;
 use MediaWiki\Parser\ParserOptions;
 use Wikimedia\ParamValidator\ParamValidator;
 use Wikimedia\ParamValidator\TypeDef\IntegerDef;
+use Wikimedia\ParamValidator\TypeDef\NumericDef;
 
 class BucketApi extends ApiBase {
 
@@ -125,14 +126,14 @@ class BucketApi extends ApiBase {
 		'limit' => [
 			ParamValidator::PARAM_DEFAULT => 20,
 			ParamValidator::PARAM_TYPE => 'limit',
-			IntegerDef::PARAM_MIN => 1,
-			IntegerDef::PARAM_MAX => BucketQuery::DEFAULT_LIMIT,
-			IntegerDef::PARAM_MAX2 => BucketQuery::MAX_LIMIT,
+			NumericDef::PARAM_MIN => 1,
+			NumericDef::PARAM_MAX => BucketQuery::DEFAULT_LIMIT,
+			NumericDef::PARAM_MAX2 => BucketQuery::MAX_LIMIT,
 		],
 		'offset' => [
 			ParamValidator::PARAM_DEFAULT => 0,
 			ParamValidator::PARAM_TYPE => 'limit',
-			IntegerDef::PARAM_MIN => 0
+			NumericDef::PARAM_MIN => 0
 		]
 		];
 	}

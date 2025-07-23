@@ -2,7 +2,9 @@
 
 namespace MediaWiki\Extension\Bucket;
 
+use Article;
 use ManualLogEntry;
+use MediaWiki\CommentStore\CommentStoreComment;
 use MediaWiki\Content\Hook\ContentModelCanBeUsedOnHook;
 use MediaWiki\Content\JsonContent;
 use MediaWiki\Context\IContextSource;
@@ -12,9 +14,9 @@ use MediaWiki\Hook\AfterImportPageHook;
 use MediaWiki\Hook\LinksUpdateCompleteHook;
 use MediaWiki\Hook\SidebarBeforeOutputHook;
 use MediaWiki\Hook\TitleIsAlwaysKnownHook;
+use MediaWiki\Installer\DatabaseUpdater;
 use MediaWiki\Installer\Hook\LoadExtensionSchemaUpdatesHook;
 use MediaWiki\MediaWikiServices;
-use MediaWiki\Page\Article;
 use MediaWiki\Page\Hook\ArticleFromTitleHook;
 use MediaWiki\Page\Hook\BeforeDisplayNoArticleTextHook;
 use MediaWiki\Page\Hook\PageDeleteCompleteHook;
@@ -29,6 +31,7 @@ use MediaWiki\Revision\SlotRecord;
 use MediaWiki\Status\Status;
 use MediaWiki\Storage\Hook\MultiContentSaveHook;
 use MediaWiki\Title\Title;
+use MediaWiki\User\UserIdentity;
 use StatusValue;
 
 class Hooks implements
@@ -56,7 +59,7 @@ class Hooks implements
 	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/LoadExtensionSchemaUpdates
 	 *
 	 * @param DatabaseUpdater $updater
-	 * @return bool|void
+	 * @return void
 	 */
 	public function onLoadExtensionSchemaUpdates( $updater ) {
 		$updater->addExtensionTable( 'bucket_schemas', __DIR__ . '/../sql/create_bucket_schemas.sql' );
@@ -68,7 +71,7 @@ class Hooks implements
 	 *
 	 * @param LinksUpdate $linksUpdate
 	 * @param mixed $ticket
-	 * @return bool|void
+	 * @return void
 	 */
 	public function onLinksUpdateComplete( $linksUpdate, $ticket ) {
 		$bucketPuts = $linksUpdate->getParserOutput()->getExtensionData( Bucket::EXTENSION_DATA_KEY ) ?? [];
@@ -85,7 +88,7 @@ class Hooks implements
 	 */
 	public function onPageUndelete( ProperPageIdentity $page, Authority $performer, string $reason, bool $unsuppress, array $timestamps, array $fileVersions, StatusValue $status ) {
 		if ( $page->getNamespace() !== NS_BUCKET ) {
-			return;
+			return true;
 		}
 		$title = $page->getDBkey();
 		try {
@@ -157,12 +160,12 @@ class Hooks implements
 	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/AfterImportPage
 	 *
 	 * @param Title $title
-	 * @param Title $origTitle
+	 * @param Title $foreignTitle
 	 * @param int $revCount
 	 * @param int $sRevCount
 	 * @param array $pageInfo
 	 */
-	public function onAfterImportPage( $title, $origTitle, $revCount, $sRevCount, $pageInfo ) {
+	public function onAfterImportPage( $title, $foreignTitle, $revCount, $sRevCount, $pageInfo ) {
 		if ( $title->getNamespace() !== NS_BUCKET ) {
 			return;
 		}
@@ -262,12 +265,11 @@ class Hooks implements
 	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/ContentModelCanBeUsedOn
 	 */
 	public function onContentModelCanBeUsedOn( $contentModel, $title, &$ok ) {
-		if ( $title->getNamespace() !== NS_BUCKET ) {
-			return;
-		} elseif ( $contentModel !== 'json' ) {
+		if ( $title->getNamespace() !== NS_BUCKET && $contentModel !== 'json' ) {
 			$ok = false;
 			return false;
 		}
+		return true;
 	}
 
 	/**
@@ -275,12 +277,14 @@ class Hooks implements
 	 */
 	public function onBeforeDisplayNoArticleText( $article ) {
 		if ( $article->getTitle()->getNamespace() !== NS_BUCKET ) {
-			return;
+			return true;
 		}
 
 		if ( strtolower( str_replace( ' ', '_', $article->getTitle()->getRootText() ) ) === Bucket::MESSAGE_BUCKET ) {
 			return false;
 		}
+
+		return true;
 	}
 
 	/**

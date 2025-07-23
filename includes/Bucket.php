@@ -48,6 +48,8 @@ class Bucket {
 			$bucket_hash[ $row->bucket_name ] = $row->put_hash;
 		}
 
+		$schemas = [];
+
 		if ( count( $puts ) > 0 ) {
 			// Combine existing written bucket list and new written bucket list.
 			$relevantBuckets = array_merge( array_keys( $puts ), array_keys( $bucket_hash ) );
@@ -58,7 +60,6 @@ class Bucket {
 					->where( [ 'bucket_name' => $relevantBuckets ] )
 					->caller( __METHOD__ )
 					->fetchResultSet();
-			$schemas = [];
 			foreach ( $res as $row ) {
 				$schemas[$row->bucket_name] = new BucketSchema( $row->bucket_name, json_decode( $row->schema_json, true ) );
 			}
@@ -72,7 +73,7 @@ class Bucket {
 
 			try {
 				$bucketNameTmp = self::getValidFieldName( $bucketName );
-			} catch ( SchemaException $e ) {
+			} catch ( SchemaException ) {
 				self::logMessage( $bucketName, '', 'bucket-general-warning', wfMessage( 'bucket-invalid-name-warning', $bucketName ) );
 				continue;
 			}
@@ -127,7 +128,7 @@ class Bucket {
 				}
 				$singlePut = [];
 				foreach ( $fields as $key => $_ ) {
-					$value = isset( $singleData[$key] ) ? $singleData[$key] : null;
+					$value = $singleData[$key] ?? null;
 					try {
 						$singlePut[$dbw->addIdentifierQuotes( $key )] = $bucketSchema->getField( $key )->castValueForDatabase( $value );
 					} catch ( BucketException $e ) {
@@ -208,7 +209,7 @@ class Bucket {
 	public static function getValidFieldName( ?string $fieldName ): string {
 		if ( $fieldName !== null
 			&& is_numeric( $fieldName ) === false // Disallow numeric field names because the MediaWiki RDBMS treats numeric tables names as numbers in some circumstances.
-			&& substr( $fieldName, 0, 1 ) !== '_'
+			&& !str_starts_with( $fieldName, '_' )
 			&& preg_match( '/^[a-zA-Z0-9_]+$/', $fieldName ) ) {
 			$cleanName = strtolower( trim( $fieldName ) );
 			// MySQL has a maximum of 64, lets limit it to 60 in case we need to append to fields for some reason later
@@ -225,7 +226,7 @@ class Bucket {
 		}
 		try {
 			return self::getValidFieldName( $bucketName );
-		} catch ( SchemaException $e ) {
+		} catch ( SchemaException ) {
 			throw new SchemaException( wfMessage( 'bucket-invalid-name-warning', $bucketName ) );
 		}
 	}
@@ -289,7 +290,7 @@ enum ValueType: string {
 class BucketSchema implements JsonSerializable {
 	private string $bucketName;
 	private array $fields = [];
-	private int $timestamp = 0;
+	private int $timestamp;
 
 	function __construct( string $bucketName, array $schema, int $timestamp = 0 ) {
 		$this->timestamp = $timestamp;
@@ -340,7 +341,7 @@ class BucketSchema implements JsonSerializable {
 		return $dbw->addIdentifierQuotes( $this->getTableName() );
 	}
 
-	public function jsonSerialize(): mixed {
+	public function jsonSerialize(): array {
 		$fields = $this->getFields();
 		$fields['_time'] = $this->timestamp;
 		return $fields;
@@ -376,7 +377,7 @@ class BucketSchemaField implements JsonSerializable {
 		return $this->repeated;
 	}
 
-	public function jsonSerialize(): mixed {
+	public function jsonSerialize(): array {
 		return [
 			'type' => $this->getType()->value,
 			'index' => $this->getIndexed(),
@@ -392,7 +393,7 @@ class BucketSchemaField implements JsonSerializable {
 		// This is the old style (Pre-July 2025) of table comment formatting.
 		// Example json: {"_page_id":{"type":"INTEGER","index":false,"repeated":false}}
 		// This can be removed once old buckets are no longer used (after Bucket is in prod and the dev env has been reset)
-		if ( isset( $jsonRow[$fieldName] ) && isset( $jsonRow[$fieldName]['type'] ) ) {
+		if ( isset( $jsonRow[$fieldName]['type']) ) {
 			$jsonRow = $jsonRow[$fieldName];
 		}
 		// End old style handling

@@ -50,7 +50,7 @@ class BucketQuery {
 	}
 
 	public static function isCategory( $fieldName ): bool {
-		return substr( strtolower( trim( $fieldName ) ), 0, 9 ) === 'category:';
+		return str_starts_with( strtolower( trim( $fieldName ) ), 'category:');
 	}
 
 	public function __construct( $data ) {
@@ -92,7 +92,7 @@ class BucketQuery {
 		$this->primarySchema = $primarySchema;
 
 		foreach ( $data['joins'] as $join ) {
-			if ( !is_array( $join['cond'] ) || !count( $join['cond'] ) === 2 ) {
+			if ( !is_array( $join['cond'] ) || count( $join['cond'] ) !== 2 ) {
 				throw new QueryException( wfMessage( 'bucket-query-invalid-join', json_encode( $join ) ) );
 			}
 			$joinTable = $join['bucketName'];
@@ -196,8 +196,7 @@ class BucketQuery {
 	private function getWhereSQL( IDatabase $dbw ): IExpression|array {
 		if ( isset( $this->where ) ) {
 			try {
-				$wheres = $this->where->getWhereSQL( $dbw );
-				return $wheres;
+				return $this->where->getWhereSQL( $dbw );
 			} catch ( InvalidArgumentException $e ) {
 				// The rdbms query builder throws InvalidArgumentException for input it doesn't like.
 				// We shouldn't be passing anything that it doesn't like, but better to catch here
@@ -247,7 +246,7 @@ class BucketQuery {
 	private function parseWhere( array|string $condition ): QueryNode {
 		if ( self::isOrAnd( $condition ) ) {
 			$children = [];
-			foreach ( $condition['operands'] as $key => $operand ) {
+			foreach ( $condition['operands'] as $operand ) {
 				$children[] = $this->parseWhere( $operand );
 			}
 			if ( $condition['op'] === 'OR' ) {
@@ -356,7 +355,7 @@ class CategoryJoin extends Join {
 		$bucketTableName = $this->query->getPrimaryBucket()->getSafe( $dbw );
 		$categoryNameNoPrefix = Title::newFromText( $this->categoryName, NS_CATEGORY )->getDBkey();
 		return [
-			"{$dbw->addIdentifierQuotes( $this->getAlias() )}.cl_from = {$bucketTableName}._page_id", // Must be all in one string to avoid the table name being treated as a string value.
+			"{$dbw->addIdentifierQuotes( $this->getAlias() )}.cl_from = $bucketTableName._page_id", // Must be all in one string to avoid the table name being treated as a string value.
 			"{$this->categorySelector->getSafe($dbw)}" => $categoryNameNoPrefix
 		];
 	}
@@ -429,7 +428,7 @@ class ComparisonConditionNode extends QueryNode {
 	function getWhereSQL( IDatabase $dbw ): IExpression {
 		$dbw = BucketDatabase::getDB();
 		$selector = $this->selector;
-		$fieldName = $selector->getUnsafe( $dbw );
+		$fieldName = $selector->getUnsafe();
 		$op = $this->operator->getOperator();
 		$value = $this->value->getValue();
 
@@ -445,7 +444,6 @@ class ComparisonConditionNode extends QueryNode {
 		} else {
 			return $dbw->expr( $selector->getUnsafe(), $op, $value );
 		}
-		throw new QueryException( wfMessage( 'bucket-query-where-confused', json_encode( $this ) ) );
 	}
 }
 
@@ -525,7 +523,7 @@ class CategorySelector extends Selector {
 	}
 
 	function getSelectSQL( IDatabase $dbw ): string {
-		return $dbw->expr( $this->getUnsafe( $dbw ), '!=', null )->toSql( $dbw );
+		return $dbw->expr( $this->getUnsafe(), '!=', null )->toSql( $dbw );
 	}
 }
 

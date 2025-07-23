@@ -9,7 +9,7 @@ class AllBucketsSpecial extends SpecialPage {
 		parent::__construct( 'AllBuckets' );
 	}
 
-	public function execute( $par ) {
+	public function execute( $subPage ) {
 		$out = $this->getOutput();
 		$this->setHeaders();
 

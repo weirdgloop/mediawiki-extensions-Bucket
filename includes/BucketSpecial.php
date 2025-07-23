@@ -10,7 +10,7 @@ class BucketSpecial extends SpecialPage {
 		parent::__construct( 'Bucket' );
 	}
 
-	private function getQueryBuilder( $lastQuery, $bucket, $select, $where, $limit, $offset ) {
+	private function getQueryBuilder( $bucket, $select, $where, $limit, $offset ) {
 		$inputs = [];
 		$inputs[] = new OOUI\HiddenInputWidget(
 			[
@@ -108,7 +108,7 @@ class BucketSpecial extends SpecialPage {
 		return $form . '<br>';
 	}
 
-	public function execute( $par ) {
+	public function execute( $subPage ) {
 		$request = $this->getRequest();
 		$out = $this->getOutput();
 		$this->setHeaders();
@@ -121,10 +121,10 @@ class BucketSpecial extends SpecialPage {
 		$limit = $request->getInt( 'limit', 20 );
 		$offset = $request->getInt( 'offset', 0 );
 
-		$out->addHTML( $this->getQueryBuilder( $request, $bucket, $select, $where, $limit, $offset ) );
+		$out->addHTML( $this->getQueryBuilder( $bucket, $select, $where, $limit, $offset ) );
 		try {
 			$bucketName = Bucket::getValidFieldName( $bucket );
-		} catch ( SchemaException $e ) {
+		} catch ( SchemaException ) {
 			$out->addWikiTextAsContent( BucketPageHelper::printError( wfMessage( 'bucket-query-bucket-invalid', $bucket )->parse() ) );
 			return;
 		}
@@ -142,12 +142,12 @@ class BucketSpecial extends SpecialPage {
 		}
 
 		$fullResult = BucketPageHelper::runQuery( $request, $bucket, $select, $where, $limit, $offset );
+		$queryResult = [];
 
 		if ( isset( $fullResult['error'] ) ) {
 			$out->addWikiTextAsContent( BucketPageHelper::printError( $fullResult['error'] ) );
 			return;
-		}
-		if ( isset( $fullResult['bucket'] ) ) {
+		} elseif ( isset( $fullResult['bucket'] ) ) {
 			$queryResult = $fullResult['bucket'];
 		}
 

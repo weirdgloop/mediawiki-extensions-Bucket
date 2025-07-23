@@ -5,7 +5,6 @@ namespace MediaWiki\Extension\Bucket;
 use ArrayObject;
 use MediaWiki\Config\ConfigException;
 use MediaWiki\MediaWikiServices;
-use Wikimedia\Rdbms\DBConnectionError;
 use Wikimedia\Rdbms\IDatabase;
 use Wikimedia\Rdbms\IMaintainableDatabase;
 
@@ -77,7 +76,7 @@ class BucketDatabase {
 		$res = $dbw->query( "SHOW FULL COLUMNS FROM $dbTableName;", __METHOD__ );
 
 		$fields = [];
-		foreach ( $res as $row => $val ) {
+		foreach ( $res as  $val ) {
 			$fields[] = BucketSchemaField::fromJson( $val->Field, $val->Comment );
 		}
 		return new BucketSchema( $bucketName, $fields, time() );
@@ -153,13 +152,12 @@ class BucketDatabase {
 				// Note: The main database connection is only used to grant access to the new table.
 				MediaWikiServices::getInstance()->getDBLoadBalancer()
 					->getConnection( DB_PRIMARY )->query( "GRANT ALL ON $escapedTableName TO $bucketDBuser;" );
-				$dbw->query( $statement );
 			} else {
 				// We are an existing bucket json
 				$oldSchema = self::buildSchemaFromComments( $bucketSchema->getName(), $dbw );
 				$statement = self::getAlterTableStatement( $bucketSchema, $oldSchema, $dbw );
-				$dbw->query( $statement );
 			}
+			$dbw->query( $statement );
 
 			// At this point is is possible that another transaction has changed the table
 			//So we start a transaction, read the column comments (which are the schema), and write that to bucket_schemas

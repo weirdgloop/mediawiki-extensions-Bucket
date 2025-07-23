@@ -4,13 +4,14 @@ namespace MediaWiki\Extension\Bucket;
 
 use MediaWiki\Extension\Scribunto\Engines\LuaCommon\LibraryBase;
 use MediaWiki\MediaWikiServices;
+use MediaWiki\Page\PageReference;
 use MediaWiki\Title\MalformedTitleException;
 use TypeError;
 use Wikimedia\Rdbms\DBQueryTimeoutError;
 
 class LuaLibrary extends LibraryBase {
-	private static $elapsedTime = 0;
-	private static $currentPage = null;
+	private static int $elapsedTime = 0;
+	private static PageReference|null $currentPage = null;
 
 	public function register() {
 		$lib = [
@@ -37,7 +38,7 @@ class LuaLibrary extends LibraryBase {
 				if ( $bucketRevisionRecord !== null ) {
 					$parserOutput->addTemplate( $title, $bucketPage->getId(), $bucketRevisionRecord->getId() );
 				}
-			} catch ( MalformedTitleException $e ) {
+			} catch ( MalformedTitleException ) {
 				// Just ignore it, an error will be logged later
 			}
 			$bucketPuts[ $bucketName ] = [];
@@ -67,7 +68,7 @@ class LuaLibrary extends LibraryBase {
 			return [ self::convertToLuaTable( $rows ) ];
 		} catch ( BucketException $e ) {
 			return [ 'error' => $e->getMessage() ];
-		} catch ( DBQueryTimeoutError $e ) {
+		} catch ( DBQueryTimeoutError ) {
 			return [ 'error' => wfMessage( 'bucket-query-long-execution-time' )->text() ];
 		} catch ( TypeError $e ) {
 			return [ 'error' => wfMessage( 'bucket-php-type-error', $e->getMessage() )->text() ];
