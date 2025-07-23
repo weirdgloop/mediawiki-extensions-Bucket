@@ -4,6 +4,7 @@ namespace MediaWiki\Extension\Bucket;
 
 use MediaWiki\Html\Html;
 use MediaWiki\SpecialPage\SpecialPage;
+use MediaWiki\Widget\TitleInputWidget;
 use OOUI;
 
 class BucketSpecial extends SpecialPage {
@@ -20,10 +21,12 @@ class BucketSpecial extends SpecialPage {
 			]
 		);
 		$inputs[] = new OOUI\FieldLayout(
-			new OOUI\TextInputWidget(
+			new TitleInputWidget(
 				[
+					'namespace' => NS_BUCKET,
 					'name' => 'bucket',
-					'value' => $bucket
+					'value' => $bucket,
+					'infusable' => true,
 				]
 			),
 			[
@@ -115,6 +118,9 @@ class BucketSpecial extends SpecialPage {
 		$this->setHeaders();
 		$out->enableOOUI();
 		$out->setPageTitleMsg( $out->msg( 'bucket' ) );
+		$out->addModules( [
+			'ext.bucket.form'
+		] );
 		$out->addModuleStyles( [
 			'mediawiki.codex.messagebox.styles'
 		] );

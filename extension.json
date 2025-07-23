@@ -80,6 +80,12 @@
 		"ext.bucket.page.styles": {
 			"styles": "resources/ext.bucket.page.styles.css"
 		},
+		"ext.bucket.form": {
+			"scripts": "resources/ext.bucket.form.js",
+			"dependencies": [
+				"mediawiki.widgets"
+			]
+		},
 		"ext.bucket.view.styles": {
 			"styles": "resources/ext.bucket.view.styles.less"
 		}
