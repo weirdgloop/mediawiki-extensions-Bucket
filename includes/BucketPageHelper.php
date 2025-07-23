@@ -3,6 +3,7 @@
 namespace MediaWiki\Extension\Bucket;
 
 use MediaWiki\Api\ApiMain;
+use MediaWiki\Html\Html;
 use MediaWiki\Request\DerivativeRequest;
 use OOUI;
 
@@ -84,21 +85,30 @@ class BucketPageHelper {
 		return '';
 	}
 
-	public static function getPageLinks( $title, $limit, $offset, $query, $hasNext = true ) {
-		$links = [];
-
-		$previousOffset = max( 0, $offset - $limit );
-		$links[] = new OOUI\ButtonWidget( [
-			'href' => $title->getLocalURL( [ 'limit' => $limit, 'offset' => max( 0, $previousOffset ) ] + $query ),
-			'title' => wfMessage( 'bucket-previous-results', $limit ),
-			'label' => wfMessage( 'bucket-previous' ) . " $limit",
-			'disabled' => ( $offset === 0 )
+	/**
+	 * @param \MediaWiki\Output\OutputPage $out
+	 * @param \MediaWiki\Title\Title $title
+	 * @param int $limit
+	 * @param int $offset
+	 * @param int|null $totalResults
+	 * @param array $query
+	 * @param bool $hasNext
+	 * @return string HTML for pagination links
+	 */
+	public static function getPageLinks(
+		$out, $title, $limit, $offset, $totalResults, $query, $hasNext = true
+	) {
+		$out->enableOOUI();
+		$out->addModuleStyles( [
+			'oojs-ui.styles.icons-movement',
+			'ext.bucket.view.styles'
 		] );
 
+		$limits = [];
 		foreach ( [ 20, 50, 100, 250, 500 ] as $num ) {
 			$query = [ 'limit' => $num, 'offset' => $offset ] + $query;
-			$tooltip = "Show $num results per page.";
-			$links[] = new OOUI\ButtonWidget( [
+			$tooltip = $out->msg( 'bucket-limit-tooltip' )->numParams( $num )->parse();
+			$limits[] = new OOUI\ButtonWidget( [
 				'href' => $title->getLocalURL( $query ),
 				'title' => $tooltip,
 				'label' => $num,
@@ -106,14 +116,54 @@ class BucketPageHelper {
 			] );
 		}
 
-		$links[] = new OOUI\ButtonWidget( [
+		if ( $totalResults !== null ) {
+			$resultsMessage = $out->msg( 'bucket-pagination-results' )
+				->numParams( $offset + 1, $offset + $limit, $totalResults )
+				->parse();
+		} else {
+			$resultsMessage = $out->msg( 'bucket-pagination-results-nototal' )
+				->numParams( $offset + 1, $offset + $limit )
+				->parse();
+		}
+
+
+		$previousOffset = max( 0, $offset - $limit );
+		$prev = new OOUI\ButtonWidget( [
+			'flags' => [ 'progressive' ],
+			'framed' => false,
+			'href' => $title->getLocalURL( [ 'limit' => $limit, 'offset' => max( 0, $previousOffset ) ] + $query ),
+			'title' => wfMessage( 'bucket-previous-results' )->numParams( $limit )->parse(),
+			'label' => wfMessage( 'bucket-previous-results' )->numParams( $limit )->parse(),
+			'invisibleLabel' => true,
+			'icon' => 'previous',
+			'disabled' => ( $offset === 0 )
+		] );
+
+		$next = new OOUI\ButtonWidget( [
+			'flags' => [ 'progressive' ],
+			'framed' => false,
 			'href' => $title->getLocalURL( [ 'limit' => $limit, 'offset' => $offset + $limit ] + $query ),
-			'title' => wfMessage( 'bucket-next-results', $limit ),
-			'label' => wfMessage( 'bucket-next' ) . " $limit",
+			'title' => wfMessage( 'bucket-next-results' )->numParams( $limit )->parse(),
+			'label' => wfMessage( 'bucket-next-results' )->numParams( $limit )->parse(),
+			'invisibleLabel' => true,
+			'icon' => 'next',
 			'disabled' => !$hasNext
 		] );
 
-		return new OOUI\ButtonGroupWidget( [ 'items' => $links ] );
+		return Html::rawElement( 'div', [ 'class' => 'bucket-pagination' ],
+			Html::rawElement( 'div', [ 'class' => 'bucket-pagination-message' ], $resultsMessage ) .
+			Html::rawElement( 'div', [ 'class' => 'bucket-pagination-limit' ],
+				$out->msg( 'bucket-pagination-limit' )->parse() .
+				new OOUI\ButtonGroupWidget( [
+					'items' => $limits
+				] )
+			) .
+			Html::rawElement( 'div', [ 'class' => 'bucket-pagination-buttons' ],
+				new OOUI\ButtonGroupWidget( [
+					'items' => [ $prev, $next ]
+				] )
+			)
+		);
 	}
 
 	/**

@@ -3,6 +3,7 @@
 namespace MediaWiki\Extension\Bucket;
 
 use Article;
+use MediaWiki\Html\Html;
 use MediaWiki\MediaWikiServices;
 use Mediawiki\Title\Title;
 use MediaWiki\Title\TitleValue;
@@ -18,9 +19,13 @@ class BucketPage extends Article {
 		$context = $this->getContext();
 		$out = $this->getContext()->getOutput();
 		$out->enableOOUI();
-		$out->addModuleStyles( 'ext.bucket.bucketpage.css' );
+		$out->addModuleStyles( [
+			'ext.bucket.page.styles',
+			'mediawiki.codex.messagebox.styles'
+		] );
 		$title = $this->getTitle();
 		$out->setPageTitle( $title );
+		// $out->addHelpLink( 'https://meta.runescape.wiki/w/User:Cook_Me_Plox/Bucket', true );
 
 		$dbw = BucketDatabase::getDB();
 		$linkRenderer = MediaWikiServices::getInstance()->getLinkRenderer();
@@ -67,19 +72,21 @@ class BucketPage extends Article {
 			->select( 'COUNT(*)' )
 			->from( BucketDatabase::getBucketTableName( $bucketName ) )
 			->fetchField();
-		$out->addWikiTextAsContent( 'Bucket entries: ' . $maxCount );
-
-		$out->addWikiMsg( 'bucket-page-result-counter', $resultCount, $offset, $endResult );
 
 		$specialQueryValues = $context->getRequest()->getQueryValues();
 		unset( $specialQueryValues['action'] );
 		unset( $specialQueryValues['title'] );
 		$specialQueryValues['bucket'] = $bucketName;
-		$out->addHTML( ' ' );
-		$out->addHTML( $linkRenderer->makeKnownLink( new TitleValue( NS_SPECIAL, 'Bucket' ), wfMessage( 'bucket-page-dive-into' ), [], $specialQueryValues ) );
-		$out->addHTML( '<br>' );
 
-		$pageLinks = BucketPageHelper::getPageLinks( $title, $limit, $offset, $context->getRequest()->getQueryValues(), ( $resultCount === $limit ) );
+		$out->addHTML( $linkRenderer->makeKnownLink( new TitleValue( NS_SPECIAL, 'Bucket' ), wfMessage( 'bucket-page-dive-into' ), [], $specialQueryValues ) );
+
+		$out->addHTML( '<h2>'  . $out->msg( 'bucket-view' ) .'</h2>' );
+
+		if ( $maxCount === '0' ) {
+			return $out->addHTML( Html::noticeBox( $out->msg( 'bucket-empty' )->parse(), '' ) );
+		}
+
+		$pageLinks = BucketPageHelper::getPageLinks( $out, $title, $limit, $offset, $maxCount, $context->getRequest()->getQueryValues(), ( $resultCount === $limit ) );
 
 		$out->addHTML( $pageLinks );
 		$out->addWikiTextAsContent( BucketPageHelper::getResultTable( $schemas[$bucketName], $fullResult['fields'], $queryResult ) );
