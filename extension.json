@@ -69,16 +69,19 @@
 		]
 	},
 	"SpecialPages": {
-		"Bucket": "MediaWiki\\Extension\\Bucket\\BucketSpecial",
-		"AllBuckets": "MediaWiki\\Extension\\Bucket\\AllBucketsSpecial"
+		"Bucket": "MediaWiki\\Extension\\Bucket\\SpecialBucket",
+		"AllBuckets": "MediaWiki\\Extension\\Bucket\\SpecialAllBuckets"
 	},
 	"ResourceFileModulePaths": {
 		"localBasePath": "",
 		"remoteExtPath": "Bucket"
 	},
 	"ResourceModules": {
-		"ext.bucket.bucketpage.css": {
-			"styles": "resources/bucket-json.css"
+		"ext.bucket.page.styles": {
+			"styles": "resources/ext.bucket.page.styles.css"
+		},
+		"ext.bucket.view.styles": {
+			"styles": "resources/ext.bucket.view.styles.less"
 		}
 	},
 	"config": {
