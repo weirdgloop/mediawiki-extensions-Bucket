@@ -424,6 +424,9 @@ class BucketSchemaField implements JsonSerializable {
 				if ( $value === '' ) {
 					return null;
 				} else {
+					if ( is_array( $value ) ) {
+						return json_encode( $value );
+					}
 					return $value;
 				}
 			case ValueType::Double:
