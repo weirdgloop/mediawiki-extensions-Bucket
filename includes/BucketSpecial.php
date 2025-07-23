@@ -2,6 +2,7 @@
 
 namespace MediaWiki\Extension\Bucket;
 
+use MediaWiki\Html\Html;
 use MediaWiki\SpecialPage\SpecialPage;
 use OOUI;
 
@@ -113,7 +114,10 @@ class BucketSpecial extends SpecialPage {
 		$out = $this->getOutput();
 		$this->setHeaders();
 		$out->enableOOUI();
-		$out->setPageTitle( 'Bucket browse' );
+		$out->setPageTitleMsg( $out->msg( 'bucket' ) );
+		$out->addModuleStyles( [
+			'mediawiki.codex.messagebox.styles'
+		] );
 
 		$bucket = $request->getText( 'bucket', '' );
 		$select = $request->getText( 'select', '*' );
@@ -151,11 +155,16 @@ class BucketSpecial extends SpecialPage {
 			$queryResult = $fullResult['bucket'];
 		}
 
+		$out->addHTML( '<h2>'  . $out->msg( 'bucket-view-result' ) .'</h2>' );
+
 		$resultCount = count( $fullResult['bucket'] );
 		$endResult = $offset + $resultCount;
-		$out->addHTML( wfMessage( 'bucket-page-result-counter', $resultCount, $offset, $endResult ) . '<br>' );
 
-		$pageLinks = BucketPageHelper::getPageLinks( $this->getFullTitle(), $limit, $offset, $request->getQueryValues(), ( $resultCount === $limit ) );
+		if ( $resultCount === 0 ) {
+			return $out->addHTML( Html::noticeBox( $out->msg( 'bucket-empty-query' )->parse(), '' ) );
+		}
+
+		$pageLinks = BucketPageHelper::getPageLinks( $out, $this->getFullTitle(), $limit, $offset, null, $request->getQueryValues(), ( $resultCount === $limit ) );
 
 		$out->addHTML( $pageLinks );
 		$out->addWikiTextAsContent( BucketPageHelper::getResultTable( $schemas[$bucketName], $fullResult['fields'], $queryResult ) );
