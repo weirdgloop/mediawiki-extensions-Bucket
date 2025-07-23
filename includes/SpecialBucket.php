@@ -6,7 +6,7 @@ use MediaWiki\Html\Html;
 use MediaWiki\HTMLForm\HTMLForm;
 use MediaWiki\SpecialPage\FormSpecialPage;
 
-class BucketSpecial extends FormSpecialPage {
+class SpecialBucket extends FormSpecialPage {
 	private array $formData;
 
 	public function __construct() {
