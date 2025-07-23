@@ -1,4 +1,5 @@
 {
+	"bucket-desc": "Implements a lightweight interface for storing and accessing structured data",
     "bucket": "Bucket browse",
     "allbuckets": "All Buckets",
     "bucket-sidebar-action": "View Bucket",

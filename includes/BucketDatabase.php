@@ -5,6 +5,7 @@ namespace MediaWiki\Extension\Bucket;
 use ArrayObject;
 use MediaWiki\Config\ConfigException;
 use MediaWiki\MediaWikiServices;
+use Wikimedia\Rdbms\DBConnectionError;
 use Wikimedia\Rdbms\IDatabase;
 use Wikimedia\Rdbms\IMaintainableDatabase;
 
