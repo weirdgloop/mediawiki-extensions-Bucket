@@ -2,6 +2,7 @@
 
 namespace MediaWiki\Extension\Bucket;
 
+use MediaWiki\Html\Html;
 use MediaWiki\SpecialPage\SpecialPage;
 use OOUI;
 
@@ -114,6 +115,9 @@ class BucketSpecial extends SpecialPage {
 		$this->setHeaders();
 		$out->enableOOUI();
 		$out->setPageTitle( 'Bucket browse' );
+		$out->addModuleStyles( [
+			'mediawiki.codex.messagebox.styles'
+		] );
 
 		$bucket = $request->getText( 'bucket', '' );
 		$select = $request->getText( 'select', '*' );
@@ -153,6 +157,11 @@ class BucketSpecial extends SpecialPage {
 
 		$resultCount = count( $fullResult['bucket'] );
 		$endResult = $offset + $resultCount;
+
+		if ( $resultCount === 0 ) {
+			return $out->addHTML( Html::noticeBox( $out->msg( 'bucket-empty-query' )->parse(), 'bucket-empty-query' ) );
+		}
+
 		$out->addHTML( wfMessage( 'bucket-page-result-counter', $resultCount, $offset, $endResult ) . '<br>' );
 
 		$pageLinks = BucketPageHelper::getPageLinks( $this->getFullTitle(), $limit, $offset, $request->getQueryValues(), ( $resultCount === $limit ) );

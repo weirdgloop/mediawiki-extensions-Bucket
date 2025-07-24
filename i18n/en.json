@@ -16,6 +16,8 @@
     "bucket-next-results": "Next $1 results",
     "specialpages-group-bucket": "Bucket",
     "bucket-specialpage-search": "Bucket Search",
+	"bucket-empty": "This Bucket does not contain any entry.",
+	"bucket-empty-query": "The query does not match any entry in the Bucket.",
 
     "allbuckets-heading": "Bucket",
 
