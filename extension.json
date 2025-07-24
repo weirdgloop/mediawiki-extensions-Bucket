@@ -79,8 +79,8 @@
 		"remoteExtPath": "Bucket"
 	},
 	"ResourceModules": {
-		"ext.bucket.bucketpage.css": {
-			"styles": "resources/bucket-json.css"
+		"ext.bucket.bucketpage.styles": {
+			"styles": "resources/ext.bucket.bucketpage.styles.css"
 		}
 	},
 	"config": {

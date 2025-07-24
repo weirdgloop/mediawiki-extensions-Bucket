@@ -18,7 +18,7 @@ class BucketPage extends Article {
 		$context = $this->getContext();
 		$out = $this->getContext()->getOutput();
 		$out->enableOOUI();
-		$out->addModuleStyles( 'ext.bucket.bucketpage.css' );
+		$out->addModuleStyles( 'ext.bucket.bucketpage.styles' );
 		$title = $this->getTitle();
 		$out->setPageTitle( $title );
 
