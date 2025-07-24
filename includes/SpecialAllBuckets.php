@@ -4,7 +4,7 @@ namespace MediaWiki\Extension\Bucket;
 
 use MediaWiki\SpecialPage\SpecialPage;
 
-class AllBucketsSpecial extends SpecialPage {
+class SpecialAllBuckets extends SpecialPage {
 	public function __construct() {
 		parent::__construct( 'AllBuckets' );
 	}
