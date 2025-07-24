@@ -5,7 +5,7 @@ namespace MediaWiki\Extension\Bucket;
 use MediaWiki\SpecialPage\SpecialPage;
 use OOUI;
 
-class BucketSpecial extends SpecialPage {
+class SpecialBucket extends SpecialPage {
 	public function __construct() {
 		parent::__construct( 'Bucket' );
 	}

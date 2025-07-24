@@ -71,8 +71,8 @@
 		]
 	},
 	"SpecialPages": {
-		"Bucket": "MediaWiki\\Extension\\Bucket\\BucketSpecial",
-		"AllBuckets": "MediaWiki\\Extension\\Bucket\\AllBucketsSpecial"
+		"Bucket": "MediaWiki\\Extension\\Bucket\\SpecialBucket",
+		"AllBuckets": "MediaWiki\\Extension\\Bucket\\SpecialAllBuckets"
 	},
 	"ResourceFileModulePaths": {
 		"localBasePath": "",
