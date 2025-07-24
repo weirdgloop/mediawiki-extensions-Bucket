@@ -3,6 +3,7 @@
 namespace MediaWiki\Extension\Bucket;
 
 use Article;
+use MediaWiki\Html\Html;
 use MediaWiki\MediaWikiServices;
 use Mediawiki\Title\Title;
 use MediaWiki\Title\TitleValue;
@@ -18,7 +19,10 @@ class BucketPage extends Article {
 		$context = $this->getContext();
 		$out = $this->getContext()->getOutput();
 		$out->enableOOUI();
-		$out->addModuleStyles( 'ext.bucket.bucketpage.css' );
+		$out->addModuleStyles( [
+			'ext.bucket.page.css',
+			'mediawiki.codex.messagebox.styles'
+		] );
 		$title = $this->getTitle();
 		$out->setPageTitle( $title );
 
@@ -78,6 +82,10 @@ class BucketPage extends Article {
 		$out->addHTML( ' ' );
 		$out->addHTML( $linkRenderer->makeKnownLink( new TitleValue( NS_SPECIAL, 'Bucket' ), wfMessage( 'bucket-page-dive-into' ), [], $specialQueryValues ) );
 		$out->addHTML( '<br>' );
+
+		if ( $maxCount === '0' ) {
+			return $out->addHTML( Html::noticeBox( $out->msg( 'bucket-empty' )->parse(), 'bucket-empty' ) );
+		}
 
 		$pageLinks = BucketPageHelper::getPageLinks( $title, $limit, $offset, $context->getRequest()->getQueryValues(), ( $resultCount === $limit ) );
 

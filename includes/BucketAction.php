@@ -39,7 +39,7 @@ class BucketAction extends Action {
 		}
 
 		if ( count( $buckets ) === 0 ) {
-			$out->addHTML( Html::noticeBox( $out->msg( 'bucket-action-writes-empty' )->parse(), '' ) );
+			$out->addHTML( Html::noticeBox( $out->msg( 'bucket-action-writes-empty' )->parse(), 'bucket-action-writes-empty' ) );
 			return;
 		}
 
