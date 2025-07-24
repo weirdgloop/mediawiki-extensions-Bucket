@@ -4,6 +4,7 @@ namespace MediaWiki\Extension\Bucket;
 
 use MediaWiki\Maintenance\Maintenance;
 use MediaWiki\MediaWikiServices;
+use Wikimedia\Rdbms\DBQueryError;
 
 $IP = getenv( 'MW_INSTALL_PATH' );
 if ( $IP === false ) {
@@ -34,49 +35,54 @@ class SetupDBPermission extends Maintenance {
 			return false;
 		}
 		$dbw = $this->getDB( DB_PRIMARY );
+		$dbName = $dbw->getDBname();
 		$fullUserName = "$bucketDBuser@'$bucketDBhostname'";
-
-		// Check if user actually exists
-		$res = $dbw->query( "SELECT EXISTS(SELECT 1 from mysql.user WHERE user = '$bucketDBuser' AND host = '$bucketDBhostname')" );
-		if ( $res->fetchRow()[0] == 1 ) {
-			print( "User $fullUserName exists.\n" );
-		} else {
-			print( "User $fullUserName does not exist in the database.\nCheck for typos, or create the specified user and then run this script again.\n" );
-			return false;
-		}
 
 		$query = [];
 
 		// We only need to be able to select from the categorylinks table.
-		$query[] = "GRANT SELECT ON `categorylinks` TO $fullUserName;";
+		$query[] = "GRANT SELECT ON `$dbName`.`categorylinks` TO $fullUserName;";
 
 		// These tables we want to select, insert, and delete rows.
 		$specialTables = [ 'bucket_pages', 'bucket_schemas' ];
 		foreach ( $specialTables as $table ) {
-			$query[] = "GRANT SELECT, INSERT, UPDATE, DELETE ON `$table` TO $fullUserName;";
+			$query[] = "GRANT SELECT, INSERT, UPDATE, DELETE ON `$dbName`.`$table` TO $fullUserName;";
 		}
 
 		// Grab existing Bucket tables, in case we are migrating an existing install to a new account.
 		$res = $dbw->newSelectQueryBuilder()
-					->from( 'bucket_schemas' )
-					->select( [ 'bucket_name' ] )
-					->forUpdate()
-					->caller( __METHOD__ )
-					->fetchResultSet();
+			->from( 'bucket_schemas' )
+			->select( [ 'bucket_name' ] )
+			->forUpdate()
+			->caller( __METHOD__ )
+			->fetchResultSet();
 		foreach ( $res as $row ) {
 			$table = $dbw->addIdentifierQuotes( 'bucket__' . $row->bucket_name );
-			$query[] = "GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, DROP ON $table TO $fullUserName;";
+			$query[] = "GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, DROP ON `$dbName`.$table TO $fullUserName;";
 		}
 
 		foreach ( $query as $singleQuery ) {
-			print( $singleQuery . "\n" );
 			if ( !$this->getOption( 'dry-run' ) ) {
-				$dbw->query( $singleQuery );
+				try {
+					$this->output( $singleQuery . "\n" );
+					$dbw->query( $singleQuery );
+				} catch ( DBQueryError $e ) {
+					if ( str_contains( $e->getMessage(), 'denied to user' ) ) {
+						$this->output(
+							"The database user \"{$this->getConfig()->get( 'DBuser' )}\" needs permission to "
+							. 'to execute the required queries to set up Bucket. The user needs to be able to GRANT '
+							. "privileges to another database user ($fullUserName).\n"
+						);
+						break;
+					} else {
+						throw $e;
+					}
+				}
 			}
 		}
 
 		if ( $this->getOption( 'dry-run' ) ) {
-			print( "--dry-run option present. No changes have been made.\n" );
+			$this->output( "--dry-run option present. No changes have been made.\n" );
 		}
 		return true;
 	}
