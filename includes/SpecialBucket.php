@@ -12,12 +12,6 @@ class SpecialBucket extends SpecialPage {
 
 	private function getQueryBuilder( $bucket, $select, $where, $limit, $offset ) {
 		$inputs = [];
-		$inputs[] = new OOUI\HiddenInputWidget(
-			[
-				'name' => 'title',
-				'value' => 'Special:Bucket'
-			]
-		);
 		$inputs[] = new OOUI\FieldLayout(
 			new OOUI\TextInputWidget(
 				[
@@ -122,6 +116,11 @@ class SpecialBucket extends SpecialPage {
 		$offset = $request->getInt( 'offset', 0 );
 
 		$out->addHTML( $this->getQueryBuilder( $bucket, $select, $where, $limit, $offset ) );
+
+		if ( $bucket === '' ) {
+			return;
+		}
+
 		try {
 			$bucketName = Bucket::getValidFieldName( $bucket );
 		} catch ( SchemaException ) {
@@ -131,11 +130,11 @@ class SpecialBucket extends SpecialPage {
 
 		$dbw = BucketDatabase::getDB();
 		$res = $dbw->newSelectQueryBuilder()
-		->from( 'bucket_schemas' )
-		->select( [ 'bucket_name', 'schema_json' ] )
-		->where( [ 'bucket_name' => $bucketName ] )
-		->caller( __METHOD__ )
-		->fetchResultSet();
+			->from( 'bucket_schemas' )
+			->select( [ 'bucket_name', 'schema_json' ] )
+			->where( [ 'bucket_name' => $bucketName ] )
+			->caller( __METHOD__ )
+			->fetchResultSet();
 		$schemas = [];
 		foreach ( $res as $row ) {
 			$schemas[$row->bucket_name] = json_decode( $row->schema_json, true );
