@@ -258,7 +258,7 @@ class BucketDatabase {
 		$createTableFragments[] = "PRIMARY KEY ({$dbw->addIdentifierQuotes('_page_id')}, {$dbw->addIdentifierQuotes('_index')})";
 
 		$dbTableName = $dbw->addIdentifierQuotes( $newSchema->getTableName() );
-		return "CREATE TABLE $dbTableName (" . implode( ', ', $createTableFragments ) . ');';
+		return "CREATE TABLE $dbTableName (" . implode( ', ', $createTableFragments ) . ') DEFAULT CHARSET=utf8mb4;';
 	}
 
 	public static function deleteTable( string $bucketName ): void {

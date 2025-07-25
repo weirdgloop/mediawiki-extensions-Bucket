@@ -45,4 +45,4 @@ CREATE TABLE /*_*/bucket__bucket_message (
     message(255)
   ),
   PRIMARY KEY(_page_id, _index)
-) /*$wgDBTableOptions*/;
+) DEFAULT CHARSET = utf8mb4;

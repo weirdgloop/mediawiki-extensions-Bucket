@@ -149,6 +149,9 @@
 		"pk": [
 			"_page_id",
 			"_index"
+		],
+		"table_options": [
+			"DEFAULT CHARSET=utf8mb4"
 		]
 	}
 ]
