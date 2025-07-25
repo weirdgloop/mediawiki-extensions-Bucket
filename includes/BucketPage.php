@@ -6,6 +6,7 @@ use Article;
 use MediaWiki\MediaWikiServices;
 use Mediawiki\Title\Title;
 use MediaWiki\Title\TitleValue;
+use Wikimedia\Rdbms\DBQueryTimeoutError;
 
 class BucketPage extends Article {
 
@@ -63,10 +64,15 @@ class BucketPage extends Article {
 		$resultCount = count( $queryResult );
 		$endResult = $offset + $resultCount;
 
-		$maxCount = $dbw->newSelectQueryBuilder()
+		try {
+			$maxCount = $dbw->newSelectQueryBuilder()
 			->select( 'COUNT(*)' )
 			->from( BucketDatabase::getBucketTableName( $bucketName ) )
 			->fetchField();
+
+		} catch ( DBQueryTimeoutError ) {
+			$maxCount = 'Error';
+		}
 		$out->addWikiTextAsContent( 'Bucket entries: ' . $maxCount );
 
 		$out->addWikiMsg( 'bucket-page-result-counter', $resultCount, $offset, $endResult );
