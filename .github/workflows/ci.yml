@@ -17,8 +17,11 @@ jobs:
 
       - name: Install Composer dependencies
         uses: php-actions/composer@v6
+        with:
+          php_version: 8.2
 
       - name: Run tests
         uses: php-actions/composer@v6
         with:
+          php_version: 8.2
           command: test
