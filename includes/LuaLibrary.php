@@ -73,7 +73,7 @@ class LuaLibrary extends LibraryBase {
 		} catch ( TypeError $e ) {
 			return [ 'error' => wfMessage( 'bucket-php-type-error', $e->getMessage() )->text() ];
 		} finally {
-			self::$elapsedTime += ( ( hrtime( true ) - $startTime ) / 1000000 ); // Convert nanoseconds to milliseconds
+			self::$elapsedTime += (int)( ( hrtime( true ) - $startTime ) / 1000000 ); // Convert nanoseconds to milliseconds
 			$this->getParser()->getOutput()->setLimitReportData( 'bucket-limitreport-run-time', [
 					sprintf( '%.3f', self::$elapsedTime / 1000 ), // Milliseconds to seconds
 					// Strip trailing .0s
