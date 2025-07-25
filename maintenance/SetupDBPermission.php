@@ -20,7 +20,8 @@ class SetupDBPermission extends Maintenance {
 		parent::__construct();
 		$this->requireExtension( 'Bucket' );
 		$this->addDescription( 'Sets up the required permissions for a Bucket database user.' );
-		$this->addOption( 'bucket_user', 'The database user name to grant permissions to. Defaults to $wgBucketDBuser.', false, true );
+		$this->addOption( 'bucket_user',
+			'The database user name to grant permissions to. Defaults to $wgBucketDBuser.', false, true );
 		$this->addOption( 'bucket_hostname', 'The database hostname. Defaults to $wgBucketDBhostname.', false, true );
 		$this->addOption( 'dry-run', 'Only print the commands without executing them.', false, false );
 	}
@@ -58,7 +59,8 @@ class SetupDBPermission extends Maintenance {
 			->fetchResultSet();
 		foreach ( $res as $row ) {
 			$table = $dbw->addIdentifierQuotes( 'bucket__' . $row->bucket_name );
-			$query[] = "GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, DROP ON `$dbName`.$table TO $fullUserName;";
+			$query[] =
+				"GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, DROP ON `$dbName`.$table TO $fullUserName;";
 		}
 
 		foreach ( $query as $singleQuery ) {

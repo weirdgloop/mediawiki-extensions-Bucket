@@ -31,8 +31,8 @@ class SchemaHandler implements LoadExtensionSchemaUpdatesHook {
 	 */
 	public function createInitialSchemaForBucketMessage( DatabaseUpdater $updater ) {
 		$schema = [
-			'_page_id' => [ 'type' => 'INTEGER',  'index' => false, 'repeated' => false ],
-			'_index' => [ 'type' => 'INTEGER',  'index' => false, 'repeated' => false ],
+			'_page_id' => [ 'type' => 'INTEGER', 'index' => false, 'repeated' => false ],
+			'_index' => [ 'type' => 'INTEGER', 'index' => false, 'repeated' => false ],
 			'bucket' => [ 'type' => 'PAGE', 'index' => true, 'repeated' => false ],
 			'message' => [ 'type' => 'TEXT', 'index' => true, 'repeated' => false ],
 			'page_name' => [ 'type' => 'PAGE', 'index' => true, 'repeated' => false ],

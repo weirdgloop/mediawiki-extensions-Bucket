@@ -8,13 +8,16 @@ use MediaWiki\MediaWikiServices;
 use MediaWiki\Title\TitleValue;
 
 class BucketAction extends Action {
-
+	/**
+	 * @return string
+	 */
 	public function getName() {
 		return 'bucket';
 	}
 
 	public function show() {
-		$this->getOutput()->enableOOUI(); // We want to use OOUI for consistent styling
+		// We want to use OOUI for consistent styling
+		$this->getOutput()->enableOOUI();
 
 		$out = $this->getOutput();
 		$title = $this->getArticle()->getTitle();
@@ -59,11 +62,14 @@ class BucketAction extends Action {
 		foreach ( $buckets as $bucketName ) {
 			$bucket_page_name = str_replace( '_', ' ', $bucketName );
 
-			$out->addHTML( '<h2>' . $linkRenderer->makePreloadedLink( new TitleValue( NS_BUCKET, $bucket_page_name ) ) . '</h2>' );
+			$out->addHTML( '<h2>' .
+				$linkRenderer->makePreloadedLink( new TitleValue( NS_BUCKET, $bucket_page_name ) ) . '</h2>' );
 
-			$fullResult = BucketPageHelper::runQuery( $this->getRequest(), $bucketName, '*', "{'page_name', $title}", 500, 0 );
+			$fullResult = BucketPageHelper::runQuery(
+				$this->getRequest(), $bucketName, '*', "{'page_name', $title}", 500, 0 );
 
-			$out->addWikiTextAsContent( BucketPageHelper::getResultTable( $schemas[$bucketName], $fullResult['fields'], $fullResult['bucket'] ) );
+			$out->addWikiTextAsContent( BucketPageHelper::getResultTable(
+				$schemas[$bucketName], $fullResult['fields'], $fullResult['bucket'] ) );
 		}
 	}
 

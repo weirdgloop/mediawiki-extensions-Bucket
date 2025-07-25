@@ -35,6 +35,7 @@ use MediaWiki\Status\Status;
 use MediaWiki\Storage\Hook\MultiContentSaveHook;
 use MediaWiki\Title\Title;
 use MediaWiki\User\UserIdentity;
+use Skin;
 use StatusValue;
 
 class GeneralHandler implements
@@ -76,8 +77,12 @@ class GeneralHandler implements
 
 	/**
 	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/PageUndelete
+	 * @return bool
 	 */
-	public function onPageUndelete( ProperPageIdentity $page, Authority $performer, string $reason, bool $unsuppress, array $timestamps, array $fileVersions, StatusValue $status ) {
+	public function onPageUndelete(
+		ProperPageIdentity $page, Authority $performer, string $reason, bool $unsuppress, array $timestamps,
+		array $fileVersions, StatusValue $status
+	) {
 		if ( $page->getNamespace() !== NS_BUCKET ) {
 			return true;
 		}
@@ -98,7 +103,10 @@ class GeneralHandler implements
 	/**
 	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/PageUndeleteComplete
 	 */
-	public function onPageUndeleteComplete( ProperPageIdentity $page, Authority $restorer, string $reason, RevisionRecord $restoredRev, ManualLogEntry $logEntry, int $restoredRevisionCount, bool $created, array $restoredPageIds ): void {
+	public function onPageUndeleteComplete(
+		ProperPageIdentity $page, Authority $restorer, string $reason, RevisionRecord $restoredRev,
+		ManualLogEntry $logEntry, int $restoredRevisionCount, bool $created, array $restoredPageIds
+	): void {
 		$revRecord = $restoredRev;
 		$page = $revRecord->getPage();
 		if ( $page->getNamespace() !== NS_BUCKET ) {
@@ -160,7 +168,8 @@ class GeneralHandler implements
 		if ( $title->getNamespace() !== NS_BUCKET ) {
 			return;
 		}
-		$content = MediaWikiServices::getInstance()->getRevisionLookup()->getRevisionByTitle( $title )->getContent( SlotRecord::MAIN );
+		$content = MediaWikiServices::getInstance()->getRevisionLookup()->getRevisionByTitle( $title )
+			->getContent( SlotRecord::MAIN );
 		if ( !$content instanceof JsonContent || !$content->isValid() ) {
 			// This will fail anyway before saving.
 			return;
@@ -176,7 +185,7 @@ class GeneralHandler implements
 	 *
 	 * @param string $engine
 	 * @param array &$extraLibraries
-	 * @return bool|void
+	 * @return void
 	 */
 	public function onScribuntoExternalLibraries( $engine, &$extraLibraries ) {
 		if ( $engine === 'lua' ) {
@@ -185,6 +194,8 @@ class GeneralHandler implements
 	}
 
 	/**
+	 * @param Skin $skin
+	 * @param array &$sidebar
 	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/SidebarBeforeOutput
 	 */
 	public function onSidebarBeforeOutput( $skin, &$sidebar ): void {
@@ -214,8 +225,11 @@ class GeneralHandler implements
 
 	/**
 	 * $see https://www.mediawiki.org/wiki/Manual:Hooks/PageDelete
+	 * @return bool
 	 */
-	public function onPageDelete( ProperPageIdentity $page, Authority $deleter, string $reason, StatusValue $status, bool $suppress ) {
+	public function onPageDelete(
+		ProperPageIdentity $page, Authority $deleter, string $reason, StatusValue $status, bool $suppress
+	) {
 		if ( $page->getNamespace() !== NS_BUCKET ) {
 			return true;
 		}
@@ -238,7 +252,9 @@ class GeneralHandler implements
 	/**
 	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/PageDeleteComplete
 	 */
-	public function onPageDeleteComplete( ProperPageIdentity $page, Authority $deleter, string $reason, int $pageID, RevisionRecord $deletedRev, ManualLogEntry $logEntry, int $archivedRevisionCount ) {
+	public function onPageDeleteComplete( ProperPageIdentity $page, Authority $deleter, string $reason, int $pageID,
+	  RevisionRecord $deletedRev, ManualLogEntry $logEntry, int $archivedRevisionCount
+	) {
 		if ( $page->getNamespace() !== NS_BUCKET ) {
 			$bucket = new Bucket();
 			$bucket->writePuts( $page->getId(), '', [] );
@@ -247,12 +263,16 @@ class GeneralHandler implements
 		try {
 			BucketDatabase::deleteTable( $page->getDBkey() );
 		// If we somehow get a page that isn't a valid Bucket name, it will throw a schema exception.
-		} catch ( BucketException $e ) {
+		} catch ( BucketException ) {
 			return;
 		}
 	}
 
 	/**
+	 * @param string $contentModel
+	 * @param Title $title
+	 * @param bool &$ok
+	 * @return bool
 	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/ContentModelCanBeUsedOn
 	 */
 	public function onContentModelCanBeUsedOn( $contentModel, $title, &$ok ) {
@@ -264,6 +284,8 @@ class GeneralHandler implements
 	}
 
 	/**
+	 * @param Article $article
+	 * @return bool
 	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/BeforeDisplayNoArticleText
 	 */
 	public function onBeforeDisplayNoArticleText( $article ) {
@@ -279,6 +301,8 @@ class GeneralHandler implements
 	}
 
 	/**
+	 * @param Title $title
+	 * @param bool &$isKnown
 	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/TitleIsAlwaysKnown
 	 */
 	public function onTitleIsAlwaysKnown( $title, &$isKnown ) {

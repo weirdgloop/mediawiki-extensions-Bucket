@@ -9,8 +9,13 @@ use Wikimedia\Rdbms\Expression;
 class MemberOfExpression extends Expression {
 	private string $field;
 	private string $op;
-	private $value;
+	private bool|float|int|null|string $value;
 
+	/**
+	 * @param string $field
+	 * @param string $op
+	 * @param bool|float|int|null|string $value
+	 */
 	public function __construct( string $field, string $op, $value ) {
 		if ( is_array( $value ) || $value === null ) {
 			throw new InvalidArgumentException( "MEMBER OF can't take array or null as value" );

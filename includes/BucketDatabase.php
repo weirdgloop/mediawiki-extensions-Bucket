@@ -1,4 +1,4 @@
-<?PHP
+<?php
 
 namespace MediaWiki\Extension\Bucket;
 
@@ -30,7 +30,8 @@ class BucketDatabase {
 			'password' => $bucketDBpassword,
 			'dbname' => $mainDB->getDBname(),
 			'utf8Mode' => true,
-			'defaultMaxExecutionTimeForQueries' => 500 // WeirdGloop specific tweak
+			// Weird Gloop specific tweak
+			'defaultMaxExecutionTimeForQueries' => 500
 		];
 
 		self::$db = MediaWikiServices::getInstance()->getDatabaseFactory()->create( $mainDB->getType(), $params );
@@ -116,7 +117,8 @@ class BucketDatabase {
 
 			$valueType = ValueType::tryFrom( $fieldData->type );
 			if ( $valueType === null ) {
-				throw new SchemaException( wfMessage( 'bucket-schema-invalid-data-type', $fieldName, $fieldData->type ) );
+				throw new SchemaException(
+					wfMessage( 'bucket-schema-invalid-data-type', $fieldName, $fieldData->type ) );
 			}
 
 			$index = true;
@@ -144,7 +146,7 @@ class BucketDatabase {
 		$dbw = self::getDB();
 
 		$dbw->onTransactionCommitOrIdle( function () use ( $dbw, $bucketSchema ) {
-			if ( !$dbw->tableExists( $bucketSchema->getTableName(), __METHOD__ ) ) {
+			if ( !$dbw->tableExists( $bucketSchema->getTableName() ) ) {
 				// We are a new bucket json
 				$statement = self::getCreateTableStatement( $bucketSchema, $dbw );
 				$bucketDBuser = self::getBucketDBUser();
@@ -159,9 +161,9 @@ class BucketDatabase {
 			}
 			$dbw->query( $statement );
 
-			// At this point is is possible that another transaction has changed the table
-			//So we start a transaction, read the column comments (which are the schema), and write that to bucket_schemas
-			$dbw->begin( __METHOD__ );
+			// At this point is is possible that another transaction has changed the table so we start a transaction,
+			// read the column comments (which are the schema), and write that to bucket_schemas
+			$dbw->begin();
 			$schemaJson = self::buildSchemaFromComments( $bucketSchema->getName(), $dbw );
 			$schemaJson = json_encode( $schemaJson );
 			$dbw->upsert(
@@ -170,11 +172,13 @@ class BucketDatabase {
 				'bucket_name',
 				[ 'schema_json' => $schemaJson ]
 			);
-			$dbw->commit( __METHOD__ );
+			$dbw->commit();
 		}, __METHOD__ );
 	}
 
-	private static function getAlterTableStatement( BucketSchema $bucketSchema, BucketSchema $oldSchema, IDatabase $dbw ): string {
+	private static function getAlterTableStatement(
+		BucketSchema $bucketSchema, BucketSchema $oldSchema, IDatabase $dbw
+	): string {
 		$alterTableFragments = [];
 
 		$oldFields = $oldSchema->getFields();
@@ -215,7 +219,8 @@ class BucketDatabase {
 				$alterTableFragments[] = "ADD $escapedFieldName " . $newDbType . " COMMENT $fieldJson" . $after;
 			} else {
 				// If an existing column has the same DB type, check for moved position or a change between TEXT/PAGE
-				if ( $previousColumn !== $oldPreviousColumn || $oldFields[$fieldName]->getType() !== $field->getType() ) {
+				if ( $previousColumn !== $oldPreviousColumn ||
+					$oldFields[$fieldName]->getType() !== $field->getType() ) {
 					# Acts as a no-op except to update the comment and column position.
 					$alterTableFragments[] = "MODIFY $escapedFieldName " . $newDbType . " COMMENT $fieldJson" . $after;
 				}
@@ -235,7 +240,8 @@ class BucketDatabase {
 		foreach ( $oldFields as $deletedColumn => $val ) {
 			$escapedDeletedColumn = $dbw->addIdentifierQuotes( $deletedColumn );
 			if ( $val->getRepeated() === true ) {
-				$alterTableFragments[] = "DROP INDEX $escapedDeletedColumn"; // We must explicitly drop indexes for repeated fields
+				// We must explicitly drop indexes for repeated fields
+				$alterTableFragments[] = "DROP INDEX $escapedDeletedColumn";
 			}
 			$alterTableFragments[] = "DROP $escapedDeletedColumn";
 		}
@@ -250,12 +256,14 @@ class BucketDatabase {
 		foreach ( $newSchema->getFields() as $field ) {
 			$dbType = $field->getDatabaseValueType()->value;
 			$fieldJson = $dbw->addQuotes( json_encode( $field ) );
-			$createTableFragments[] = "{$dbw->addIdentifierQuotes($field->getFieldName())} {$dbType} COMMENT $fieldJson";
+			$createTableFragments[] =
+				"{$dbw->addIdentifierQuotes($field->getFieldName())} $dbType COMMENT $fieldJson";
 			if ( $field->getIndexed() ) {
 				$createTableFragments[] = self::getIndexStatement( $field, $dbw );
 			}
 		}
-		$createTableFragments[] = "PRIMARY KEY ({$dbw->addIdentifierQuotes('_page_id')}, {$dbw->addIdentifierQuotes('_index')})";
+		$createTableFragments[] =
+			"PRIMARY KEY ({$dbw->addIdentifierQuotes('_page_id')}, {$dbw->addIdentifierQuotes('_index')})";
 
 		$dbTableName = $dbw->addIdentifierQuotes( $newSchema->getTableName() );
 		return "CREATE TABLE $dbTableName (" . implode( ', ', $createTableFragments ) . ') DEFAULT CHARSET=utf8mb4;';
@@ -288,6 +296,10 @@ class BucketDatabase {
 		}
 	}
 
+	/**
+	 * @param string $bucketName
+	 * @return string
+	 */
 	public static function getBucketTableName( $bucketName ): string {
 		return 'bucket__' . $bucketName;
 	}

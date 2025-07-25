@@ -11,7 +11,10 @@ class Bucket {
 	public const MESSAGE_BUCKET = 'bucket_message';
 	public const REPEATED_CHARACTER_LIMIT = 512;
 
-	private array $logs = []; // Cannot be static because RefreshLinks job will run on multiple pages
+	/**
+	 * Cannot be static because RefreshLinks job will run on multiple pages
+	 */
+	private array $logs = [];
 	private array $newPuts = [];
 
 	public function logMessage( string $bucket, string $property, string $type, string $message ): void {
@@ -31,7 +34,6 @@ class Bucket {
 
 	/**
 	 * Called when a page is saved containing a bucket.put
-	 * @property BucketSchema[] $schemas
 	 */
 	public function writePuts( int $pageId, string $titleText, array $puts, bool $writingLogs = false ): void {
 		$dbw = BucketDatabase::getDB();
@@ -61,30 +63,37 @@ class Bucket {
 					->caller( __METHOD__ )
 					->fetchResultSet();
 			foreach ( $res as $row ) {
-				$schemas[$row->bucket_name] = new BucketSchema( $row->bucket_name, json_decode( $row->schema_json, true ) );
+				$schemas[$row->bucket_name] = new BucketSchema(
+					$row->bucket_name, json_decode( $row->schema_json, true ) );
 			}
 		}
 
 		foreach ( $puts as $bucketName => $bucketData ) {
 			if ( $bucketName === '' ) {
-				self::logMessage( $bucketName, '', 'bucket-general-error', wfMessage( 'bucket-no-bucket-defined-warning' ) );
+				self::logMessage(
+					$bucketName, '', 'bucket-general-error', wfMessage( 'bucket-no-bucket-defined-warning' ) );
 				continue;
 			}
 
 			try {
 				$bucketNameTmp = self::getValidFieldName( $bucketName );
 			} catch ( SchemaException ) {
-				self::logMessage( $bucketName, '', 'bucket-general-warning', wfMessage( 'bucket-invalid-name-warning', $bucketName ) );
+				self::logMessage(
+					$bucketName, '', 'bucket-general-warning', wfMessage(
+						'bucket-invalid-name-warning', $bucketName ) );
 				continue;
 			}
 
 			if ( $bucketNameTmp !== $bucketName ) {
-				self::logMessage( $bucketName, '', 'bucket-general-warning', wfMessage( 'bucket-capital-name-warning' ) );
+				self::logMessage(
+					$bucketName, '', 'bucket-general-warning', wfMessage( 'bucket-capital-name-warning' ) );
 			}
 			$bucketName = $bucketNameTmp;
 
 			if ( $bucketName === self::MESSAGE_BUCKET && $writingLogs === false ) {
-				self::logMessage( $bucketName, self::MESSAGE_BUCKET, 'bucket-general-error', wfMessage( 'bucket-cannot-write-to-system-bucket' ) );
+				self::logMessage(
+					$bucketName, self::MESSAGE_BUCKET, 'bucket-general-error', wfMessage(
+						'bucket-cannot-write-to-system-bucket' ) );
 				continue;
 			}
 
@@ -109,7 +118,8 @@ class Bucket {
 			foreach ( $fieldNames as $fieldName ) {
 				// If the table has a field that isn't present in the schema, the schema must be out of date.
 				if ( !isset( $bucketSchema->getFields()[$fieldName] ) ) {
-					self::logMessage( $bucketName, $fieldName, 'bucket-general-error', wfMessage( 'bucket-schema-outdated-error' ) );
+					self::logMessage(
+						$bucketName, $fieldName, 'bucket-general-error', wfMessage( 'bucket-schema-outdated-error' ) );
 				} else {
 					$fields[$fieldName] = true;
 				}
@@ -123,16 +133,21 @@ class Bucket {
 				}
 				foreach ( $singleData as $key => $value ) {
 					if ( !isset( $fields[$key] ) || !$fields[$key] ) {
-						self::logMessage( $bucketName, $key, 'bucket-general-warning', wfMessage( 'bucket-put-key-missing-warning', $key, $bucketName ) );
+						self::logMessage(
+							$bucketName, $key, 'bucket-general-warning', wfMessage(
+								'bucket-put-key-missing-warning', $key, $bucketName ) );
 					}
 				}
 				$singlePut = [];
 				foreach ( $fields as $key => $_ ) {
 					$value = $singleData[$key] ?? null;
 					try {
-						$singlePut[$dbw->addIdentifierQuotes( $key )] = $bucketSchema->getField( $key )->castValueForDatabase( $value );
+						$singlePut[$dbw->addIdentifierQuotes( $key )] =
+							$bucketSchema->getField( $key )->castValueForDatabase( $value );
 					} catch ( BucketException $e ) {
-						self::logMessage( $bucketName, $key, 'bucket-general-error', wfMessage( $e->getMessage(), self::REPEATED_CHARACTER_LIMIT ) );
+						self::logMessage(
+							$bucketName, $key, 'bucket-general-error', wfMessage(
+								$e->getMessage(), self::REPEATED_CHARACTER_LIMIT ) );
 					}
 				}
 				$singlePut[$dbw->addIdentifierQuotes( '_page_id' )] = $pageId;
@@ -155,7 +170,8 @@ class Bucket {
 
 			// Remove the bucket_hash entry so we can it as a list of removed buckets at the end.
 			unset( $bucket_hash[ $bucketName ] );
-			$this->newPuts[$bucketName] = [ '_page_id' => $pageId, 'bucket_name' => $bucketName, 'put_hash' => $newHash ];
+			$this->newPuts[$bucketName] =
+				[ '_page_id' => $pageId, 'bucket_name' => $bucketName, 'put_hash' => $newHash ];
 
 			$dbw->newDeleteQueryBuilder()
 				->deleteFrom( $dbw->addIdentifierQuotes( $dbTableName ) )
@@ -208,7 +224,8 @@ class Bucket {
 
 	public static function getValidFieldName( ?string $fieldName ): string {
 		if ( $fieldName !== null
-			&& is_numeric( $fieldName ) === false // Disallow numeric field names because the MediaWiki RDBMS treats numeric tables names as numbers in some circumstances.
+			// Disallow numeric field names as the MW RDBMS treats numeric tables names as ints in some circumstances.
+			&& is_numeric( $fieldName ) === false
 			&& !str_starts_with( $fieldName, '_' )
 			&& preg_match( '/^[a-zA-Z0-9_]+$/D', $fieldName ) ) {
 			$cleanName = strtolower( trim( $fieldName ) );
@@ -244,6 +261,10 @@ class Bucket {
 						->fetchRowCount();
 	}
 
+	/**
+	 * @param array $userInput
+	 * @return array
+	 */
 	public static function runSelect( $userInput ) {
 		$query = new BucketQuery( $userInput );
 		$fieldNames = $query->getFields();
@@ -256,6 +277,8 @@ class Bucket {
 		}
 		$res = $selectQueryBuilder->fetchResultSet();
 		$result = [];
+
+		// phpcs:ignore Generic.CodeAnalysis.AssignmentInCondition.FoundInWhileCondition
 		while ( $dataRow = $res->fetchRow() ) {
 			$resultRow = [];
 			foreach ( $dataRow as $key => $value ) {
@@ -292,7 +315,7 @@ class BucketSchema implements JsonSerializable {
 	private array $fields = [];
 	private int $timestamp;
 
-	function __construct( string $bucketName, array $schema, int $timestamp = 0 ) {
+	public function __construct( string $bucketName, array $schema, int $timestamp = 0 ) {
 		$this->timestamp = $timestamp;
 		if ( $bucketName === '' ) {
 			throw new QueryException( wfMessage( 'bucket-empty-bucket-name' ) );
@@ -321,23 +344,23 @@ class BucketSchema implements JsonSerializable {
 	/**
 	 * @return BucketSchemaField[]
 	 */
-	function getFields(): array {
+	public function getFields(): array {
 		return $this->fields;
 	}
 
-	function getField( string $fieldName ): BucketSchemaField {
+	public function getField( string $fieldName ): BucketSchemaField {
 		return $this->fields[$fieldName];
 	}
 
-	function getName(): string {
+	public function getName(): string {
 		return $this->bucketName;
 	}
 
-	function getTableName(): string {
+	public function getTableName(): string {
 		return BucketDatabase::getBucketTableName( $this->bucketName );
 	}
 
-	function getSafe( IDatabase $dbw ): string {
+	public function getSafe( IDatabase $dbw ): string {
 		return $dbw->addIdentifierQuotes( $this->getTableName() );
 	}
 
@@ -354,26 +377,26 @@ class BucketSchemaField implements JsonSerializable {
 	private bool $indexed;
 	private bool $repeated;
 
-	function __construct( string $fieldName, ValueType $type, bool $indexed, bool $repeated ) {
+	public function __construct( string $fieldName, ValueType $type, bool $indexed, bool $repeated ) {
 		$this->fieldName = $fieldName;
 		$this->type = $type;
 		$this->indexed = $indexed;
 		$this->repeated = $repeated;
 	}
 
-	function getFieldName(): string {
+	public function getFieldName(): string {
 		return $this->fieldName;
 	}
 
-	function getType(): ValueType {
+	public function getType(): ValueType {
 		return $this->type;
 	}
 
-	function getIndexed(): bool {
+	public function getIndexed(): bool {
 		return $this->indexed;
 	}
 
-	function getRepeated(): bool {
+	public function getRepeated(): bool {
 		return $this->repeated;
 	}
 
@@ -388,16 +411,17 @@ class BucketSchemaField implements JsonSerializable {
 	/**
 	 * Example json: {"type":"INTEGER","index":false,"repeated":false}
 	 */
-	static function fromJson( string $fieldName, string $json ): BucketSchemaField {
+	public static function fromJson( string $fieldName, string $json ): BucketSchemaField {
 		$jsonRow = json_decode( $json, true );
 		// This is the old style (Pre-July 2025) of table comment formatting.
 		// Example json: {"_page_id":{"type":"INTEGER","index":false,"repeated":false}}
-		// This can be removed once old buckets are no longer used (after Bucket is in prod and the dev env has been reset)
-		if ( isset( $jsonRow[$fieldName]['type']) ) {
+		// This can be removed once old buckets are no longer used (after Bucket is in prod)
+		if ( isset( $jsonRow[$fieldName]['type'] ) ) {
 			$jsonRow = $jsonRow[$fieldName];
 		}
 		// End old style handling
-		return new BucketSchemaField( $fieldName, ValueType::from( $jsonRow['type'] ), $jsonRow['index'], $jsonRow['repeated'] );
+		return new BucketSchemaField(
+			$fieldName, ValueType::from( $jsonRow['type'] ), $jsonRow['index'], $jsonRow['repeated'] );
 	}
 
 	/**
@@ -435,13 +459,15 @@ class BucketSchemaField implements JsonSerializable {
 			case ValueType::Integer:
 				return intval( $value );
 			case ValueType::Boolean:
-				return (int)filter_var( $value, FILTER_VALIDATE_BOOL ); // MySQL uses 1 for true, 0 for false
+				// MySQL uses 1 for true, 0 for false
+				return (int)filter_var( $value, FILTER_VALIDATE_BOOL );
 			case ValueType::Json:
 				if ( !is_array( $value ) ) {
 					if ( $value === '' ) {
 						return null;
 					} else {
-						$value = [ $value ]; // Wrap single values in an array for compatability
+						// Wrap single values in an array for compatability
+						$value = [ $value ];
 					}
 				}
 				$value = array_values( $value );
@@ -460,6 +486,10 @@ class BucketSchemaField implements JsonSerializable {
 		return null;
 	}
 
+	/**
+	 * @param mixed $value
+	 * @return array|bool|float|int|void
+	 */
 	public function castValueForLua( $value ) {
 		$type = $this->getType();
 		if ( $this->getRepeated() ) {
@@ -468,10 +498,12 @@ class BucketSchemaField implements JsonSerializable {
 				$value = '';
 			}
 			$jsonData = json_decode( $value, true );
-			if ( !is_array( $jsonData ) ) { // If we are in a repeated field but only holding a scalar, make it an array anyway.
+			// If we are in a repeated field but only holding a scalar, make it an array anyway.
+			if ( !is_array( $jsonData ) ) {
 				$jsonData = [ $jsonData ];
 			}
-			$nonRepeatedData = new BucketSchemaField( $this->getFieldName(), $this->getType(), $this->getIndexed(), false );
+			$nonRepeatedData = new BucketSchemaField(
+				$this->getFieldName(), $this->getType(), $this->getIndexed(), false );
 			foreach ( $jsonData as $subVal ) {
 				$ret[] = $nonRepeatedData->castValueForLua( $subVal );
 			}

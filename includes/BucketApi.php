@@ -9,7 +9,6 @@ use MediaWiki\MediaWikiServices;
 use MediaWiki\Parser\Parser;
 use MediaWiki\Parser\ParserOptions;
 use Wikimedia\ParamValidator\ParamValidator;
-use Wikimedia\ParamValidator\TypeDef\IntegerDef;
 use Wikimedia\ParamValidator\TypeDef\NumericDef;
 
 class BucketApi extends ApiBase {
@@ -30,7 +29,7 @@ class BucketApi extends ApiBase {
 			$offset = $params['offset'];
 
 			if ( $bucket === null ) {
-				$this->getResult()->addValue( null, 'error', wfMessage( 'bucket-empty-bucket-name' ) );
+				$this->getResult()->addValue( null, 'error', $this->msg( 'bucket-empty-bucket-name' ) );
 				return;
 			}
 			try {
@@ -96,7 +95,8 @@ class BucketApi extends ApiBase {
 
 		} catch ( ScribuntoException $e ) {
 			$errorMsg = $e->getMessage();
-			$errorMsg = preg_replace( '/Lua error in .+: /U', '', $errorMsg ); // Remove the "Lua error in mw.ext.bucket.ua at line 85" text to clean up the error a little bit.
+			// Remove the "Lua error in mw.ext.bucket.ua at line 85" text to clean up the error a little bit.
+			$errorMsg = preg_replace( '/Lua error in .+: /U', '', $errorMsg );
 			$this->getResult()->addValue( null, 'error', $errorMsg );
 			return;
 		}
@@ -104,37 +104,40 @@ class BucketApi extends ApiBase {
 		$this->getResult()->addValue( null, 'bucket', json_decode( $result['return'] ) );
 	}
 
+	/**
+	 * @return array[]
+	 */
 	protected function getAllowedParams() {
 		return [
-		'query' => [
-			ParamValidator::PARAM_TYPE => 'string',
-			ApiBase::PARAM_HELP_MSG => wfMessage( 'bucket-api-help-query' )
-		],
-		'bucket' => [
-			ParamValidator::PARAM_TYPE => 'string',
-			ApiBase::PARAM_HELP_MSG => wfMessage( 'bucket-api-help-bucket' )
-		],
-		'select' => [
-			ParamValidator::PARAM_TYPE => 'string',
-			ParamValidator::PARAM_DEFAULT => '*',
-			ApiBase::PARAM_HELP_MSG => wfMessage( 'bucket-api-help-select' )
-		],
-		'where' => [
-			ParamValidator::PARAM_TYPE => 'string',
-			ApiBase::PARAM_HELP_MSG => wfMessage( 'bucket-api-help-where' )
-		],
-		'limit' => [
-			ParamValidator::PARAM_DEFAULT => 20,
-			ParamValidator::PARAM_TYPE => 'limit',
-			NumericDef::PARAM_MIN => 1,
-			NumericDef::PARAM_MAX => BucketQuery::DEFAULT_LIMIT,
-			NumericDef::PARAM_MAX2 => BucketQuery::MAX_LIMIT,
-		],
-		'offset' => [
-			ParamValidator::PARAM_DEFAULT => 0,
-			ParamValidator::PARAM_TYPE => 'limit',
-			NumericDef::PARAM_MIN => 0
-		]
+			'query' => [
+				ParamValidator::PARAM_TYPE => 'string',
+				ApiBase::PARAM_HELP_MSG => $this->msg( 'bucket-api-help-query' )
+			],
+			'bucket' => [
+				ParamValidator::PARAM_TYPE => 'string',
+				ApiBase::PARAM_HELP_MSG => $this->msg( 'bucket-api-help-bucket' )
+			],
+			'select' => [
+				ParamValidator::PARAM_TYPE => 'string',
+				ParamValidator::PARAM_DEFAULT => '*',
+				ApiBase::PARAM_HELP_MSG => $this->msg( 'bucket-api-help-select' )
+			],
+			'where' => [
+				ParamValidator::PARAM_TYPE => 'string',
+				ApiBase::PARAM_HELP_MSG => $this->msg( 'bucket-api-help-where' )
+			],
+			'limit' => [
+				ParamValidator::PARAM_DEFAULT => 20,
+				ParamValidator::PARAM_TYPE => 'limit',
+				NumericDef::PARAM_MIN => 1,
+				NumericDef::PARAM_MAX => BucketQuery::DEFAULT_LIMIT,
+				NumericDef::PARAM_MAX2 => BucketQuery::MAX_LIMIT,
+			],
+			'offset' => [
+				ParamValidator::PARAM_DEFAULT => 0,
+				ParamValidator::PARAM_TYPE => 'limit',
+				NumericDef::PARAM_MIN => 0
+			]
 		];
 	}
 

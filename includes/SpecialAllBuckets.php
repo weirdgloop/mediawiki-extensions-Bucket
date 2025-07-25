@@ -9,11 +9,15 @@ class SpecialAllBuckets extends SpecialPage {
 		parent::__construct( 'AllBuckets' );
 	}
 
+	/**
+	 * @param string|null $subPage
+	 * @return void
+	 */
 	public function execute( $subPage ) {
 		$out = $this->getOutput();
 		$this->setHeaders();
 
-		$out->setPageTitleMsg( wfMessage( 'allbuckets' ) );
+		$out->setPageTitleMsg( $this->msg( 'allbuckets' ) );
 
 		$dbw = BucketDatabase::getDB();
 		$res = $dbw->newSelectQueryBuilder()
@@ -24,7 +28,7 @@ class SpecialAllBuckets extends SpecialPage {
 
 		$list = [];
 		$list[] = '{|class="wikitable"';
-		$list[] = '!' . wfMessage( 'allbuckets-heading' )->parse();
+		$list[] = '!' . $this->msg( 'allbuckets-heading' )->parse();
 		foreach ( $res as $row ) {
 			$list[] = "|-\n|[[Bucket:$row->bucket_name]]";
 		}
@@ -32,7 +36,10 @@ class SpecialAllBuckets extends SpecialPage {
 		$out->addWikiTextAsContent( implode( "\n", $list ) );
 	}
 
-	function getGroupName() {
+	/**
+	 * @return string
+	 */
+	protected function getGroupName() {
 		return 'bucket';
 	}
 }

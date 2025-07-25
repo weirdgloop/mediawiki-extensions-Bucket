@@ -21,6 +21,11 @@ class LuaLibrary extends LibraryBase {
 		return $this->getEngine()->registerInterface( __DIR__ . '/mw.ext.bucket.lua', $lib, [] );
 	}
 
+	/**
+	 * @param array $builder
+	 * @param array $data
+	 * @return void
+	 */
 	public function bucketPut( $builder, $data ): void {
 		$parserOutput = $this->getParser()->getOutput();
 		$bucketPuts = $parserOutput->getExtensionData( Bucket::EXTENSION_DATA_KEY ) ?? [];
@@ -31,7 +36,8 @@ class LuaLibrary extends LibraryBase {
 		$sub = $builder['subversion'];
 		if ( !array_key_exists( $bucketName, $bucketPuts ) ) {
 			try {
-				// Add the Bucket page as a "template" used on this page. This will get us linksUpdate scheduled for free when the Bucket page changes.
+				// Add the Bucket page as a "template" used on this page.
+				// This will get us linksUpdate scheduled for free when the Bucket page changes.
 				$title = MediaWikiServices::getInstance()->getTitleParser()->parseTitle( $bucketName, NS_BUCKET );
 				$bucketPage = MediaWikiServices::getInstance()->getWikiPageFactory()->newFromLinkTarget( $title );
 				$bucketRevisionRecord = $bucketPage->getRevisionRecord();
@@ -47,6 +53,10 @@ class LuaLibrary extends LibraryBase {
 		$parserOutput->setExtensionData( Bucket::EXTENSION_DATA_KEY, $bucketPuts );
 	}
 
+	/**
+	 * @param array $data
+	 * @return array|array[]
+	 */
 	public function bucketRun( $data ): array {
 		// Reset counter when we begin parsing a different page.
 		if ( !isset( self::$currentPage ) || !$this->getParser()->getPage()->isSamePageAs( self::$currentPage ) ) {
@@ -73,9 +83,11 @@ class LuaLibrary extends LibraryBase {
 		} catch ( TypeError $e ) {
 			return [ 'error' => wfMessage( 'bucket-php-type-error', $e->getMessage() )->text() ];
 		} finally {
-			self::$elapsedTime += (int)( ( hrtime( true ) - $startTime ) / 1000000 ); // Convert nanoseconds to milliseconds
+			// Convert nanoseconds to milliseconds
+			self::$elapsedTime += (int)( ( hrtime( true ) - $startTime ) / 1000000 );
 			$this->getParser()->getOutput()->setLimitReportData( 'bucket-limitreport-run-time', [
-					sprintf( '%.3f', self::$elapsedTime / 1000 ), // Milliseconds to seconds
+					// Milliseconds to seconds
+					sprintf( '%.3f', self::$elapsedTime / 1000 ),
 					// Strip trailing .0s
 					rtrim( rtrim( sprintf( '%.3f', $maxTime / 1000 ), '0' ), '.' )
 			] );
@@ -83,14 +95,20 @@ class LuaLibrary extends LibraryBase {
 	}
 
 	/**
-	 * Add the bucket page as a linked page. This allows Special:WhatLinksHere on Bucket pages to show a list of pages that read from that bucket.
+	 * Add the bucket page as a linked page.
+	 * This allows Special:WhatLinksHere on Bucket pages to show a list of pages that read from that bucket.
+	 * @param string $bucketName
 	 */
 	private function linkToBucket( $bucketName ) {
 		$title = MediaWikiServices::getInstance()->getTitleParser()->parseTitle( $bucketName, NS_BUCKET );
 		$this->getParser()->getOutput()->addLink( $title );
 	}
 
-	// Go from 0-index to 1-index.
+	/**
+	 * Go from 0-index to 1-index.
+	 * @param mixed $arr
+	 * @return array
+	 */
 	public function convertToLuaTable( $arr ) {
 		if ( is_array( $arr ) ) {
 			$luaTable = [];
@@ -105,7 +123,11 @@ class LuaLibrary extends LibraryBase {
 		return $arr;
 	}
 
-	// Go from 1-index to 0-index.
+	/**
+	 * Go from 1-index to 0-index.
+	 * @param mixed $arr
+	 * @return array
+	 */
 	public static function convertFromLuaTable( $arr ) {
 		if ( is_array( $arr ) ) {
 			$luaTable = [];

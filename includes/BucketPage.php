@@ -49,7 +49,8 @@ class BucketPage extends Article {
 		$limit = $context->getRequest()->getInt( 'limit', 20 );
 		$offset = $context->getRequest()->getInt( 'offset', 0 );
 
-		$fullResult = BucketPageHelper::runQuery( $this->getContext()->getRequest(), $bucketName, $select, $where, $limit, $offset );
+		$fullResult = BucketPageHelper::runQuery(
+			$this->getContext()->getRequest(), $bucketName, $select, $where, $limit, $offset );
 
 		if ( isset( $fullResult['error'] ) ) {
 			$out->addWikiTextAsContent( BucketPageHelper::printError( $fullResult['error'] ) );
@@ -82,13 +83,17 @@ class BucketPage extends Article {
 		unset( $specialQueryValues['title'] );
 		$specialQueryValues['bucket'] = $bucketName;
 		$out->addHTML( ' ' );
-		$out->addHTML( $linkRenderer->makeKnownLink( new TitleValue( NS_SPECIAL, 'Bucket' ), wfMessage( 'bucket-page-dive-into' ), [], $specialQueryValues ) );
+		$out->addHTML( $linkRenderer->makeKnownLink(
+			new TitleValue( NS_SPECIAL, 'Bucket' ), wfMessage(
+				'bucket-page-dive-into' ), [], $specialQueryValues ) );
 		$out->addHTML( '<br>' );
 
-		$pageLinks = BucketPageHelper::getPageLinks( $title, $limit, $offset, $context->getRequest()->getQueryValues(), ( $resultCount === $limit ) );
+		$pageLinks = BucketPageHelper::getPageLinks(
+			$title, $limit, $offset, $context->getRequest()->getQueryValues(), ( $resultCount === $limit ) );
 
 		$out->addHTML( $pageLinks );
-		$out->addWikiTextAsContent( BucketPageHelper::getResultTable( $schemas[$bucketName], $fullResult['fields'], $queryResult ) );
+		$out->addWikiTextAsContent(
+			BucketPageHelper::getResultTable( $schemas[$bucketName], $fullResult['fields'], $queryResult ) );
 		$out->addHTML( $pageLinks );
 	}
 }

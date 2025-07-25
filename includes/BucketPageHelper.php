@@ -4,10 +4,21 @@ namespace MediaWiki\Extension\Bucket;
 
 use MediaWiki\Api\ApiMain;
 use MediaWiki\Request\DerivativeRequest;
+use MediaWiki\Request\WebRequest;
+use MediaWiki\Title\Title;
 use OOUI;
+use stdClass;
 
 class BucketPageHelper {
-
+	/**
+	 * @param WebRequest $existing_request
+	 * @param string $bucket
+	 * @param string $select
+	 * @param string $where
+	 * @param int $limit
+	 * @param int $offset
+	 * @return stdClass
+	 */
 	public static function runQuery( $existing_request, $bucket, $select, $where, $limit, $offset ) {
 		$params = new DerivativeRequest(
 			$existing_request,
@@ -57,6 +68,12 @@ class BucketPageHelper {
 		return $value;
 	}
 
+	/**
+	 * @param array $schema
+	 * @param array|null $fields
+	 * @param stdClass $result
+	 * @return string
+	 */
 	public static function getResultTable( $schema, $fields, $result ) {
 		if ( isset( $fields ) && count( $fields ) > 0 ) {
 			$output[] = '<table class="wikitable"><tr>';
@@ -71,7 +88,8 @@ class BucketPageHelper {
 				$output[] = '<tr>';
 				foreach ( $keys as $key ) {
 					if ( isset( $row[$key] ) ) {
-						$output[] = '<td>' . self::formatValue( $row[$key], $schema[$key]['type'], $schema[$key]['repeated'] ) . '</td>';
+						$output[] = '<td>' . self::formatValue(
+							$row[$key], $schema[$key]['type'], $schema[$key]['repeated'] ) . '</td>';
 					} else {
 						$output[] = '<td></td>';
 					}
@@ -84,6 +102,14 @@ class BucketPageHelper {
 		return '';
 	}
 
+	/**
+	 * @param Title $title
+	 * @param int $limit
+	 * @param int $offset
+	 * @param array $query
+	 * @param bool $hasNext
+	 * @return OOUI\ButtonGroupWidget
+	 */
 	public static function getPageLinks( $title, $limit, $offset, $query, $hasNext = true ) {
 		$links = [];
 
@@ -118,6 +144,7 @@ class BucketPageHelper {
 
 	/**
 	 * Escapes input and wraps in a standard error format.
+	 * @return string
 	 */
 	public static function printError( string $msg ) {
 		return '<strong class="error bucket-error">' . wfEscapeWikiText( $msg ) . '</strong>';
