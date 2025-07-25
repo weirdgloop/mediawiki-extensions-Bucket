@@ -1,6 +1,6 @@
 <?php
 
-namespace MediaWiki\Extension\Bucket;
+namespace MediaWiki\Extension\Bucket\Hooks\Handlers;
 
 use Article;
 use ManualLogEntry;
@@ -9,13 +9,16 @@ use MediaWiki\Content\Hook\ContentModelCanBeUsedOnHook;
 use MediaWiki\Content\JsonContent;
 use MediaWiki\Context\IContextSource;
 use MediaWiki\Deferred\LinksUpdate\LinksUpdate;
+use MediaWiki\Extension\Bucket\Bucket;
+use MediaWiki\Extension\Bucket\BucketDatabase;
+use MediaWiki\Extension\Bucket\BucketException;
+use MediaWiki\Extension\Bucket\BucketPage;
+use MediaWiki\Extension\Bucket\LuaLibrary;
 use MediaWiki\Extension\Scribunto\Hooks\ScribuntoExternalLibrariesHook;
 use MediaWiki\Hook\AfterImportPageHook;
 use MediaWiki\Hook\LinksUpdateCompleteHook;
 use MediaWiki\Hook\SidebarBeforeOutputHook;
 use MediaWiki\Hook\TitleIsAlwaysKnownHook;
-use MediaWiki\Installer\DatabaseUpdater;
-use MediaWiki\Installer\Hook\LoadExtensionSchemaUpdatesHook;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Page\Hook\ArticleFromTitleHook;
 use MediaWiki\Page\Hook\BeforeDisplayNoArticleTextHook;
@@ -34,9 +37,8 @@ use MediaWiki\Title\Title;
 use MediaWiki\User\UserIdentity;
 use StatusValue;
 
-class Hooks implements
+class GeneralHandler implements
 	LinksUpdateCompleteHook,
-	LoadExtensionSchemaUpdatesHook,
 	MultiContentSaveHook,
 	PageUndeleteHook,
 	PageUndeleteCompleteHook,
@@ -53,17 +55,6 @@ class Hooks implements
 	private function enabledNamespaces() {
 		$config = MediaWikiServices::getInstance()->getMainConfig();
 		return array_keys( $config->get( 'BucketWriteEnabledNamespaces' ), true );
-	}
-
-	/**
-	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/LoadExtensionSchemaUpdates
-	 *
-	 * @param DatabaseUpdater $updater
-	 * @return void
-	 */
-	public function onLoadExtensionSchemaUpdates( $updater ) {
-		$updater->addExtensionTable( 'bucket_schemas', __DIR__ . '/../sql/create_bucket_schemas.sql' );
-		$updater->addExtensionTable( 'bucket_pages', __DIR__ . '/../sql/create_bucket_pages.sql' );
 	}
 
 	/**

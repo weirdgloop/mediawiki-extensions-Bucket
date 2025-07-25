@@ -1,0 +1,154 @@
+[
+	{
+		"name": "bucket_pages",
+		"comment": "A map of page IDs and bucket names.",
+		"columns": [
+			{
+				"name": "_page_id",
+				"comment": "Key to page.page_id",
+				"type": "integer",
+				"options": { "notnull": true }
+			},
+			{
+				"name": "bucket_name",
+				"comment": "The name of the bucket",
+				"type": "string",
+				"options": { "notnull": true, "length": 255 }
+			},
+			{
+				"name": "put_hash",
+				"comment": "The hash of the PUT",
+				"type": "string",
+				"options": { "notnull": true, "length": 255 }
+			}
+		],
+		"indexes": [],
+		"pk": [
+			"_page_id",
+			"bucket_name"
+		]
+	},
+	{
+		"name": "bucket_schemas",
+		"comment": "A map of bucket names to their schemas.",
+		"columns": [
+			{
+				"name": "bucket_name",
+				"comment": "The hash of the PUT",
+				"type": "string",
+				"options": { "notnull": true, "length": 255 }
+			},
+			{
+				"name": "schema_json",
+				"comment": "The hash of the PUT",
+				"type": "text",
+				"options": { "notnull": true }
+			}
+		],
+		"indexes": [],
+		"pk": [
+			"bucket_name"
+		]
+	},
+	{
+		"name": "bucket__bucket_message",
+		"comment": "User-facing messages for various buckets (errors etc).",
+		"columns": [
+			{
+				"name": "_page_id",
+				"comment": "Key to page.page_id",
+				"type": "integer",
+				"options": { "unsigned": true, "notnull": true }
+			},
+			{
+				"name": "_index",
+				"type": "integer",
+				"options": { "unsigned": true, "notnull": true }
+			},
+			{
+				"name": "page_name",
+				"type": "text",
+				"options": { "notnull": false }
+			},
+			{
+				"name": "page_name_sub",
+				"type": "text",
+				"options": { "notnull": false }
+			},
+			{
+				"name": "bucket",
+				"type": "text",
+				"options": { "notnull": false }
+			},
+			{
+				"name": "property",
+				"type": "text",
+				"options": { "notnull": false }
+			},
+			{
+				"name": "type",
+				"type": "text",
+				"options": { "notnull": false }
+			},
+			{
+				"name": "message",
+				"type": "text",
+				"options": { "notnull": false }
+			}
+		],
+		"indexes": [
+			{
+				"name": "page_name",
+				"columns": [ "page_name" ],
+				"unique": false,
+				"options": {
+					"lengths": [255]
+				}
+			},
+			{
+				"name": "page_name_sub",
+				"columns": [ "page_name_sub" ],
+				"unique": false,
+				"options": {
+					"lengths": [255]
+				}
+			},
+			{
+				"name": "bucket",
+				"columns": [ "bucket" ],
+				"unique": false,
+				"options": {
+					"lengths": [255]
+				}
+			},
+			{
+				"name": "property",
+				"columns": [ "property" ],
+				"unique": false,
+				"options": {
+					"lengths": [255]
+				}
+			},
+			{
+				"name": "type",
+				"columns": [ "type" ],
+				"unique": false,
+				"options": {
+					"lengths": [255]
+				}
+			},
+			{
+				"name": "message",
+				"columns": [ "message" ],
+				"unique": false,
+				"options": {
+					"lengths": [255]
+				}
+			}
+		],
+		"pk": [
+			"_page_id",
+			"_index"
+		]
+	}
+]

@@ -18,7 +18,8 @@
 		}
 	},
 	"AutoloadNamespaces": {
-		"MediaWiki\\Extension\\Bucket\\": "includes/"
+		"MediaWiki\\Extension\\Bucket\\": "includes/",
+		"MediaWiki\\Extension\\Bucket\\Hooks\\Handlers": "includes/Hooks/Handlers"
 	},
 	"AutoloadClasses": {
 		"BucketAction": "includes/BucketAction.php"
@@ -39,24 +40,27 @@
 			}
 	],
 	"Hooks": {
-		"LinksUpdateComplete": "BucketHookHandler",
-		"LoadExtensionSchemaUpdates": "BucketHookHandler",
-		"MultiContentSave": "BucketHookHandler",
-		"PageUndelete": "BucketHookHandler",
-		"PageUndeleteComplete": "BucketHookHandler",
-		"ScribuntoExternalLibraries": "BucketHookHandler",
-		"SidebarBeforeOutput": "BucketHookHandler",
-		"ArticleFromTitle": "BucketHookHandler",
-		"PageDelete": "BucketHookHandler",
-		"PageDeleteComplete": "BucketHookHandler",
-		"ContentModelCanBeUsedOn": "BucketHookHandler",
-		"BeforeDisplayNoArticleText": "BucketHookHandler",
-		"TitleIsAlwaysKnown": "BucketHookHandler",
-		"AfterImportPage": "BucketHookHandler"
+		"LinksUpdateComplete": "main",
+		"LoadExtensionSchemaUpdates": "schema",
+		"MultiContentSave": "main",
+		"PageUndelete": "main",
+		"PageUndeleteComplete": "main",
+		"ScribuntoExternalLibraries": "main",
+		"SidebarBeforeOutput": "main",
+		"ArticleFromTitle": "main",
+		"PageDelete": "main",
+		"PageDeleteComplete": "main",
+		"ContentModelCanBeUsedOn": "main",
+		"BeforeDisplayNoArticleText": "main",
+		"TitleIsAlwaysKnown": "main",
+		"AfterImportPage": "main"
 	},
 	"HookHandlers": {
-		"BucketHookHandler": {
-			"class": "MediaWiki\\Extension\\Bucket\\Hooks"
+		"main": {
+			"class": "MediaWiki\\Extension\\Bucket\\Hooks\\Handlers\\GeneralHandler"
+		},
+		"schema": {
+			"class": "MediaWiki\\Extension\\Bucket\\Hooks\\Handlers\\SchemaHandler"
 		}
 	},
 	"Actions": {
