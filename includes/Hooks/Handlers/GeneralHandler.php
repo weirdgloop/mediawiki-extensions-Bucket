@@ -256,7 +256,7 @@ class GeneralHandler implements
 	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/ContentModelCanBeUsedOn
 	 */
 	public function onContentModelCanBeUsedOn( $contentModel, $title, &$ok ) {
-		if ( $title->getNamespace() !== NS_BUCKET && $contentModel !== 'json' ) {
+		if ( $title->getNamespace() === NS_BUCKET && $contentModel !== 'json' ) {
 			$ok = false;
 			return false;
 		}
