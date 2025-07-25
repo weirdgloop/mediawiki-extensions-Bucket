@@ -72,7 +72,7 @@ class BucketDatabase {
 	 * Example comment for field _page_id: {"type":"INTEGER","index":false,"repeated":false}
 	 */
 	private static function buildSchemaFromComments( string $bucketName, IDatabase $dbw ): BucketSchema {
-		$dbTableName = self::getBucketTableName( $bucketName );
+		$dbTableName = $dbw->addIdentifierQuotes( self::getBucketTableName( $bucketName ) );
 		$res = $dbw->query( "SHOW FULL COLUMNS FROM $dbTableName;", __METHOD__ );
 
 		$fields = [];
@@ -264,7 +264,7 @@ class BucketDatabase {
 	public static function deleteTable( string $bucketName ): void {
 		$dbw = self::getDB();
 		$bucketName = Bucket::getValidBucketName( $bucketName );
-		$tableName = self::getBucketTableName( $bucketName );
+		$tableName = $dbw->addIdentifierQuotes( self::getBucketTableName( $bucketName ) );
 
 		$dbw->newDeleteQueryBuilder()
 			->table( 'bucket_schemas' )
