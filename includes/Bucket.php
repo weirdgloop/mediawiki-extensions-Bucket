@@ -210,7 +210,7 @@ class Bucket {
 		if ( $fieldName !== null
 			&& is_numeric( $fieldName ) === false // Disallow numeric field names because the MediaWiki RDBMS treats numeric tables names as numbers in some circumstances.
 			&& !str_starts_with( $fieldName, '_' )
-			&& preg_match( '/^[a-zA-Z0-9_]+$/', $fieldName ) ) {
+			&& preg_match( '/^[a-zA-Z0-9_]+$/D', $fieldName ) ) {
 			$cleanName = strtolower( trim( $fieldName ) );
 			// MySQL has a maximum of 64, lets limit it to 60 in case we need to append to fields for some reason later
 			if ( strlen( $cleanName ) <= 60 ) {
