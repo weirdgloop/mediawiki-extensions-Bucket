@@ -32,4 +32,4 @@ CREATE USER 'bucket'@'<SERVER_HOSTNAME>' IDENTIFIED BY '<PASSWORD>';
  | $wgBucketWriteEnabledNamespaces | An array of namespaces that Bucket will write data from. | (Main), User, Project, File, Help, and Category
 
 ## Usage
- [For detailed usage, see this page](https://meta.runescape.wiki/w/User:Cook_Me_Plox/Bucket).
+ [For detailed usage, see this page](https://meta.weirdgloop.org/w/Extension:Bucket).
