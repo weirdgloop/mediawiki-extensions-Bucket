@@ -29,6 +29,7 @@
 
     "bucket-page-result-counter": "Displaying $1 results $2 – $3",
     "bucket-page-dive-into": "Dive into this Bucket",
+    "bucket-results-per-page-tooltip": "Show $1 results per page.",
 
     "bucket-namespace-move-into": "Cannot move pages to the Bucket namespace",
     "bucket-namespace-move": "Cannot move Bucket pages",

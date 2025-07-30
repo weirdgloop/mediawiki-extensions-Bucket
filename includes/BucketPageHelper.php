@@ -7,7 +7,6 @@ use MediaWiki\Request\DerivativeRequest;
 use MediaWiki\Request\WebRequest;
 use MediaWiki\Title\Title;
 use OOUI;
-use stdClass;
 
 class BucketPageHelper {
 	/**
@@ -17,9 +16,11 @@ class BucketPageHelper {
 	 * @param string $where
 	 * @param int $limit
 	 * @param int $offset
-	 * @return stdClass
+	 * @return array
 	 */
-	public static function runQuery( $existing_request, $bucket, $select, $where, $limit, $offset ) {
+	public static function runQuery(
+		WebRequest $existing_request, string $bucket, string $select, string $where, int $limit, int $offset
+	): array {
 		$params = new DerivativeRequest(
 			$existing_request,
 			[
@@ -36,6 +37,9 @@ class BucketPageHelper {
 		return $api->getResult()->getResultData();
 	}
 
+	/**
+	 * @return string - wikitext
+	 */
 	private static function formatValue( mixed $value, string $dataType, bool $repeated ): string {
 		if ( $repeated ) {
 			if ( !is_array( $value ) ) {
@@ -71,10 +75,10 @@ class BucketPageHelper {
 	/**
 	 * @param array $schema
 	 * @param array|null $fields
-	 * @param stdClass $result
-	 * @return string
+	 * @param array $result
+	 * @return string - wikitext
 	 */
-	public static function getResultTable( $schema, $fields, $result ) {
+	public static function getResultTable( array $schema, ?array $fields, array $result ): string {
 		if ( isset( $fields ) && count( $fields ) > 0 ) {
 			$output[] = '<table class="wikitable"><tr>';
 			$keys = [];
@@ -110,7 +114,9 @@ class BucketPageHelper {
 	 * @param bool $hasNext
 	 * @return OOUI\ButtonGroupWidget
 	 */
-	public static function getPageLinks( $title, $limit, $offset, $query, $hasNext = true ) {
+	public static function getPageLinks(
+		Title $title, int $limit, int $offset, array $query, bool $hasNext = true
+	): OOUI\ButtonGroupWidget {
 		$links = [];
 
 		$previousOffset = max( 0, $offset - $limit );
@@ -122,11 +128,9 @@ class BucketPageHelper {
 		] );
 
 		foreach ( [ 20, 50, 100, 250, 500 ] as $num ) {
-			$query = [ 'limit' => $num, 'offset' => $offset ] + $query;
-			$tooltip = "Show $num results per page.";
 			$links[] = new OOUI\ButtonWidget( [
-				'href' => $title->getLocalURL( $query ),
-				'title' => $tooltip,
+				'href' => $title->getLocalURL( [ 'limit' => $num, 'offset' => $offset ] + $query ),
+				'title' => wfMessage( 'bucket-results-per-page-tooltip', $num ),
 				'label' => $num,
 				'active' => ( $num === $limit )
 			] );
@@ -144,7 +148,7 @@ class BucketPageHelper {
 
 	/**
 	 * Escapes input and wraps in a standard error format.
-	 * @return string
+	 * @return string - escaped wikitext
 	 */
 	public static function printError( string $msg ) {
 		return '<strong class="error bucket-error">' . wfEscapeWikiText( $msg ) . '</strong>';
