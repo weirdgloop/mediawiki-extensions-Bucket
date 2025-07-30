@@ -82,7 +82,6 @@ class BucketPage extends Article {
 		unset( $specialQueryValues['action'] );
 		unset( $specialQueryValues['title'] );
 		$specialQueryValues['bucket'] = $bucketName;
-		$out->addHTML( ' ' );
 		$out->addHTML( $linkRenderer->makeKnownLink(
 			new TitleValue( NS_SPECIAL, 'Bucket' ), wfMessage(
 				'bucket-page-dive-into' ), [], $specialQueryValues ) );

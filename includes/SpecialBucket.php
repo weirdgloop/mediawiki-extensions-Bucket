@@ -167,7 +167,7 @@ class SpecialBucket extends SpecialPage {
 
 		$resultCount = count( $fullResult['bucket'] );
 		$endResult = $offset + $resultCount;
-		$out->addHTML( $this->msg(
+		$out->addWikiTextAsContent( $this->msg(
 			'bucket-page-result-counter', $resultCount, $offset, $endResult ) . '<br>' );
 
 		$pageLinks = BucketPageHelper::getPageLinks(
