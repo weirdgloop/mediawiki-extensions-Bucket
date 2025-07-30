@@ -491,7 +491,7 @@ class BucketSchemaField implements JsonSerializable {
 	 * @return array|bool|float|int|void
 	 */
 	public function castValueForLua( $value ) {
-		if ( $value === null) {
+		if ( $value === null ) {
 			return null;
 		}
 		$type = $this->getType();
