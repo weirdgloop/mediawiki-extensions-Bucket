@@ -91,7 +91,7 @@ class BucketPageHelper {
 						$output[] = '<td>' . self::formatValue(
 							$row[$key], $schema[$key]['type'], $schema[$key]['repeated'] ) . '</td>';
 					} else {
-						$output[] = '<td></td>';
+						$output[] = "<td>''Null''</td>";
 					}
 				}
 				$output[] = '</tr>';
