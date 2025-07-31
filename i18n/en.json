@@ -1,6 +1,7 @@
 {
 	"bucket-desc": "Implements a lightweight interface for storing and accessing structured data",
     "bucket": "Bucket browse",
+	"right-editbucket": "Edit pages containing Bucket schema",
     "allbuckets": "All Buckets",
     "bucket-sidebar-action": "View buckets",
     "bucket-description": "Store things",

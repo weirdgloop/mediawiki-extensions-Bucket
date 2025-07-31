@@ -31,7 +31,8 @@
 				"name": "Bucket",
 				"subpages": false,
 				"movable": false,
-				"defaultcontentmodel": "json"
+				"defaultcontentmodel": "json",
+				"protection": "editbucket"
 			},
 			{
 				"id": 9593,
@@ -123,6 +124,11 @@
 		},
 		"BucketMaxPageExecutionTime": {
 			"value": 10000
+		}
+	},
+	"GroupPermissions": {
+		"*": {
+			"editbucket": true
 		}
 	},
 	"ConfigRegistry": {
