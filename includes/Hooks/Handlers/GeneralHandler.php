@@ -66,9 +66,9 @@ class GeneralHandler implements
 	 * @return void
 	 */
 	public function onLinksUpdateComplete( $linksUpdate, $ticket ) {
-		$bucketPuts = $linksUpdate->getParserOutput()->getExtensionData( Bucket::EXTENSION_DATA_KEY ) ?? [];
-		$pageId = $linksUpdate->getTitle()->getArticleID();
 		if ( $linksUpdate->getTitle()->inNamespaces( $this->enabledNamespaces() ) ) {
+			$bucketPuts = $linksUpdate->getParserOutput()->getExtensionData( Bucket::EXTENSION_DATA_KEY ) ?? [];
+			$pageId = $linksUpdate->getTitle()->getArticleID();
 			$titleText = $linksUpdate->getTitle()->getPrefixedText();
 			$bucket = new Bucket();
 			$bucket->writePuts( $pageId, $titleText, $bucketPuts );

@@ -263,10 +263,11 @@ class Bucket {
 
 	/**
 	 * @param array $userInput
+	 * @param bool $changedPage - true if the current page is different than the last parsed page
 	 * @return array
 	 */
-	public static function runSelect( $userInput ) {
-		$query = new BucketQuery( $userInput );
+	public static function runSelect( array $userInput, bool $changedPage ): array {
+		$query = new BucketQuery( $userInput, $changedPage );
 		$fieldNames = $query->getFields();
 		$selectQueryBuilder = $query->getSelectQueryBuilder();
 

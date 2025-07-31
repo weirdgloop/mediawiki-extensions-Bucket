@@ -58,10 +58,12 @@ class LuaLibrary extends LibraryBase {
 	 * @return array|array[]
 	 */
 	public function bucketRun( $data ): array {
+		$changedPage = false;
 		// Reset counter when we begin parsing a different page.
 		if ( !isset( self::$currentPage ) || !$this->getParser()->getPage()->isSamePageAs( self::$currentPage ) ) {
 			self::$currentPage = $this->getParser()->getPage();
 			self::$elapsedTime = 0;
+			$changedPage = true;
 		}
 		$startTime = hrtime( true );
 		$maxTime = MediaWikiServices::getInstance()->getMainConfig()->get( 'BucketMaxPageExecutionTime' );
@@ -74,7 +76,7 @@ class LuaLibrary extends LibraryBase {
 				$this->linkToBucket( $join['bucketName'] );
 			}
 			$data = self::convertFromLuaTable( $data );
-			$rows = Bucket::runSelect( $data );
+			$rows = Bucket::runSelect( $data, $changedPage );
 			return [ self::convertToLuaTable( $rows ) ];
 		} catch ( BucketException $e ) {
 			return [ 'error' => $e->getMessage() ];
