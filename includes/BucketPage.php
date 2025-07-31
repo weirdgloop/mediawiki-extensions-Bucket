@@ -14,7 +14,7 @@ class BucketPage extends Article {
 
 	public function __construct( Title $title ) {
 		parent::__construct( $title );
-		$this->templateParser = new TemplateParser( __DIR__ . '/templates' );
+		$this->templateParser = new TemplateParser( __DIR__ . '/Templates' );
 	}
 
 	public function view() {

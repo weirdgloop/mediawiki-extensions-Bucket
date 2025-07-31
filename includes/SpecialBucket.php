@@ -11,7 +11,7 @@ class SpecialBucket extends SpecialPage {
 
 	public function __construct() {
 		parent::__construct( 'Bucket' );
-		$this->templateParser = new TemplateParser( __DIR__ . '/templates' );
+		$this->templateParser = new TemplateParser( __DIR__ . '/Templates' );
 	}
 
 	/**

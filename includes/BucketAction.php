@@ -3,11 +3,21 @@
 namespace MediaWiki\Extension\Bucket;
 
 use Action;
+use Article;
+use MediaWiki\Context\IContextSource;
 use MediaWiki\Html\Html;
+use MediaWiki\Html\TemplateParser;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Title\TitleValue;
 
 class BucketAction extends Action {
+	private TemplateParser $templateParser;
+
+	public function __construct( Article $article, IContextSource $context ) {
+		parent::__construct( $article, $context );
+		$this->templateParser = new TemplateParser( __DIR__ . '/Templates' );
+	}
+
 	/**
 	 * @return string
 	 */
@@ -61,15 +71,17 @@ class BucketAction extends Action {
 		$linkRenderer = MediaWikiServices::getInstance()->getLinkRenderer();
 		foreach ( $buckets as $bucketName ) {
 			$bucket_page_name = str_replace( '_', ' ', $bucketName );
-
-			$out->addHTML( '<h2>' .
-				$linkRenderer->makePreloadedLink( new TitleValue( NS_BUCKET, $bucket_page_name ) ) . '</h2>' );
-
 			$fullResult = BucketPageHelper::runQuery(
 				$this->getRequest(), $bucketName, '*', "{'page_name', $title}", 500, 0 );
-
-			$out->addWikiTextAsContent( BucketPageHelper::getResultTable(
-				$schemas[$bucketName], $fullResult['fields'], $fullResult['bucket'] ) );
+			$html = $this->templateParser->processTemplate(
+				'BucketAction',
+				[
+					'headerText' => $linkRenderer->makePreloadedLink( new TitleValue( NS_BUCKET, $bucket_page_name ) ),
+					'resultTable' => BucketPageHelper::getResultTable( $this->templateParser,
+						$schemas[$bucketName], $fullResult['fields'], $fullResult['bucket'] )
+				]
+			);
+			$out->addHTML( $html );
 		}
 	}
 
