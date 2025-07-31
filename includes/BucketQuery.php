@@ -70,8 +70,14 @@ class BucketQuery {
 
 	/**
 	 * @param array $data
+	 * @param bool $changedPage
 	 */
-	public function __construct( $data ) {
+	public function __construct( array $data, bool $changedPage ) {
+		if ( $changedPage ) {
+			// We must clear the schemaCache when we begin a new page because the DB transaction
+			// is committed at the end of each page, which means the cache may be invalid.
+			self::$schemaCache = [];
+		}
 		// Ensure schema cache is populated with all used buckets
 		$neededSchemas = [];
 		if ( !isset( self::$schemaCache[$data['bucketName']] ) ) {
