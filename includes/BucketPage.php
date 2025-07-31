@@ -15,9 +15,17 @@ class BucketPage extends Article {
 	}
 
 	public function view() {
-		parent::view();
 		$context = $this->getContext();
-		$out = $this->getContext()->getOutput();
+		$out = $context->getOutput();
+		$request = $context->getRequest();
+
+		parent::view();
+
+		// On diff and oldid pages, show what people would normally expect to see.
+		if ( $request->getCheck( 'diff' ) || $this->getOldID() ) {
+			return;
+		}
+
 		$out->enableOOUI();
 		$out->addModuleStyles( 'ext.bucket.bucketpage.styles' );
 		$title = $this->getTitle();
@@ -44,13 +52,12 @@ class BucketPage extends Article {
 			$schemas[$row->bucket_name] = json_decode( $row->schema_json, true );
 		}
 
-		$select = $context->getRequest()->getText( 'select', '*' );
-		$where = $context->getRequest()->getText( 'where', '' );
-		$limit = $context->getRequest()->getInt( 'limit', 20 );
-		$offset = $context->getRequest()->getInt( 'offset', 0 );
+		$select = $request->getText( 'select', '*' );
+		$where = $request->getText( 'where', '' );
+		$limit = $request->getInt( 'limit', 20 );
+		$offset = $request->getInt( 'offset', 0 );
 
-		$fullResult = BucketPageHelper::runQuery(
-			$this->getContext()->getRequest(), $bucketName, $select, $where, $limit, $offset );
+		$fullResult = BucketPageHelper::runQuery( $request, $bucketName, $select, $where, $limit, $offset );
 
 		if ( isset( $fullResult['error'] ) ) {
 			$out->addWikiTextAsContent( BucketPageHelper::printError( $fullResult['error'] ) );
@@ -78,7 +85,7 @@ class BucketPage extends Article {
 
 		$out->addWikiMsg( 'bucket-page-result-counter', $resultCount, $offset, $endResult );
 
-		$specialQueryValues = $context->getRequest()->getQueryValues();
+		$specialQueryValues = $request->getQueryValues();
 		unset( $specialQueryValues['action'] );
 		unset( $specialQueryValues['title'] );
 		$specialQueryValues['bucket'] = $bucketName;
@@ -88,7 +95,7 @@ class BucketPage extends Article {
 		$out->addHTML( '<br>' );
 
 		$pageLinks = BucketPageHelper::getPageLinks(
-			$title, $limit, $offset, $context->getRequest()->getQueryValues(), ( $resultCount === $limit ) );
+			$title, $limit, $offset, $request->getQueryValues(), ( $resultCount === $limit ) );
 
 		$out->addHTML( $pageLinks );
 		$out->addWikiTextAsContent(
