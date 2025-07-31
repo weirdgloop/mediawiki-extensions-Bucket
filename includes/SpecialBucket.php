@@ -2,12 +2,16 @@
 
 namespace MediaWiki\Extension\Bucket;
 
+use MediaWiki\Html\TemplateParser;
 use MediaWiki\SpecialPage\SpecialPage;
 use OOUI;
 
 class SpecialBucket extends SpecialPage {
+	private TemplateParser $templateParser;
+
 	public function __construct() {
 		parent::__construct( 'Bucket' );
+		$this->templateParser = new TemplateParser( __DIR__ . '/templates' );
 	}
 
 	/**
@@ -121,6 +125,7 @@ class SpecialBucket extends SpecialPage {
 		$out = $this->getOutput();
 		$this->setHeaders();
 		$out->enableOOUI();
+		$out->addModuleStyles( 'ext.bucket.bucketpage.styles' );
 		$out->setPageTitle( 'Bucket browse' );
 
 		$bucket = $request->getText( 'bucket', '' );
@@ -167,16 +172,19 @@ class SpecialBucket extends SpecialPage {
 
 		$resultCount = count( $fullResult['bucket'] );
 		$endResult = $offset + $resultCount;
-		$out->addWikiTextAsContent( $this->msg(
-			'bucket-page-result-counter', $resultCount, $offset, $endResult ) . '<br>' );
 
-		$pageLinks = BucketPageHelper::getPageLinks(
-			$this->getFullTitle(), $limit, $offset, $request->getQueryValues(), ( $resultCount === $limit ) );
-
-		$out->addHTML( $pageLinks );
-		$out->addWikiTextAsContent(
-			BucketPageHelper::getResultTable( $schemas[$bucketName], $fullResult['fields'], $queryResult ) );
-		$out->addHTML( $pageLinks );
+		$html = $this->templateParser->processTemplate(
+			'BucketPageView',
+			[
+				'resultHeaderText' => $out->msg( 'bucket-page-result-counter' )
+					->params( $resultCount, $offset, $endResult )->parse(),
+				'paginationLinks' => BucketPageHelper::getPageLinks(
+					$this->getFullTitle(), $limit, $offset, $request->getQueryValues(), ( $resultCount === $limit ) ),
+				'resultTable' => BucketPageHelper::getResultTable(
+					$this->templateParser, $schemas[$bucketName], $fullResult['fields'], $queryResult )
+			]
+		);
+		$out->addHTML( $html );
 	}
 
 	/**

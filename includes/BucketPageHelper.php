@@ -3,9 +3,13 @@
 namespace MediaWiki\Extension\Bucket;
 
 use MediaWiki\Api\ApiMain;
+use MediaWiki\Html\Html;
+use MediaWiki\Html\TemplateParser;
+use MediaWiki\MediaWikiServices;
 use MediaWiki\Request\DerivativeRequest;
 use MediaWiki\Request\WebRequest;
 use MediaWiki\Title\Title;
+use MediaWiki\Title\TitleValue;
 use OOUI;
 
 class BucketPageHelper {
@@ -57,52 +61,57 @@ class BucketPageHelper {
 			return implode( '', $returns );
 		}
 		if ( $dataType === 'PAGE' && strlen( $value ) > 0 ) {
-			return '[[:' . wfEscapeWikiText( $value ) . ']]';
+			$renderer = MediaWikiServices::getInstance()->getLinkRenderer();
+			return $renderer->makePreloadedLink( new TitleValue( 0, $value ) );
 		}
 		if ( $dataType === 'TEXT' ) {
-			return wfEscapeWikiText( $value );
+			return Html::element( 'span', [], $value );
 		}
 		if ( $dataType === 'BOOLEAN' ) {
-			if ( $value ) {
-				return 'True';
-			} else {
-				return 'False';
-			}
+			$value = $value ? 'true' : 'false';
+			return Html::element( 'span', [
+				'class' => 'bucket__value-boolean bucket__value-boolean-' . $value ], $value );
 		}
 		return $value;
 	}
 
 	/**
+	 * @param TemplateParser $templateParser
 	 * @param array $schema
 	 * @param array|null $fields
 	 * @param array $result
-	 * @return string - wikitext
+	 * @return string - html
 	 */
-	public static function getResultTable( array $schema, ?array $fields, array $result ): string {
+	public static function getResultTable(
+		TemplateParser $templateParser, array $schema, ?array $fields, array $result ): string {
 		if ( isset( $fields ) && count( $fields ) > 0 ) {
-			$output[] = '<table class="wikitable"><tr>';
 			$keys = [];
+			$rows = [];
+
 			foreach ( array_keys( $schema ) as $key ) {
 				if ( in_array( $key, $fields ) ) {
 					$keys[] = $key;
-					$output[] = "<th>$key</th>";
 				}
 			}
+
 			foreach ( $result as $row ) {
-				$output[] = '<tr>';
+				$tr = [];
 				foreach ( $keys as $key ) {
-					if ( isset( $row[$key] ) ) {
-						$output[] = '<td>' . self::formatValue(
-							$row[$key], $schema[$key]['type'], $schema[$key]['repeated'] ) . '</td>';
-					} else {
-						$output[] = "<td>''Null''</td>";
-					}
+					$tr[] = isset( $row[$key] ) ? self::formatValue(
+						$row[$key], $schema[$key]['type'], $schema[$key]['repeated'] ) : 'null';
 				}
-				$output[] = '</tr>';
+				$rows[] = $tr;
 			}
-			$output[] = '</table>';
-			return implode( '', $output );
+
+			return $templateParser->processTemplate(
+				'BucketResultTable',
+				[
+					'keys' => $keys,
+					'rows' => $rows
+				]
+			);
 		}
+
 		return '';
 	}
 

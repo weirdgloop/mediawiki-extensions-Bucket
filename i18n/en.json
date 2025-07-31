@@ -27,8 +27,9 @@
     "bucket-api-help-select": "A list of fields to select, seperated by spaces",
     "bucket-api-help-where": "A lua string that goes inside of bucket.where()",
 
+	"bucket-page-browse-text": "Bucket data ($1 total)",
     "bucket-page-result-counter": "Displaying $1 results $2 – $3",
-    "bucket-page-dive-into": "Dive into this Bucket",
+    "bucket-page-dive-text": "Dive into this bucket",
     "bucket-results-per-page-tooltip": "Show $1 results per page.",
 
     "bucket-namespace-move-into": "Cannot move pages to the Bucket namespace",

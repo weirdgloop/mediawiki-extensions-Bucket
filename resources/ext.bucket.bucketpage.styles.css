@@ -19,4 +19,21 @@
 
 .bucket-list {
     text-wrap-mode: nowrap;
+	margin-left: 1em;
+}
+
+.bucket__value-boolean {
+	padding: 0 0.25em;
+	outline: 1px solid var(--border-color-base,#a2a9b1);
+	display: inline-block;
+	width: calc(100% - 0.5em);
+	text-align: center;
+}
+
+.bucket__value-boolean-true {
+	background: #dcfae3;
+}
+
+.bucket__value-boolean-false {
+	background: #fadcdc;
 }

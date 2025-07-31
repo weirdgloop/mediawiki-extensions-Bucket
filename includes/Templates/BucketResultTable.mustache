@@ -1,0 +1,14 @@
+<table class="wikitable">
+	<tr>
+	{{#keys}}
+		<th>{{.}}</th>
+	{{/keys}}
+	</tr>
+	{{#rows}}
+		<tr>
+			{{#.}}
+			<td>{{{.}}}</td>
+			{{/.}}
+		</tr>
+	{{/rows}}
+</table>

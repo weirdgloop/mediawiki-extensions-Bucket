@@ -3,15 +3,18 @@
 namespace MediaWiki\Extension\Bucket;
 
 use Article;
+use MediaWiki\Html\TemplateParser;
 use MediaWiki\MediaWikiServices;
+use MediaWiki\SpecialPage\SpecialPage;
 use Mediawiki\Title\Title;
-use MediaWiki\Title\TitleValue;
 use Wikimedia\Rdbms\DBQueryTimeoutError;
 
 class BucketPage extends Article {
+	private TemplateParser $templateParser;
 
 	public function __construct( Title $title ) {
 		parent::__construct( $title );
+		$this->templateParser = new TemplateParser( __DIR__ . '/templates' );
 	}
 
 	public function view() {
@@ -20,6 +23,11 @@ class BucketPage extends Article {
 		$request = $context->getRequest();
 
 		parent::view();
+
+		// If the page doesn't exist, then there's no reason to show the bucket
+		if ( !$this->getPage()->hasViewableContent() ) {
+			return;
+		}
 
 		// On diff and oldid pages, show what people would normally expect to see.
 		if ( $request->getCheck( 'diff' ) || $this->getOldID() ) {
@@ -42,11 +50,11 @@ class BucketPage extends Article {
 		}
 
 		$res = $dbw->newSelectQueryBuilder()
-					->from( 'bucket_schemas' )
-					->select( [ 'bucket_name', 'schema_json' ] )
-					->where( [ 'bucket_name' => $bucketName ] )
-					->caller( __METHOD__ )
-					->fetchResultSet();
+			->from( 'bucket_schemas' )
+			->select( [ 'bucket_name', 'schema_json' ] )
+			->where( [ 'bucket_name' => $bucketName ] )
+			->caller( __METHOD__ )
+			->fetchResultSet();
 		$schemas = [];
 		foreach ( $res as $row ) {
 			$schemas[$row->bucket_name] = json_decode( $row->schema_json, true );
@@ -79,27 +87,26 @@ class BucketPage extends Article {
 			->fetchField();
 
 		} catch ( DBQueryTimeoutError ) {
-			$maxCount = 'Error';
+			$maxCount = '?';
 		}
-		$out->addWikiTextAsContent( 'Bucket entries: ' . $maxCount );
 
-		$out->addWikiMsg( 'bucket-page-result-counter', $resultCount, $offset, $endResult );
+		$html = $this->templateParser->processTemplate(
+			'BucketPageView',
+			[
+				'browseText' => $out->msg( 'bucket-page-browse-text' )->params( $maxCount )->parse(),
+				'resultHeaderText' => $out->msg( 'bucket-page-result-counter' )
+					->params( $resultCount, $offset, $endResult )->parse(),
+				'paginationLinks' => BucketPageHelper::getPageLinks(
+					$title, $limit, $offset, $request->getQueryValues(), ( $resultCount === $limit ) ),
+				'resultTable' => BucketPageHelper::getResultTable(
+					$this->templateParser, $schemas[$bucketName], $fullResult['fields'], $queryResult ),
+				'diveText' => $linkRenderer->makePreloadedLink(
+					SpecialPage::getTitleValueFor( 'Bucket' ),
+					$out->msg( 'bucket-page-dive-text' )->parse(), '', [], [ 'bucket' => $bucketName ]
+				)
+			]
+		);
 
-		$specialQueryValues = $request->getQueryValues();
-		unset( $specialQueryValues['action'] );
-		unset( $specialQueryValues['title'] );
-		$specialQueryValues['bucket'] = $bucketName;
-		$out->addHTML( $linkRenderer->makeKnownLink(
-			new TitleValue( NS_SPECIAL, 'Bucket' ), wfMessage(
-				'bucket-page-dive-into' ), [], $specialQueryValues ) );
-		$out->addHTML( '<br>' );
-
-		$pageLinks = BucketPageHelper::getPageLinks(
-			$title, $limit, $offset, $request->getQueryValues(), ( $resultCount === $limit ) );
-
-		$out->addHTML( $pageLinks );
-		$out->addWikiTextAsContent(
-			BucketPageHelper::getResultTable( $schemas[$bucketName], $fullResult['fields'], $queryResult ) );
-		$out->addHTML( $pageLinks );
+		$out->addHTML( $html );
 	}
 }
