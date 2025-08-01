@@ -5,6 +5,7 @@ namespace MediaWiki\Extension\Bucket;
 use JsonSerializable;
 use LogicException;
 use Wikimedia\Rdbms\IDatabase;
+use MediaWiki\MediaWikiServices;
 
 class Bucket {
 	public const EXTENSION_DATA_KEY = 'bucket:puts';
@@ -37,6 +38,10 @@ class Bucket {
 	 */
 	public function writePuts( int $pageId, string $titleText, array $puts, bool $writingLogs = false ): void {
 		$dbw = BucketDatabase::getDB();
+		if ( !$writingLogs ) {
+			$putLength = 0;
+			$maxiumPutLength = MediaWikiServices::getInstance()->getMainConfig()->get('BucketMaxDataPerPage');
+		}
 
 		$res = $dbw->newSelectQueryBuilder()
 				->from( 'bucket_pages' )
@@ -162,31 +167,39 @@ class Bucket {
 
 			# Check these puts against the hash of the last time we did puts.
 			sort( $tablePuts );
-			$newHash = hash( 'sha256', json_encode( $tablePuts ) . json_encode( $bucketSchema ) );
+			$tableJson = json_encode( $tablePuts );
+			$putLength += strlen($tableJson);
+			$newHash = hash( 'sha256', $tableJson . json_encode( $bucketSchema ) );
 			if ( isset( $bucket_hash[ $bucketName ] ) && $bucket_hash[ $bucketName ] === $newHash ) {
 				unset( $bucket_hash[ $bucketName ] );
 				continue;
 			}
 
-			// Remove the bucket_hash entry so we can it as a list of removed buckets at the end.
+			// Remove the bucket_hash entry so we can use $bucket_hash as a list of removed buckets at the end.
 			unset( $bucket_hash[ $bucketName ] );
-			$this->newPuts[$bucketName] =
-				[ '_page_id' => $pageId, 'bucket_name' => $bucketName, 'put_hash' => $newHash ];
+			if ( $putLength <= $maxiumPutLength || $writingLogs ) {
+				$this->newPuts[$bucketName] =
+					['_page_id' => $pageId, 'bucket_name' => $bucketName, 'put_hash' => $newHash];
 
-			$dbw->newDeleteQueryBuilder()
-				->deleteFrom( $dbw->addIdentifierQuotes( $dbTableName ) )
-				->where( [ '_page_id' => $pageId ] )
-				->caller( __METHOD__ )
-				->execute();
-			$dbw->newInsertQueryBuilder()
-				->insert( $dbw->addIdentifierQuotes( $dbTableName ) )
-				->rows( $tablePuts )
-				->caller( __METHOD__ )
-				->execute();
+				$dbw->newDeleteQueryBuilder()
+					->deleteFrom($dbw->addIdentifierQuotes($dbTableName))
+					->where(['_page_id' => $pageId])
+					->caller(__METHOD__)
+					->execute();
+				$dbw->newInsertQueryBuilder()
+					->insert($dbw->addIdentifierQuotes($dbTableName))
+					->rows($tablePuts)
+					->caller(__METHOD__)
+					->execute();
+			}
 		}
 
 		if ( $writingLogs ) {
 			return;
+		}
+
+		if ($putLength > $maxiumPutLength) {
+			self::logMessage($bucketName, '', 'bucket-general-error', wfMessage('bucket-put-total-too-long', $putLength, $maxiumPutLength));
 		}
 
 		if ( count( $this->logs ) > 0 ) {

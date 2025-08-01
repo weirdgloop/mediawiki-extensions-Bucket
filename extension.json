@@ -123,6 +123,9 @@
 		},
 		"BucketMaxPageExecutionTime": {
 			"value": 10000
+		},
+		"BucketMaxDataPerPage": {
+			"value": 1000000
 		}
 	},
 	"GroupPermissions": {
