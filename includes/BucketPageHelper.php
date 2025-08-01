@@ -52,12 +52,14 @@ class BucketPageHelper {
 				$json = $value;
 			}
 			$returns = [];
+			$returns[] = '<ul class="bucket__list">';
 			foreach ( $json as $val ) {
 				$formatted_val = self::formatValue( $val, $dataType, false );
 				if ( $formatted_val !== '' ) {
-					$returns[] = '<li class="bucket-list">' . $formatted_val;
+					$returns[] = '<li class="bucket__list-item">' . $formatted_val . '</li>';
 				}
 			}
+			$returns[] = '</ul>';
 			return implode( '', $returns );
 		}
 		if ( $dataType === 'PAGE' && strlen( $value ) > 0 ) {
@@ -98,7 +100,7 @@ class BucketPageHelper {
 				$tr = [];
 				foreach ( $keys as $key ) {
 					$tr[] = isset( $row[$key] ) ? self::formatValue(
-						$row[$key], $schema[$key]['type'], $schema[$key]['repeated'] ) : 'null';
+						$row[$key], $schema[$key]['type'], $schema[$key]['repeated'] ) : '<i>null</i>';
 				}
 				$rows[] = $tr;
 			}
