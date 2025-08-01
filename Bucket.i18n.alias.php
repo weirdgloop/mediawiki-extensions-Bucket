@@ -10,5 +10,4 @@ $specialPageAliases = [];
 /** English (English) */
 $specialPageAliases['en'] = [
 	'Bucket' => [ 'Bucket' ],
-	'AllBuckets' => [ 'AllBuckets' ],
 ];

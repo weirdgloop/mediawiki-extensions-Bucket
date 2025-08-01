@@ -2,7 +2,6 @@
 	"bucket-desc": "Implements a lightweight interface for storing and accessing structured data",
     "bucket": "Bucket browse",
 	"right-editbucket": "Edit pages containing Bucket schema",
-    "allbuckets": "All Buckets",
     "bucket-sidebar-action": "View buckets",
     "bucket-description": "Store things",
     "bucket-view-help-bucket-name": "The current bucket name",
@@ -17,8 +16,6 @@
     "bucket-next-results": "Next $1 results",
     "specialpages-group-bucket": "Bucket",
     "bucket-specialpage-search": "Bucket Search",
-
-    "allbuckets-heading": "Bucket",
 
     "bucket-action-title": "View Buckets: $1",
     "bucket-action-writes-empty": "No Buckets are written to from this page.",
