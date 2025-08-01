@@ -4,8 +4,8 @@ namespace MediaWiki\Extension\Bucket;
 
 use JsonSerializable;
 use LogicException;
-use Wikimedia\Rdbms\IDatabase;
 use MediaWiki\MediaWikiServices;
+use Wikimedia\Rdbms\IDatabase;
 
 class Bucket {
 	public const EXTENSION_DATA_KEY = 'bucket:puts';
@@ -40,7 +40,7 @@ class Bucket {
 		$dbw = BucketDatabase::getDB();
 		if ( !$writingLogs ) {
 			$putLength = 0;
-			$maxiumPutLength = MediaWikiServices::getInstance()->getMainConfig()->get('BucketMaxDataPerPage');
+			$maxiumPutLength = MediaWikiServices::getInstance()->getMainConfig()->get( 'BucketMaxDataPerPage' );
 		}
 
 		$res = $dbw->newSelectQueryBuilder()
@@ -168,7 +168,7 @@ class Bucket {
 			# Check these puts against the hash of the last time we did puts.
 			sort( $tablePuts );
 			$tableJson = json_encode( $tablePuts );
-			$putLength += strlen($tableJson);
+			$putLength += strlen( $tableJson );
 			$newHash = hash( 'sha256', $tableJson . json_encode( $bucketSchema ) );
 			if ( isset( $bucket_hash[ $bucketName ] ) && $bucket_hash[ $bucketName ] === $newHash ) {
 				unset( $bucket_hash[ $bucketName ] );
@@ -179,17 +179,17 @@ class Bucket {
 			unset( $bucket_hash[ $bucketName ] );
 			if ( $putLength <= $maxiumPutLength || $writingLogs ) {
 				$this->newPuts[$bucketName] =
-					['_page_id' => $pageId, 'bucket_name' => $bucketName, 'put_hash' => $newHash];
+					[ '_page_id' => $pageId, 'bucket_name' => $bucketName, 'put_hash' => $newHash ];
 
 				$dbw->newDeleteQueryBuilder()
-					->deleteFrom($dbw->addIdentifierQuotes($dbTableName))
-					->where(['_page_id' => $pageId])
-					->caller(__METHOD__)
+					->deleteFrom( $dbw->addIdentifierQuotes( $dbTableName ) )
+					->where( [ '_page_id' => $pageId ] )
+					->caller( __METHOD__ )
 					->execute();
 				$dbw->newInsertQueryBuilder()
-					->insert($dbw->addIdentifierQuotes($dbTableName))
-					->rows($tablePuts)
-					->caller(__METHOD__)
+					->insert( $dbw->addIdentifierQuotes( $dbTableName ) )
+					->rows( $tablePuts )
+					->caller( __METHOD__ )
 					->execute();
 			}
 		}
@@ -198,8 +198,10 @@ class Bucket {
 			return;
 		}
 
-		if ($putLength > $maxiumPutLength) {
-			self::logMessage($bucketName, '', 'bucket-general-error', wfMessage('bucket-put-total-too-long', $putLength, $maxiumPutLength));
+		if ( $putLength > $maxiumPutLength ) {
+			self::logMessage( $bucketName, '', 'bucket-general-error',
+				wfMessage( 'bucket-put-total-too-long', $putLength, $maxiumPutLength )
+			);
 		}
 
 		if ( count( $this->logs ) > 0 ) {
