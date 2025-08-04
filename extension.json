@@ -129,7 +129,7 @@
 		}
 	},
 	"GroupPermissions": {
-		"*": {
+		"sysop": {
 			"editbucket": true
 		}
 	},
