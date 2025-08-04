@@ -65,7 +65,9 @@ class BucketQuery {
 	 * @return bool
 	 */
 	public static function isCategory( $fieldName ): bool {
-		return str_starts_with( strtolower( trim( $fieldName ) ), 'category:' );
+		$categoryPrefix = MediaWikiServices::getInstance()->getContentLanguage()->getFormattedNsText( NS_CATEGORY );
+		$categoryPrefix = strtolower( $categoryPrefix );
+		return str_starts_with( strtolower( trim( $fieldName ) ), $categoryPrefix . ':' );
 	}
 
 	/**

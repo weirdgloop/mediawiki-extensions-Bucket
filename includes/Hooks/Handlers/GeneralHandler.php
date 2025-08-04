@@ -235,7 +235,7 @@ class GeneralHandler implements
 		}
 
 		try {
-			$pagesCount = Bucket::countPagesUsingBucket( $page->getDBkey() );
+			$pagesCount = BucketDatabase::countPagesUsingBucket( $page->getDBkey() );
 			if ( $pagesCount === 0 ) {
 				return true;
 			} else {
@@ -258,13 +258,13 @@ class GeneralHandler implements
 		if ( $page->getNamespace() !== NS_BUCKET ) {
 			$bucket = new Bucket();
 			$bucket->writePuts( $page->getId(), '', [] );
-			return;
-		}
-		try {
-			BucketDatabase::deleteTable( $page->getDBkey() );
-		// If we somehow get a page that isn't a valid Bucket name, it will throw a schema exception.
-		} catch ( BucketException ) {
-			return;
+		} else {
+			try {
+				BucketDatabase::deleteTable( $page->getDBkey() );
+				// If we somehow get a page that isn't a valid Bucket name, it will throw a schema exception.
+			} catch ( BucketException ) {
+
+			}
 		}
 	}
 
@@ -293,7 +293,7 @@ class GeneralHandler implements
 			return true;
 		}
 
-		if ( strtolower( str_replace( ' ', '_', $article->getTitle()->getRootText() ) ) === Bucket::MESSAGE_BUCKET ) {
+		if ( strtolower( $article->getTitle()->getRootTitle()->getDBkey() ) === Bucket::MESSAGE_BUCKET ) {
 			return false;
 		}
 
@@ -310,7 +310,7 @@ class GeneralHandler implements
 			return;
 		}
 
-		if ( strtolower( str_replace( ' ', '_', $title->getRootText() ) ) === Bucket::MESSAGE_BUCKET ) {
+		if ( strtolower( $title->getRootTitle()->getDBkey() ) === Bucket::MESSAGE_BUCKET ) {
 			$isKnown = true;
 		}
 	}

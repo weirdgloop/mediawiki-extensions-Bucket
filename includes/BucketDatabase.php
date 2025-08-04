@@ -269,6 +269,16 @@ class BucketDatabase {
 		return "CREATE TABLE $dbTableName (" . implode( ', ', $createTableFragments ) . ') DEFAULT CHARSET=utf8mb4;';
 	}
 
+	public static function countPagesUsingBucket( string $bucketName ): int {
+		$dbw = self::getDB();
+		$bucketName = Bucket::getValidBucketName( $bucketName );
+		return $dbw->newSelectQueryBuilder()
+			->table( 'bucket_pages' )
+			->lockInShareMode()
+			->where( [ 'bucket_name' => $bucketName ] )
+			->fetchRowCount();
+	}
+
 	public static function deleteTable( string $bucketName ): void {
 		$dbw = self::getDB();
 		$bucketName = Bucket::getValidBucketName( $bucketName );

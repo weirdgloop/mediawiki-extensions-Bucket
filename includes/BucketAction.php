@@ -67,16 +67,17 @@ class BucketAction extends Action {
 			$schemas[$row->bucket_name] = json_decode( $row->schema_json, true );
 		}
 
-		$title = $dbw->addQuotes( $title );
+		// Escape title for lua
+		$luaTitle = addslashes( $title );
 		$linkRenderer = MediaWikiServices::getInstance()->getLinkRenderer();
 		foreach ( $buckets as $bucketName ) {
-			$bucket_page_name = str_replace( '_', ' ', $bucketName );
+			$bucketTitle = new TitleValue( NS_BUCKET, $bucketName );
 			$fullResult = BucketPageHelper::runQuery(
-				$this->getRequest(), $bucketName, '*', "{'page_name', $title}", 500, 0 );
+				$this->getRequest(), $bucketTitle->getDBkey(), '*', "{'page_name', '$luaTitle'}", 500, 0 );
 			$html = $this->templateParser->processTemplate(
 				'BucketAction',
 				[
-					'headerText' => $linkRenderer->makePreloadedLink( new TitleValue( NS_BUCKET, $bucket_page_name ) ),
+					'headerText' => $linkRenderer->makePreloadedLink( $bucketTitle ),
 					'resultTable' => BucketPageHelper::getResultTable( $this->templateParser,
 						$schemas[$bucketName], $fullResult['fields'], $fullResult['bucket'] )
 				]

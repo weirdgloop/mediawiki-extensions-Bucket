@@ -166,7 +166,6 @@ class Bucket {
 			}
 
 			# Check these puts against the hash of the last time we did puts.
-			sort( $tablePuts );
 			$tableJson = json_encode( $tablePuts );
 			$putLength += strlen( $tableJson );
 			$newHash = hash( 'sha256', $tableJson . json_encode( $bucketSchema ) );
@@ -200,7 +199,7 @@ class Bucket {
 
 		if ( $putLength > $maxiumPutLength ) {
 			self::logMessage( $bucketName, '', 'bucket-general-error',
-				wfMessage( 'bucket-put-total-too-long', $putLength, $maxiumPutLength )
+				wfMessage( 'bucket-put-total-too-long' )->numParams( $putLength, $maxiumPutLength )
 			);
 		}
 
@@ -261,19 +260,6 @@ class Bucket {
 		} catch ( SchemaException ) {
 			throw new SchemaException( wfMessage( 'bucket-invalid-name-warning', $bucketName ) );
 		}
-	}
-
-	/**
-	 * @return int - The number of pages writing to this bucket
-	 */
-	public static function countPagesUsingBucket( string $bucketName ): int {
-		$dbw = BucketDatabase::getDB();
-		$bucketName = self::getValidBucketName( $bucketName );
-		return $dbw->newSelectQueryBuilder()
-						->table( 'bucket_pages' )
-						->lockInShareMode()
-						->where( [ 'bucket_name' => $bucketName ] )
-						->fetchRowCount();
 	}
 
 	/**
