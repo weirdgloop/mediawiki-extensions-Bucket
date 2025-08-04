@@ -62,19 +62,20 @@ class BucketPageHelper {
 			$returns[] = '</ul>';
 			return implode( '', $returns );
 		}
-		if ( $dataType === 'PAGE' && strlen( $value ) > 0 ) {
+
+		$class = 'bucket__value-' . strtolower( $dataType );
+
+		if ( $dataType == 'PAGE' && strlen( $value ) > 0 ) {
 			$renderer = MediaWikiServices::getInstance()->getLinkRenderer();
-			return $renderer->makePreloadedLink( new TitleValue( 0, $value ) );
-		}
-		if ( $dataType === 'TEXT' ) {
-			return Html::element( 'span', [], $value );
-		}
-		if ( $dataType === 'BOOLEAN' ) {
+			return Html::rawElement(
+				'div', [ 'class' => $class ], $renderer->makePreloadedLink( new TitleValue( 0, $value ) ) );
+		} elseif ( $dataType == 'BOOLEAN' ) {
 			$value = $value ? 'true' : 'false';
 			return Html::element( 'span', [
-				'class' => 'bucket__value-boolean bucket__value-boolean-' . $value ], $value );
+				'class' => "$class bucket__value-boolean-$value" ], $value );
+		} else {
+			return Html::element( 'span', [ 'class' => $class ], $value );
 		}
-		return $value;
 	}
 
 	/**
@@ -100,7 +101,8 @@ class BucketPageHelper {
 				$tr = [];
 				foreach ( $keys as $key ) {
 					$tr[] = isset( $row[$key] ) ? self::formatValue(
-						$row[$key], $schema[$key]['type'], $schema[$key]['repeated'] ) : '<i>null</i>';
+						$row[$key], $schema[$key]['type'], $schema[$key]['repeated'] ) :
+						'<span class="bucket__value-null">null</span>';
 				}
 				$rows[] = $tr;
 			}
