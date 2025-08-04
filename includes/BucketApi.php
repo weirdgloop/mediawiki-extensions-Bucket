@@ -14,6 +14,10 @@ use Wikimedia\ParamValidator\TypeDef\NumericDef;
 class BucketApi extends ApiBase {
 
 	public function execute() {
+		if ( $this->getUser()->pingLimiter( 'bucketapi', 1 ) ) {
+			return;
+		}
+
 		$params = $this->extractRequestParams();
 
 		$title = $this->getTitle();
