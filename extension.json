@@ -21,9 +21,6 @@
 		"MediaWiki\\Extension\\Bucket\\": "includes/",
 		"MediaWiki\\Extension\\Bucket\\Hooks\\Handlers": "includes/Hooks/Handlers"
 	},
-	"AutoloadClasses": {
-		"BucketAction": "includes/BucketAction.php"
-	},
 	"namespaces": [
 			{
 				"id": 9592,
