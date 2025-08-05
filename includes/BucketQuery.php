@@ -258,8 +258,7 @@ class BucketQuery {
 		$builder->option( 'OFFSET', $this->offset );
 
 		$config = MediaWikiServices::getInstance()->getMainConfig();
-		$maxExecutionTime = $config->get( 'BucketMaxExecutionTime' );
-		$builder->setMaxExecutionTime( $maxExecutionTime );
+		$builder->setMaxExecutionTime( $config->get( 'BucketMaxQueryExecutionTime' ) );
 
 		$orderByField = $this->orderByField;
 		$orderByDirection = $this->orderByDirection;

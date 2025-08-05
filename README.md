@@ -28,7 +28,9 @@ CREATE USER 'bucket'@'<SERVER_HOSTNAME>' IDENTIFIED BY '<PASSWORD>';
  | $wgBucketDBuser | The username Bucket will use to connect to the database. | None
  | $wgBucketDBpassword | The password for the Bucket database user. | None
  | $wgBucketDBhostname | The hostname for the Bucket database user. | `%`
- | $wgBucketMaxExecutionTime | The maximum time in milliseconds that an individual query is allowed to run before timing out. | `500`
+ | $wgBucketMaxQueryExecutionTime | The maximum time in milliseconds that an individual query is allowed to run before timing out. | `500`
+ | $wgBucketMaxPageExecutionTime | The maximum time in milliseconds that Bucket is allowed to execute per page parse. | `10,000`
+ | $wgBucketMaxDataPerPage | The maximum amount of data storable by a single page, counted as the length of the JSON encoded data. | `1,000,000`
  | $wgBucketWriteEnabledNamespaces | An array of namespaces that Bucket will write data from. | (Main), User, Project, File, Help, and Category
 
 ## Usage

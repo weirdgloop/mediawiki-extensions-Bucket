@@ -118,7 +118,7 @@
 		"BucketDBhostname": {
 			"value": "%"
 		},
-		"BucketMaxExecutionTime": {
+		"BucketMaxQueryExecutionTime": {
 			"value": 500
 		},
 		"BucketMaxPageExecutionTime": {
