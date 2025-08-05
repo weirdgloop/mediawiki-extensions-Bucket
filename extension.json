@@ -51,7 +51,9 @@
 		"ContentModelCanBeUsedOn": "main",
 		"BeforeDisplayNoArticleText": "main",
 		"TitleIsAlwaysKnown": "main",
-		"AfterImportPage": "main"
+		"AfterImportPage": "main",
+		"ParserClearState": "main",
+		"ParserLimitReportPrepare": "main"
 	},
 	"HookHandlers": {
 		"main": {

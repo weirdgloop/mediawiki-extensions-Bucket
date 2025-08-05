@@ -13,10 +13,13 @@ use MediaWiki\Extension\Bucket\Bucket;
 use MediaWiki\Extension\Bucket\BucketDatabase;
 use MediaWiki\Extension\Bucket\BucketException;
 use MediaWiki\Extension\Bucket\BucketPage;
+use MediaWiki\Extension\Bucket\BucketQuery;
 use MediaWiki\Extension\Bucket\LuaLibrary;
 use MediaWiki\Extension\Scribunto\Hooks\ScribuntoExternalLibrariesHook;
 use MediaWiki\Hook\AfterImportPageHook;
 use MediaWiki\Hook\LinksUpdateCompleteHook;
+use MediaWiki\Hook\ParserClearStateHook;
+use MediaWiki\Hook\ParserLimitReportPrepareHook;
 use MediaWiki\Hook\SidebarBeforeOutputHook;
 use MediaWiki\Hook\TitleIsAlwaysKnownHook;
 use MediaWiki\MediaWikiServices;
@@ -51,7 +54,9 @@ class GeneralHandler implements
 	ContentModelCanBeUsedOnHook,
 	BeforeDisplayNoArticleTextHook,
 	TitleIsAlwaysKnownHook,
-	AfterImportPageHook
+	AfterImportPageHook,
+	ParserClearStateHook,
+	ParserLimitReportPrepareHook
 {
 	private function enabledNamespaces() {
 		$config = MediaWikiServices::getInstance()->getMainConfig();
@@ -313,5 +318,29 @@ class GeneralHandler implements
 		if ( strtolower( $title->getRootTitle()->getDBkey() ) === Bucket::MESSAGE_BUCKET ) {
 			$isKnown = true;
 		}
+	}
+
+	/**
+	 * @param Parser $parser
+	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/ParserClearState
+	 */
+	public function onParserClearState( $parser ) {
+		LuaLibrary::clearPageElapsedTime();
+		BucketQuery::clearCache();
+	}
+
+	/**
+	 * @param Parser $parser
+	 * @param Output $output
+	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/ParserLimitReportPrepare
+	 */
+	public function onParserLimitReportPrepare( $parser, $output ) {
+		$maxTime = MediaWikiServices::getInstance()->getMainConfig()->get( 'BucketMaxPageExecutionTime' );
+		$output->setLimitReportData( 'bucket-limitreport-run-time', [
+				// Milliseconds to seconds
+				sprintf( '%.3f', LuaLibrary::getPageElapsedTime() / 1000 ),
+				// Strip trailing .0s
+				rtrim( rtrim( sprintf( '%.3f', $maxTime / 1000 ), '0' ), '.' )
+		] );
 	}
 }

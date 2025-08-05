@@ -4,14 +4,21 @@ namespace MediaWiki\Extension\Bucket;
 
 use MediaWiki\Extension\Scribunto\Engines\LuaCommon\LibraryBase;
 use MediaWiki\MediaWikiServices;
-use MediaWiki\Page\PageReference;
 use MediaWiki\Title\MalformedTitleException;
 use TypeError;
 use Wikimedia\Rdbms\DBQueryTimeoutError;
 
 class LuaLibrary extends LibraryBase {
-	private static int $elapsedTime = 0;
-	private static PageReference|null $currentPage = null;
+	private static int $pageElapsedTime = 0;
+
+	public static function clearPageElapsedTime() {
+		// Reset counter when we begin parsing a different page.
+		self::$pageElapsedTime = 0;
+	}
+
+	public static function getPageElapsedTime(): int {
+		return self::$pageElapsedTime;
+	}
 
 	public function register() {
 		$lib = [
@@ -58,16 +65,9 @@ class LuaLibrary extends LibraryBase {
 	 * @return array|array[]
 	 */
 	public function bucketRun( $data ): array {
-		$changedPage = false;
-		// Reset counter when we begin parsing a different page.
-		if ( !isset( self::$currentPage ) || !$this->getParser()->getPage()->isSamePageAs( self::$currentPage ) ) {
-			self::$currentPage = $this->getParser()->getPage();
-			self::$elapsedTime = 0;
-			$changedPage = true;
-		}
 		$startTime = hrtime( true );
 		$maxTime = MediaWikiServices::getInstance()->getMainConfig()->get( 'BucketMaxPageExecutionTime' );
-		if ( self::$elapsedTime > $maxTime ) {
+		if ( self::$pageElapsedTime > $maxTime ) {
 			return [ 'error' => wfMessage( 'bucket-query-total-time-expired' )->text() ];
 		}
 		try {
@@ -76,7 +76,7 @@ class LuaLibrary extends LibraryBase {
 				$this->linkToBucket( $join['bucketName'] );
 			}
 			$data = self::convertFromLuaTable( $data );
-			$rows = Bucket::runSelect( $data, $changedPage );
+			$rows = Bucket::runSelect( $data );
 			return [ self::convertToLuaTable( $rows ) ];
 		} catch ( BucketException $e ) {
 			return [ 'error' => $e->getMessage() ];
@@ -86,13 +86,7 @@ class LuaLibrary extends LibraryBase {
 			return [ 'error' => wfMessage( 'bucket-php-type-error', $e->getMessage() )->text() ];
 		} finally {
 			// Convert nanoseconds to milliseconds
-			self::$elapsedTime += (int)( ( hrtime( true ) - $startTime ) / 1000000 );
-			$this->getParser()->getOutput()->setLimitReportData( 'bucket-limitreport-run-time', [
-					// Milliseconds to seconds
-					sprintf( '%.3f', self::$elapsedTime / 1000 ),
-					// Strip trailing .0s
-					rtrim( rtrim( sprintf( '%.3f', $maxTime / 1000 ), '0' ), '.' )
-			] );
+			self::$pageElapsedTime += (int)( ( hrtime( true ) - $startTime ) / 1000000 );
 		}
 	}
 

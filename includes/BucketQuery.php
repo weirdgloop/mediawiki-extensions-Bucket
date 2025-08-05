@@ -41,7 +41,7 @@ class BucketQuery {
 	 * @param mixed $condition
 	 * @return bool
 	 */
-	public static function isNot( $condition ) {
+	private static function isNot( $condition ) {
 		return is_array( $condition )
 		&& isset( $condition['op'] )
 		&& $condition['op'] === 'NOT'
@@ -52,7 +52,7 @@ class BucketQuery {
 	 * @param mixed $condition
 	 * @return bool
 	 */
-	public static function isOrAnd( $condition ) {
+	private static function isOrAnd( $condition ) {
 		return is_array( $condition )
 		&& isset( $condition['op'] )
 		&& ( $condition['op'] === 'OR' || $condition['op'] === 'AND' )
@@ -70,16 +70,16 @@ class BucketQuery {
 		return str_starts_with( strtolower( trim( $fieldName ) ), $categoryPrefix . ':' );
 	}
 
+	public static function clearCache() {
+		// We must clear the schemaCache when we begin a new page because the DB transaction
+		// is committed at the end of each page, which means the cache may be invalid.
+		self::$schemaCache = [];
+	}
+
 	/**
 	 * @param array $data
-	 * @param bool $changedPage
 	 */
-	public function __construct( array $data, bool $changedPage ) {
-		if ( $changedPage ) {
-			// We must clear the schemaCache when we begin a new page because the DB transaction
-			// is committed at the end of each page, which means the cache may be invalid.
-			self::$schemaCache = [];
-		}
+	public function __construct( array $data ) {
 		// Ensure schema cache is populated with all used buckets
 		$neededSchemas = [];
 		if ( !isset( self::$schemaCache[$data['bucketName']] ) ) {
