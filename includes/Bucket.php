@@ -16,7 +16,6 @@ class Bucket {
 	 * Cannot be static because RefreshLinks job will run on multiple pages
 	 */
 	private array $logs = [];
-	private array $newPuts = [];
 
 	public function logMessage( string $bucket, string $property, string $type, string $message ): void {
 		if ( $bucket !== '' ) {
@@ -36,12 +35,10 @@ class Bucket {
 	/**
 	 * Called when a page is saved containing a bucket.put
 	 */
-	public function writePuts( int $pageId, string $titleText, array $puts, bool $writingLogs = false ): void {
+	public function writePuts( int $pageId, string $titleText, array $puts, bool $writingLogs = false ): ?array {
 		$dbw = BucketDatabase::getDB();
-		if ( !$writingLogs ) {
-			$putLength = 0;
-			$maxiumPutLength = MediaWikiServices::getInstance()->getMainConfig()->get( 'BucketMaxDataPerPage' );
-		}
+		$putLength = 0;
+		$maxiumPutLength = MediaWikiServices::getInstance()->getMainConfig()->get( 'BucketMaxDataPerPage' );
 
 		$res = $dbw->newSelectQueryBuilder()
 				->from( 'bucket_pages' )
@@ -73,6 +70,8 @@ class Bucket {
 			}
 		}
 
+		// Batched data to write to bucket_pages
+		$newPuts = [];
 		foreach ( $puts as $bucketName => $bucketData ) {
 			if ( $bucketName === '' ) {
 				self::logMessage(
@@ -177,7 +176,7 @@ class Bucket {
 			// Remove the bucket_hash entry so we can use $bucket_hash as a list of removed buckets at the end.
 			unset( $bucket_hash[ $bucketName ] );
 			if ( $putLength <= $maxiumPutLength || $writingLogs ) {
-				$this->newPuts[$bucketName] =
+				$newPuts[$bucketName] =
 					[ '_page_id' => $pageId, 'bucket_name' => $bucketName, 'put_hash' => $newHash ];
 
 				$dbw->newDeleteQueryBuilder()
@@ -194,7 +193,7 @@ class Bucket {
 		}
 
 		if ( $writingLogs ) {
-			return;
+			return $newPuts;
 		}
 
 		if ( $putLength > $maxiumPutLength ) {
@@ -204,16 +203,17 @@ class Bucket {
 		}
 
 		if ( count( $this->logs ) > 0 ) {
-			self::writePuts( $pageId, $titleText, [ self::MESSAGE_BUCKET => $this->logs ], true );
+			$logPuts = self::writePuts( $pageId, $titleText, [ self::MESSAGE_BUCKET => $this->logs ], true );
+			$newPuts = array_merge( $newPuts, $logPuts );
 			unset( $bucket_hash[self::MESSAGE_BUCKET] );
 		}
 
 		// Insert new/updated hashes to bucket_pages
-		if ( count( $this->newPuts ) > 0 ) {
+		if ( count( $newPuts ) > 0 ) {
 			$dbw->newReplaceQueryBuilder()
 				->replaceInto( 'bucket_pages' )
 				->uniqueIndexFields( [ '_page_id', 'bucket_name' ] )
-				->rows( array_values( $this->newPuts ) )
+				->rows( array_values( $newPuts ) )
 				->caller( __METHOD__ )
 				->execute();
 		}
@@ -234,6 +234,7 @@ class Bucket {
 					->execute();
 			}
 		}
+		return null;
 	}
 
 	public static function getValidFieldName( ?string $fieldName ): string {
