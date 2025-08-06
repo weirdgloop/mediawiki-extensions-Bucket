@@ -325,7 +325,7 @@ class GeneralHandler implements
 	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/ParserClearState
 	 */
 	public function onParserClearState( $parser ) {
-		LuaLibrary::clearPageElapsedTime();
+		LuaLibrary::clearCache();
 		BucketQuery::clearCache();
 	}
 

@@ -10,10 +10,12 @@ use Wikimedia\Rdbms\DBQueryTimeoutError;
 
 class LuaLibrary extends LibraryBase {
 	private static int $pageElapsedTime = 0;
+	private static array $linkedBuckets = [];
 
-	public static function clearPageElapsedTime() {
+	public static function clearCache() {
 		// Reset counter when we begin parsing a different page.
 		self::$pageElapsedTime = 0;
+		self::$linkedBuckets = [];
 	}
 
 	public static function getPageElapsedTime(): int {
@@ -96,8 +98,13 @@ class LuaLibrary extends LibraryBase {
 	 * @param string $bucketName
 	 */
 	private function linkToBucket( $bucketName ) {
-		$title = MediaWikiServices::getInstance()->getTitleParser()->parseTitle( $bucketName, NS_BUCKET );
-		$this->getParser()->getOutput()->addLink( $title );
+		if ( array_key_exists( $bucketName, self::$linkedBuckets ) ) {
+			return;
+		} else {
+			self::$linkedBuckets[$bucketName] = true;
+			$title = MediaWikiServices::getInstance()->getTitleParser()->parseTitle( $bucketName, NS_BUCKET );
+			$this->getParser()->getOutput()->addLink( $title );
+		}
 	}
 
 	/**
