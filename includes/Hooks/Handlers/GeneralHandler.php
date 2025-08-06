@@ -112,19 +112,18 @@ class GeneralHandler implements
 		ProperPageIdentity $page, Authority $restorer, string $reason, RevisionRecord $restoredRev,
 		ManualLogEntry $logEntry, int $restoredRevisionCount, bool $created, array $restoredPageIds
 	): void {
-		$revRecord = $restoredRev;
-		$page = $revRecord->getPage();
+		$page = $restoredRev->getPage();
 		if ( $page->getNamespace() !== NS_BUCKET ) {
 			return;
 		}
-		$content = $revRecord->getContent( SlotRecord::MAIN );
+		$content = $restoredRev->getContent( SlotRecord::MAIN );
 		if ( !$content instanceof JsonContent || !$content->isValid() ) {
 			// This will fail anyway before saving.
 			return;
 		}
 		$jsonSchema = $content->getData()->value;
 		$title = $page->getDBkey();
-		$isExistingPage = $revRecord->getParentId() !== null;
+		$isExistingPage = $restoredRev->getParentId() !== null;
 		BucketDatabase::createOrModifyTable( $title, $jsonSchema, $isExistingPage );
 	}
 

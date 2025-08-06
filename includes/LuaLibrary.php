@@ -38,10 +38,7 @@ class LuaLibrary extends LibraryBase {
 	public function bucketPut( $builder, $data ): void {
 		$parserOutput = $this->getParser()->getOutput();
 		$bucketPuts = $parserOutput->getExtensionData( Bucket::EXTENSION_DATA_KEY ) ?? [];
-		$bucketName = '';
-		if ( array_key_exists( 'bucketName', $builder ) ) {
-			$bucketName = $builder['bucketName'];
-		}
+		$bucketName = $builder['bucketName'] ?? '';
 		$sub = $builder['subversion'];
 		if ( !array_key_exists( $bucketName, $bucketPuts ) ) {
 			try {
