@@ -21,14 +21,16 @@ class Bucket {
 		if ( $bucket !== '' ) {
 			$bucket = 'Bucket:' . $bucket;
 		}
-		$this->logs[] = [
-			'sub' => '',
-			'data' => [
+		$data = [
 				'bucket' => $bucket,
 				'property' => $property,
 				'type' => wfMessage( $type ),
 				'message' => $message
-			]
+		];
+		$hash = md5( json_encode( $data ) );
+		$this->logs[$hash] = [
+			'sub' => '',
+			'data' => $data
 		];
 	}
 
@@ -203,7 +205,7 @@ class Bucket {
 		}
 
 		if ( count( $this->logs ) > 0 ) {
-			$logPuts = self::writePuts( $pageId, $titleText, [ self::MESSAGE_BUCKET => $this->logs ], true );
+			$logPuts = self::writePuts( $pageId, $titleText, [ self::MESSAGE_BUCKET => array_values( $this->logs ) ], true );
 			$newPuts = array_merge( $newPuts, $logPuts );
 			unset( $bucket_hash[self::MESSAGE_BUCKET] );
 		}
