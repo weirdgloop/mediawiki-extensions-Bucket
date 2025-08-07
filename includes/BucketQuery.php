@@ -127,14 +127,14 @@ class BucketQuery {
 			$field2 = $join['cond'][1];
 			$schema = self::$schemaCache[$join['bucketName']];
 
+			if ( isset( $this->joins[$joinTable] ) ) {
+				throw new QueryException( wfMessage( 'bucket-query-duplicate-join', $joinTable ) );
+			}
+
 			$joinTableSchema = new BucketSchema( $joinTable, $schema );
 			$this->schemas[$joinTableSchema->getName()] = $joinTableSchema;
 			$join = new BucketJoin( $joinTableSchema, $field1, $field2, $this );
-			$joinedTableName = $joinTableSchema->getName();
-			if ( isset( $joins[$joinedTableName] ) ) {
-				throw new QueryException( wfMessage( 'bucket-select-duplicate-join', $joinedTableName ) );
-			}
-			$this->joins[] = $join;
+			$this->joins[$joinTable] = $join;
 		}
 
 		// Parse selects
@@ -328,7 +328,7 @@ class BucketJoin extends Join {
 		// Cannot join two repeated fields
 		if ( $selector1->getFieldSchema()->getRepeated() && $selector2->getFieldSchema()->getRepeated() ) {
 			throw new QueryException( wfMessage(
-				'bucket-invalid-join-two-repeated', $selector1->getFieldSchema()->getFieldName(),
+				'bucket-query-invalid-join-two-repeated', $selector1->getFieldSchema()->getFieldName(),
 				$selector2->getFieldSchema()->getFieldName() ) );
 		}
 		// Cannot join with yourself

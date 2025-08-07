@@ -93,9 +93,9 @@ class BucketPage extends Article {
 		$html = $this->templateParser->processTemplate(
 			'BucketPageView',
 			[
-				'browseText' => $out->msg( 'bucket-page-browse-text' )->params( $maxCount )->parse(),
+				'browseText' => $out->msg( 'bucket-page-browse-text' )->numParams( $maxCount )->parse(),
 				'resultHeaderText' => $out->msg( 'bucket-page-result-counter' )
-					->params( $resultCount, $offset, $endResult )->parse(),
+					->numParams( $resultCount, $offset, $endResult )->parse(),
 				'paginationLinks' => BucketPageHelper::getPageLinks(
 					$title, $limit, $offset, $request->getQueryValues(), ( $resultCount === $limit ) ),
 				'resultTable' => BucketPageHelper::getResultTable(

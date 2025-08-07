@@ -143,7 +143,7 @@ class BucketPageHelper {
 		foreach ( [ 20, 50, 100, 250, 500 ] as $num ) {
 			$links[] = new OOUI\ButtonWidget( [
 				'href' => $title->getLocalURL( [ 'limit' => $num, 'offset' => $offset ] + $query ),
-				'title' => wfMessage( 'bucket-results-per-page-tooltip', $num ),
+				'title' => wfMessage( 'bucket-results-per-page-tooltip' )->numParams( $num ),
 				'label' => $num,
 				'active' => ( $num === $limit )
 			] );
