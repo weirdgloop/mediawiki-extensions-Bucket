@@ -8,6 +8,7 @@ use Wikimedia\Rdbms\IDatabase;
 
 class Bucket {
 	public const EXTENSION_DATA_KEY = 'bucket:puts';
+	public const EXTENSION_BUCKET_NAMES_KEY = 'bucket:puts_bucket_names';
 	/**
 	 * TODO rename to bucket_error
 	 */

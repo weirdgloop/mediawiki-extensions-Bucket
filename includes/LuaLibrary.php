@@ -40,10 +40,11 @@ class LuaLibrary extends LibraryBase {
 	 */
 	public function bucketPut( $builder, $data ): void {
 		$parserOutput = $this->getParser()->getOutput();
-		$bucketPuts = $parserOutput->getExtensionData( Bucket::EXTENSION_DATA_KEY ) ?? [];
 		$bucketName = $builder['bucketName'] ?? '';
 		$sub = $builder['subversion'];
-		if ( !array_key_exists( $bucketName, $bucketPuts ) ) {
+		$linkedBucketNames = $parserOutput->getExtensionData( Bucket::EXTENSION_BUCKET_NAMES_KEY ) ?? [];
+		$parserOutput->appendExtensionData( Bucket::EXTENSION_BUCKET_NAMES_KEY, $bucketName );
+		if ( !array_key_exists( $bucketName, $linkedBucketNames ) ) {
 			try {
 				// Add the Bucket page as a "template" used on this page.
 				// This will get us linksUpdate scheduled for free when the Bucket page changes.
@@ -58,8 +59,12 @@ class LuaLibrary extends LibraryBase {
 			}
 			$bucketPuts[ $bucketName ] = [];
 		}
-		$bucketPuts[ $bucketName ][] = [ 'sub' => $sub, 'data' => $data ];
-		$parserOutput->setExtensionData( Bucket::EXTENSION_DATA_KEY, $bucketPuts );
+		$uuid = MediaWikiServices::getInstance()->getGlobalIdGenerator()->newUUIDv4();
+		$parserOutput->appendExtensionData( Bucket::EXTENSION_DATA_KEY, $uuid );
+		$parserOutput->setExtensionData(
+			Bucket::EXTENSION_DATA_KEY . $uuid,
+			[ 'bucket' => $bucketName, 'sub' => $sub, 'data' => $data ]
+		);
 	}
 
 	/**
@@ -103,8 +108,8 @@ class LuaLibrary extends LibraryBase {
 		} else {
 			self::$linkedBuckets[$bucketName] = true;
 			$title = MediaWikiServices::getInstance()->getTitleParser()->parseTitle( $bucketName, NS_BUCKET );
+			$this->getParser()->getOutput()->addLink( $title );
 		}
-		$this->getParser()->getOutput()->addLink( $title );
 	}
 
 	/**
