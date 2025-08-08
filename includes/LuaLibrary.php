@@ -5,6 +5,7 @@ namespace MediaWiki\Extension\Bucket;
 use MediaWiki\Extension\Scribunto\Engines\LuaCommon\LibraryBase;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Title\MalformedTitleException;
+use MediaWiki\Title\TitleValue;
 use TypeError;
 use Wikimedia\Rdbms\DBQueryTimeoutError;
 
@@ -13,12 +14,10 @@ class LuaLibrary extends LibraryBase {
 	 * TODO Maybe we don't need to be static here? IDK the life cycle of this class
 	 */
 	private static int $pageElapsedTime = 0;
-	private static array $linkedBuckets = [];
 
 	public static function clearCache() {
 		// Reset counter when we begin parsing a different page.
 		self::$pageElapsedTime = 0;
-		self::$linkedBuckets = [];
 	}
 
 	public static function getPageElapsedTime(): int {
@@ -98,13 +97,20 @@ class LuaLibrary extends LibraryBase {
 	 * @param string $bucketName
 	 */
 	private function linkToBucket( $bucketName ) {
-		if ( array_key_exists( $bucketName, self::$linkedBuckets ) ) {
+		$parserOutput = $this->getParser()->getOutput();
+		$titleValue = new TitleValue( NS_BUCKET, $bucketName );
+		$addedLinks = $parserOutput->getExtensionData( 'bucket:added_links' );
+
+		if ( is_array( $addedLinks ) && in_array( $titleValue->getDBkey(), $addedLinks ) ) {
 			return;
-		} else {
-			self::$linkedBuckets[$bucketName] = true;
-			$title = MediaWikiServices::getInstance()->getTitleParser()->parseTitle( $bucketName, NS_BUCKET );
 		}
-		$this->getParser()->getOutput()->addLink( $title );
+
+		$parserOutput->addLink( $titleValue );
+		if ( $addedLinks === null ) {
+			$parserOutput->setExtensionData( 'bucket:added_links', [ $titleValue->getDBkey() ] );
+		} else {
+			$parserOutput->appendExtensionData( 'bucket:added_links', $titleValue->getDBkey() );
+		}
 	}
 
 	/**
