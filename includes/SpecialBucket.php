@@ -108,7 +108,7 @@ class SpecialBucket extends SpecialPage {
 
 		$form = new OOUI\FormLayout( [
 			'items' => $inputs,
-			'action' => 'Special:Bucket',
+			'action' => $this->getPageTitle()->getLocalURL(),
 			'method' => 'get'
 		] );
 
