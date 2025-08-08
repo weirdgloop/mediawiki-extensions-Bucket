@@ -10,9 +10,6 @@ use TypeError;
 use Wikimedia\Rdbms\DBQueryTimeoutError;
 
 class LuaLibrary extends LibraryBase {
-	/**
-	 * TODO Maybe we don't need to be static here? IDK the life cycle of this class
-	 */
 	private static int $pageElapsedTime = 0;
 
 	public static function clearCache() {
