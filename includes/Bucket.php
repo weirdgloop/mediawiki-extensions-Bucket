@@ -8,6 +8,9 @@ use Wikimedia\Rdbms\IDatabase;
 
 class Bucket {
 	public const EXTENSION_DATA_KEY = 'bucket:puts';
+	/**
+	 * TODO rename to bucket_error
+	 */
 	public const MESSAGE_BUCKET = 'bucket_message';
 	public const REPEATED_CHARACTER_LIMIT = 512;
 

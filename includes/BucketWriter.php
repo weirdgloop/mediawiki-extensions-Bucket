@@ -10,11 +10,10 @@ class BucketWriter {
 	 */
 	private array $logs = [];
 
-	/**
-	 * TODO stop logging after 100
-	 * TODO rename to bucket_warning
-	 */
 	public function logMessage( string $bucket, string $property, string $type, string $message ): void {
+		if ( count( $this->logs ) > 100 ) {
+			return;
+		}
 		if ( $bucket !== '' ) {
 			$bucket = 'Bucket:' . $bucket;
 		}
@@ -32,9 +31,9 @@ class BucketWriter {
 	}
 
 	/**
-	 * Called when a page is saved containing a bucket.put
+	 * Called when a page is saved in a Bucket enabled namespace
 	 */
-	public function writePuts( int $pageId, string $titleText, array $puts, bool $writingLogs = false ) {
+	public function writePuts( int $pageId, string $titleText, array $puts, bool $writingLogs = false ): void {
 		$dbw = BucketDatabase::getDB();
 		$putLength = 0;
 		$maxiumPutLength = MediaWikiServices::getInstance()->getMainConfig()->get( 'BucketMaxDataPerPage' );
@@ -70,7 +69,7 @@ class BucketWriter {
 		}
 
 		// Batched data to write to bucket_pages
-		$newPuts = [];
+		$newPutHashes = [];
 		foreach ( $puts as $bucketName => $bucketData ) {
 			if ( $bucketName === '' ) {
 				self::logMessage(
@@ -175,7 +174,7 @@ class BucketWriter {
 			// Remove the bucket_hash entry so we can use $bucket_hash as a list of removed buckets at the end.
 			unset( $bucket_hash[ $bucketName ] );
 			if ( $putLength <= $maxiumPutLength || $writingLogs ) {
-				$newPuts[$bucketName] =
+				$newPutHashes[$bucketName] =
 					[ '_page_id' => $pageId, 'bucket_name' => $bucketName, 'put_hash' => $newHash ];
 
 				$dbw->newDeleteQueryBuilder()
@@ -191,6 +190,16 @@ class BucketWriter {
 			}
 		}
 
+		// Insert new/updated hashes to bucket_pages
+		if ( count( $newPutHashes ) > 0 ) {
+			$dbw->newReplaceQueryBuilder()
+				->replaceInto( 'bucket_pages' )
+				->uniqueIndexFields( [ '_page_id', 'bucket_name' ] )
+				->rows( array_values( $newPutHashes ) )
+				->caller( __METHOD__ )
+				->execute();
+		}
+
 		if ( $writingLogs ) {
 			return;
 		}
@@ -202,27 +211,8 @@ class BucketWriter {
 		}
 
 		if ( count( $this->logs ) > 0 ) {
-			// TODO just do newReplaceQueryBuilder BEFORE we return from bucket messages
-			$logPuts = self::writePuts(
-				$pageId,
-				$titleText,
-				[
-					Bucket::MESSAGE_BUCKET => array_values( $this->logs )
-				],
-				true
-			);
-			$newPuts = array_merge( $newPuts, $logPuts );
+			self::writePuts( $pageId, $titleText, [ Bucket::MESSAGE_BUCKET => array_values( $this->logs ) ], true );
 			unset( $bucket_hash[Bucket::MESSAGE_BUCKET] );
-		}
-
-		// Insert new/updated hashes to bucket_pages
-		if ( count( $newPuts ) > 0 ) {
-			$dbw->newReplaceQueryBuilder()
-				->replaceInto( 'bucket_pages' )
-				->uniqueIndexFields( [ '_page_id', 'bucket_name' ] )
-				->rows( array_values( $newPuts ) )
-				->caller( __METHOD__ )
-				->execute();
 		}
 
 		// Clean up bucket_pages entries for buckets that are no longer written to on this page.
