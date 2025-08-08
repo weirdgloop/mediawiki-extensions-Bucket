@@ -53,3 +53,7 @@
 .bucket__value-boolean-false {
 	background: #fadcdc;
 }
+
+.bucket__value-null {
+	font-style: italic;
+}
