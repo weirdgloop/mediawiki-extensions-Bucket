@@ -75,8 +75,7 @@ class GeneralHandler implements
 			$bucketPuts = $linksUpdate->getParserOutput()->getExtensionData( Bucket::EXTENSION_DATA_KEY ) ?? [];
 			$pageId = $linksUpdate->getTitle()->getArticleID();
 			$titleText = $linksUpdate->getTitle()->getPrefixedText();
-			$bucket = new Bucket();
-			$bucket->writePuts( $pageId, $titleText, $bucketPuts );
+			Bucket::writePuts( $pageId, $titleText, $bucketPuts );
 		}
 	}
 
@@ -260,8 +259,7 @@ class GeneralHandler implements
 	  RevisionRecord $deletedRev, ManualLogEntry $logEntry, int $archivedRevisionCount
 	) {
 		if ( $page->getNamespace() !== NS_BUCKET ) {
-			$bucket = new Bucket();
-			$bucket->writePuts( $page->getId(), '', [] );
+			Bucket::writePuts( $page->getId(), '', [] );
 		} else {
 			try {
 				BucketDatabase::deleteTable( $page->getDBkey() );

@@ -9,6 +9,9 @@ use TypeError;
 use Wikimedia\Rdbms\DBQueryTimeoutError;
 
 class LuaLibrary extends LibraryBase {
+	/**
+	 * TODO Maybe we don't need to be static here? IDK the life cycle of this class
+	 */
 	private static int $pageElapsedTime = 0;
 	private static array $linkedBuckets = [];
 
@@ -100,8 +103,8 @@ class LuaLibrary extends LibraryBase {
 		} else {
 			self::$linkedBuckets[$bucketName] = true;
 			$title = MediaWikiServices::getInstance()->getTitleParser()->parseTitle( $bucketName, NS_BUCKET );
-			$this->getParser()->getOutput()->addLink( $title );
 		}
+		$this->getParser()->getOutput()->addLink( $title );
 	}
 
 	/**
