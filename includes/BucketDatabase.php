@@ -86,10 +86,10 @@ class BucketDatabase {
 	public static function createOrModifyTable( string $bucketName, object $jsonSchema, bool $isExistingPage ): void {
 		$bucketName = Bucket::getValidBucketName( $bucketName );
 		$newSchema = [
-			'_page_id' => new BucketSchemaField( '_page_id', ValueType::Integer, false, false ),
-			'_index' => new BucketSchemaField( '_index', ValueType::Integer, false, false ),
-			'page_name' => new BucketSchemaField( 'page_name', ValueType::Page, true, false ),
-			'page_name_sub' => new BucketSchemaField( 'page_name_sub', ValueType::Page, true, false )
+			'_page_id' => new BucketSchemaField( '_page_id', BucketValueType::Integer, false, false ),
+			'_index' => new BucketSchemaField( '_index', BucketValueType::Integer, false, false ),
+			'page_name' => new BucketSchemaField( 'page_name', BucketValueType::Page, true, false ),
+			'page_name_sub' => new BucketSchemaField( 'page_name_sub', BucketValueType::Page, true, false )
 		];
 
 		if ( $bucketName === Bucket::MESSAGE_BUCKET ) {
@@ -115,7 +115,7 @@ class BucketDatabase {
 				throw new SchemaException( wfMessage( 'bucket-schema-duplicated-field-name', $fieldName ) );
 			}
 
-			$valueType = ValueType::tryFrom( $fieldData->type );
+			$valueType = BucketValueType::tryFrom( $fieldData->type );
 			if ( $valueType === null ) {
 				throw new SchemaException(
 					wfMessage( 'bucket-schema-invalid-data-type', $fieldName, $fieldData->type ) );
@@ -295,10 +295,10 @@ class BucketDatabase {
 	private static function getIndexStatement( BucketSchemaField $field, IDatabase $dbw ): string {
 		$fieldName = $dbw->addIdentifierQuotes( $field->getFieldName() );
 		switch ( $field->getDatabaseValueType() ) {
-			case ValueType::Json:
+			case DatabaseValueType::Json:
 				// Typecasting for repeated fields doesn't give us any advantage
 				return "INDEX $fieldName((CAST($fieldName AS CHAR(512) ARRAY)))";
-			case ValueType::Text:
+			case DatabaseValueType::Text:
 				return "INDEX $fieldName($fieldName(255))";
 			default:
 				return "INDEX $fieldName($fieldName)";

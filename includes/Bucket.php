@@ -81,9 +81,16 @@ class Bucket {
 	}
 }
 
-enum ValueType: string {
+enum BucketValueType: string {
 	case Text = 'TEXT';
 	case Page = 'PAGE';
+	case Double = 'DOUBLE';
+	case Integer = 'INTEGER';
+	case Boolean = 'BOOLEAN';
+}
+
+enum DatabaseValueType: string {
+	case Text = 'TEXT';
 	case Double = 'DOUBLE';
 	case Integer = 'INTEGER';
 	case Boolean = 'BOOLEAN';
@@ -116,7 +123,7 @@ class BucketSchema implements JsonSerializable {
 				}
 				$this->fields[$name] = new BucketSchemaField(
 					$name,
-					ValueType::from( $val['type'] ),
+					BucketValueType::from( $val['type'] ),
 					$val['index'],
 					$val['repeated']
 				);
@@ -156,11 +163,11 @@ class BucketSchema implements JsonSerializable {
 
 class BucketSchemaField implements JsonSerializable {
 	private string $fieldName;
-	private ValueType $type;
+	private BucketValueType $type;
 	private bool $indexed;
 	private bool $repeated;
 
-	public function __construct( string $fieldName, ValueType $type, bool $indexed, bool $repeated ) {
+	public function __construct( string $fieldName, BucketValueType $type, bool $indexed, bool $repeated ) {
 		$this->fieldName = $fieldName;
 		$this->type = $type;
 		$this->indexed = $indexed;
@@ -171,7 +178,7 @@ class BucketSchemaField implements JsonSerializable {
 		return $this->fieldName;
 	}
 
-	public function getType(): ValueType {
+	public function getType(): BucketValueType {
 		return $this->type;
 	}
 
@@ -204,21 +211,29 @@ class BucketSchemaField implements JsonSerializable {
 		}
 		// End old style handling
 		return new BucketSchemaField(
-			$fieldName, ValueType::from( $jsonRow['type'] ), $jsonRow['index'], $jsonRow['repeated'] );
+			$fieldName, BucketValueType::from( $jsonRow['type'] ), $jsonRow['index'], $jsonRow['repeated'] );
 	}
 
 	/**
 	 * The ValueType that this field is stored as in the database.
 	 */
-	public function getDatabaseValueType(): ValueType {
+	public function getDatabaseValueType(): DatabaseValueType {
 		if ( $this->getRepeated() ) {
-			return ValueType::Json;
+			return DatabaseValueType::Json;
 		} else {
-			// Page is just stored as text in the database
-			if ( $this->getType() === ValueType::Page ) {
-				return ValueType::Text;
+			switch ( $this->getType() ) {
+				case BucketValueType::Text:
+				case BucketValueType::Page:
+					return DatabaseValueType::Text;
+				case BucketValueType::Boolean:
+					return DatabaseValueType::Boolean;
+				case BucketValueType::Double:
+					return DatabaseValueType::Double;
+				case BucketValueType::Integer:
+					return DatabaseValueType::Integer;
+				default:
+					return DatabaseValueType::Text;
 			}
-			return $this->getType();
 		}
 	}
 
@@ -227,20 +242,19 @@ class BucketSchemaField implements JsonSerializable {
 			return null;
 		}
 		switch ( $this->getDatabaseValueType() ) {
-			case ValueType::Text:
-			case ValueType::Page:
+			case DatabaseValueType::Text:
 				if ( is_array( $value ) ) {
 					return json_encode( $value );
 				}
 				return $value;
-			case ValueType::Double:
+			case DatabaseValueType::Double:
 				return floatval( $value );
-			case ValueType::Integer:
+			case DatabaseValueType::Integer:
 				return intval( $value );
-			case ValueType::Boolean:
+			case DatabaseValueType::Boolean:
 				// MySQL uses 1 for true, 0 for false
 				return (int)filter_var( $value, FILTER_VALIDATE_BOOL );
-			case ValueType::Json:
+			case DatabaseValueType::Json:
 				if ( !is_array( $value ) ) {
 					// Wrap single values in an array for compatability
 					$value = [ $value ];
@@ -298,13 +312,13 @@ class BucketSchemaField implements JsonSerializable {
 				$ret[] = $nonRepeatedData->castValueForLua( $subVal );
 			}
 			return $ret;
-		} elseif ( $type === ValueType::Text || $type === ValueType::Page ) {
+		} elseif ( $type === BucketValueType::Text || $type === BucketValueType::Page ) {
 			return $value;
-		} elseif ( $type === ValueType::Double ) {
+		} elseif ( $type === BucketValueType::Double ) {
 			return floatval( $value );
-		} elseif ( $type === ValueType::Integer ) {
+		} elseif ( $type === BucketValueType::Integer ) {
 			return intval( $value );
-		} elseif ( $type === ValueType::Boolean ) {
+		} elseif ( $type === BucketValueType::Boolean ) {
 			return boolval( $value );
 		}
 	}
