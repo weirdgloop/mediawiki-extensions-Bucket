@@ -26,15 +26,13 @@ class BucketAction extends Action {
 	}
 
 	public function show() {
-		// We want to use OOUI for consistent styling
-		$this->getOutput()->enableOOUI();
-
 		$out = $this->getOutput();
 		$title = $this->getArticle()->getTitle();
 		$pageId = $this->getArticle()->getPage()->getId();
 		$out->setPageTitleMsg( wfMessage( 'bucket-action-title', $title ) );
 		$out->addModuleStyles( [
-			'mediawiki.codex.messagebox.styles'
+			'mediawiki.codex.messagebox.styles',
+			'ext.bucket.bucketpage.styles'
 		] );
 
 		$dbw = BucketDatabase::getDB();
