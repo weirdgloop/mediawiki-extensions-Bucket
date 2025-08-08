@@ -457,14 +457,10 @@ class BucketSchemaField implements JsonSerializable {
 		switch ( $this->getDatabaseValueType() ) {
 			case ValueType::Text:
 			case ValueType::Page:
-				if ( $value === '' ) {
-					return null;
-				} else {
-					if ( is_array( $value ) ) {
-						return json_encode( $value );
-					}
-					return $value;
+				if ( is_array( $value ) ) {
+					return json_encode( $value );
 				}
+				return $value;
 			case ValueType::Double:
 				return floatval( $value );
 			case ValueType::Integer:
@@ -474,27 +470,35 @@ class BucketSchemaField implements JsonSerializable {
 				return (int)filter_var( $value, FILTER_VALIDATE_BOOL );
 			case ValueType::Json:
 				if ( !is_array( $value ) ) {
-					if ( $value === '' ) {
-						return null;
-					} else {
-						// Wrap single values in an array for compatability
-						$value = [ $value ];
-					}
+					// Wrap single values in an array for compatability
+					$value = [ $value ];
 				}
 				$value = array_values( $value );
-				if ( count( $value ) > 0 ) {
-					foreach ( $value as $single ) {
-						// Repeated fields can only store up to 512 characters in an individual value
-						if ( is_string( $single ) && strlen( $single ) > Bucket::REPEATED_CHARACTER_LIMIT ) {
-							throw new BucketException( 'bucket-put-repeated-too-long' );
-						}
+				$castValues = [];
+				foreach ( $value as $single ) {
+					if ( $single === null ) {
+						continue;
 					}
-					return json_encode( $value );
-				} else {
+					/**
+					 * >, <, >=, <= operators are disallowed on repeated fields, so the type
+					 * does not matter, as long as the type matches what is being queried.
+					 * The simplest way to accomplish this is ensure every repeated value is stored
+					 * and queried as a string.
+					 */
+					$castValue = strval( $single );
+					$castValues[] = $castValue;
+					// Repeated fields can only store up to 512 characters in an individual value
+					if ( strlen( $castValue ) > Bucket::REPEATED_CHARACTER_LIMIT ) {
+						throw new BucketException( 'bucket-put-repeated-too-long' );
+					}
+				}
+				if ( count( $castValues ) === 0 ) {
 					return null;
 				}
+				return json_encode( $castValues );
+			default:
+				return null;
 		}
-		return null;
 	}
 
 	/**

@@ -470,7 +470,13 @@ class ComparisonConditionNode extends QueryNode {
 			&& $selector->getFieldSchema()->getRepeated() === true
 		) {
 			if ( $op === '=' || $op === '!=' ) {
-				return new MemberOfExpression( $fieldName, $op, $value );
+				/**
+				 * >, <, >=, <= operators are disallowed on repeated fields, so the type
+				 * does not matter, as long as the type matches what is being indexed.
+				 * The simplest way to accomplish this is ensure every repeated value is stored
+				 * and queried as a string.
+				 */
+				return new MemberOfExpression( $fieldName, $op, strval( $value ) );
 			}
 			throw new QueryException( wfMessage( 'bucket-query-where-repeated-unsupported', $op, $fieldName ) );
 		} else {

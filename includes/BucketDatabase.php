@@ -299,7 +299,6 @@ class BucketDatabase {
 				// Typecasting for repeated fields doesn't give us any advantage
 				return "INDEX $fieldName((CAST($fieldName AS CHAR(512) ARRAY)))";
 			case ValueType::Text:
-			case ValueType::Page:
 				return "INDEX $fieldName($fieldName(255))";
 			default:
 				return "INDEX $fieldName($fieldName)";
