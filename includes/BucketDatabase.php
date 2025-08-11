@@ -92,7 +92,7 @@ class BucketDatabase {
 			'page_name_sub' => new BucketSchemaField( 'page_name_sub', BucketValueType::Page, true, false )
 		];
 
-		if ( $bucketName === Bucket::MESSAGE_BUCKET ) {
+		if ( $bucketName === Bucket::ISSUES_BUCKET ) {
 			throw new SchemaException( wfMessage( 'bucket-cannot-create-system-page' ) );
 		}
 

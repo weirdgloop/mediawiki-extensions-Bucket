@@ -10,7 +10,7 @@ class BucketWriter {
 	 */
 	private array $logs = [];
 
-	public function logMessage( string $bucket, string $property, string $type, string $message ): void {
+	public function logIssue( string $bucket, string $property, string $type, string $message ): void {
 		if ( count( $this->logs ) > 100 ) {
 			return;
 		}
@@ -72,7 +72,7 @@ class BucketWriter {
 		$newPutHashes = [];
 		foreach ( $puts as $bucketName => $bucketData ) {
 			if ( $bucketName === '' ) {
-				self::logMessage(
+				self::logIssue(
 					$bucketName, '', 'bucket-general-error', wfMessage( 'bucket-no-bucket-defined-warning' ) );
 				continue;
 			}
@@ -80,27 +80,27 @@ class BucketWriter {
 			try {
 				$bucketNameTmp = Bucket::getValidFieldName( $bucketName );
 			} catch ( SchemaException ) {
-				self::logMessage(
+				self::logIssue(
 					$bucketName, '', 'bucket-general-warning', wfMessage(
 						'bucket-invalid-name-warning', $bucketName ) );
 				continue;
 			}
 
 			if ( $bucketNameTmp !== $bucketName ) {
-				self::logMessage(
+				self::logIssue(
 					$bucketName, '', 'bucket-general-warning', wfMessage( 'bucket-capital-name-warning' ) );
 			}
 			$bucketName = $bucketNameTmp;
 
-			if ( $bucketName === Bucket::MESSAGE_BUCKET && $writingLogs === false ) {
-				self::logMessage(
-					$bucketName, Bucket::MESSAGE_BUCKET, 'bucket-general-error', wfMessage(
+			if ( $bucketName === Bucket::ISSUES_BUCKET && $writingLogs === false ) {
+				self::logIssue(
+					$bucketName, Bucket::ISSUES_BUCKET, 'bucket-general-error', wfMessage(
 						'bucket-cannot-write-to-system-bucket' ) );
 				continue;
 			}
 
 			if ( !array_key_exists( $bucketName, $schemas ) ) {
-				self::logMessage( $bucketName, '', 'bucket-general-error', wfMessage( 'bucket-no-exist-error' ) );
+				self::logIssue( $bucketName, '', 'bucket-general-error', wfMessage( 'bucket-no-exist-error' ) );
 				continue;
 			}
 			$bucketSchema = $schemas[$bucketName];
@@ -120,7 +120,7 @@ class BucketWriter {
 			foreach ( $fieldNames as $fieldName ) {
 				// If the table has a field that isn't present in the schema, the schema must be out of date.
 				if ( !isset( $bucketSchema->getFields()[$fieldName] ) ) {
-					self::logMessage(
+					self::logIssue(
 						$bucketName, $fieldName, 'bucket-general-error', wfMessage( 'bucket-schema-outdated-error' ) );
 				} else {
 					$fields[$fieldName] = true;
@@ -130,12 +130,12 @@ class BucketWriter {
 				$sub = $singleData['sub'];
 				$singleData = $singleData['data'];
 				if ( !is_array( $singleData ) ) {
-					self::logMessage( $bucketName, '', 'bucket-general-error', wfMessage( 'bucket-put-syntax-error' ) );
+					self::logIssue( $bucketName, '', 'bucket-general-error', wfMessage( 'bucket-put-syntax-error' ) );
 					continue;
 				}
 				foreach ( $singleData as $key => $value ) {
 					if ( !isset( $fields[$key] ) || !$fields[$key] ) {
-						self::logMessage(
+						self::logIssue(
 							$bucketName, $key, 'bucket-general-warning', wfMessage(
 								'bucket-put-key-missing-warning', $key, $bucketName ) );
 					}
@@ -147,7 +147,7 @@ class BucketWriter {
 						$singlePut[$dbw->addIdentifierQuotes( $key )] =
 							$bucketSchema->getField( $key )->castValueForDatabase( $value );
 					} catch ( BucketException $e ) {
-						self::logMessage(
+						self::logIssue(
 							$bucketName, $key, 'bucket-general-error', wfMessage(
 								$e->getMessage(), Bucket::REPEATED_CHARACTER_LIMIT ) );
 					}
@@ -205,14 +205,14 @@ class BucketWriter {
 		}
 
 		if ( $putLength > $maxiumPutLength ) {
-			self::logMessage( $bucketName, '', 'bucket-general-error',
+			self::logIssue( $bucketName, '', 'bucket-general-error',
 				wfMessage( 'bucket-put-total-too-long' )->numParams( $putLength, $maxiumPutLength )
 			);
 		}
 
 		if ( count( $this->logs ) > 0 ) {
-			self::writePuts( $pageId, $titleText, [ Bucket::MESSAGE_BUCKET => array_values( $this->logs ) ], true );
-			unset( $bucket_hash[Bucket::MESSAGE_BUCKET] );
+			self::writePuts( $pageId, $titleText, [ Bucket::ISSUES_BUCKET => array_values( $this->logs ) ], true );
+			unset( $bucket_hash[Bucket::ISSUES_BUCKET] );
 		}
 
 		// Clean up bucket_pages entries for buckets that are no longer written to on this page.

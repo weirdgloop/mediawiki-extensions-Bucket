@@ -9,10 +9,7 @@ use Wikimedia\Rdbms\IDatabase;
 class Bucket {
 	public const EXTENSION_DATA_KEY = 'bucket:puts';
 	public const EXTENSION_BUCKET_NAMES_KEY = 'bucket:puts_bucket_names';
-	/**
-	 * TODO rename to bucket_error
-	 */
-	public const MESSAGE_BUCKET = 'bucket_message';
+	public const ISSUES_BUCKET = 'bucket_issues';
 	public const REPEATED_CHARACTER_LIMIT = 512;
 
 	public static function getValidFieldName( ?string $fieldName ): string {

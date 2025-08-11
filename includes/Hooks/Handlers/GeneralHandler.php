@@ -305,7 +305,7 @@ class GeneralHandler implements
 			return true;
 		}
 
-		if ( strtolower( $article->getTitle()->getRootTitle()->getDBkey() ) === Bucket::MESSAGE_BUCKET ) {
+		if ( strtolower( $article->getTitle()->getRootTitle()->getDBkey() ) === Bucket::ISSUES_BUCKET ) {
 			return false;
 		}
 
@@ -322,7 +322,7 @@ class GeneralHandler implements
 			return;
 		}
 
-		if ( strtolower( $title->getRootTitle()->getDBkey() ) === Bucket::MESSAGE_BUCKET ) {
+		if ( strtolower( $title->getRootTitle()->getDBkey() ) === Bucket::ISSUES_BUCKET ) {
 			$isKnown = true;
 		}
 	}

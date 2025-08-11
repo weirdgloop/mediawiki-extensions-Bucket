@@ -51,8 +51,8 @@
 		]
 	},
 	{
-		"name": "bucket__bucket_message",
-		"comment": "User-facing messages for various buckets (errors etc).",
+		"name": "bucket__bucket_issues",
+		"comment": "User-facing issue messages for various buckets (errors etc).",
 		"columns": [
 			{
 				"name": "_page_id",

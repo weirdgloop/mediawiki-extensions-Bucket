@@ -17,7 +17,7 @@ CREATE TABLE /*_*/bucket_schemas (
 ) /*$wgDBTableOptions*/;
 
 
-CREATE TABLE /*_*/bucket__bucket_message (
+CREATE TABLE /*_*/bucket__bucket_issues (
   _page_id INT UNSIGNED NOT NULL,
   _index INT UNSIGNED NOT NULL,
   page_name LONGTEXT DEFAULT NULL,
