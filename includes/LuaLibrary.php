@@ -108,11 +108,7 @@ class LuaLibrary extends LibraryBase {
 		}
 
 		$parserOutput->addLink( $titleValue );
-		if ( $addedLinks === null ) {
-			$parserOutput->setExtensionData( 'bucket:added_links', [ $titleValue->getDBkey() ] );
-		} else {
-			$parserOutput->appendExtensionData( 'bucket:added_links', $titleValue->getDBkey() );
-		}
+		$parserOutput->appendExtensionData( 'bucket:added_links', $titleValue->getDBkey() );
 	}
 
 	/**
