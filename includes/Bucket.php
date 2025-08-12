@@ -103,8 +103,8 @@ class BucketSchema implements JsonSerializable {
 	private array $fields = [];
 	private int $timestamp;
 
-	public function __construct( string $bucketName, array $schema, int $timestamp = 0 ) {
-		$this->timestamp = $timestamp;
+	public function __construct( string $bucketName, array $schema ) {
+		$this->timestamp = time();
 		if ( $bucketName === '' ) {
 			throw new QueryException( wfMessage( 'bucket-empty-bucket-name' ) );
 		}

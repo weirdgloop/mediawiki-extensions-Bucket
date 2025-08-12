@@ -2,7 +2,6 @@
 
 namespace MediaWiki\Extension\Bucket;
 
-use ArrayObject;
 use MediaWiki\Config\ConfigException;
 use MediaWiki\MediaWikiServices;
 use Wikimedia\Rdbms\IDatabase;
@@ -77,10 +76,10 @@ class BucketDatabase {
 		$res = $dbw->query( "SHOW FULL COLUMNS FROM $dbTableName;", __METHOD__ );
 
 		$fields = [];
-		foreach ( $res as  $val ) {
+		foreach ( $res as $val ) {
 			$fields[] = BucketSchemaField::fromJson( $val->Field, $val->Comment );
 		}
-		return new BucketSchema( $bucketName, $fields, time() );
+		return new BucketSchema( $bucketName, $fields );
 	}
 
 	public static function createOrModifyTable( string $bucketName, object $jsonSchema, bool $isExistingPage ): void {
@@ -164,8 +163,17 @@ class BucketDatabase {
 			// At this point is is possible that another transaction has changed the table so we start a transaction,
 			// read the column comments (which are the schema), and write that to bucket_schemas
 			$dbw->begin();
-			$schemaJson = self::buildSchemaFromComments( $bucketSchema->getName(), $dbw );
-			$schemaJson = json_encode( $schemaJson );
+			$commentSchema = self::buildSchemaFromComments( $bucketSchema->getName(), $dbw );
+			// If the schema contained in the comments is eqivalent to what we expect (ignoring field ordering)
+			// then we just write the expected schema, to preserve the ordering from the MW page.
+			$expectedFieldsSorted = sort( $bucketSchema->getFields() );
+			$actualFieldsSorted = sort( $commentSchema->getFields() );
+			if ( json_encode( $expectedFieldsSorted ) === json_encode( $actualFieldsSorted ) ) {
+				$schemaJson = json_encode( $bucketSchema );
+			} else {
+				// If for some reason the schemas are not eqivalent, write the schema that matches the DB state
+				$schemaJson = json_encode( $commentSchema );
+			}
 			$dbw->upsert(
 				'bucket_schemas',
 				[ 'bucket_name' => $bucketSchema->getName(), 'schema_json' => $schemaJson ],
@@ -182,11 +190,6 @@ class BucketDatabase {
 		$alterTableFragments = [];
 
 		$oldFields = $oldSchema->getFields();
-		// Used to iterate over the oldFields at the same time as iterating over the new fields
-		$oldFieldsIterator = ( new ArrayObject( $oldFields ) )->getIterator();
-
-		$previousColumn = null;
-		$oldPreviousColumn = null;
 		foreach ( $bucketSchema->getFields() as $fieldName => $field ) {
 			$escapedFieldName = $dbw->addIdentifierQuotes( $fieldName );
 			$fieldJson = $dbw->addQuotes( json_encode( $field ) );
@@ -197,10 +200,6 @@ class BucketDatabase {
 				$newColumn = false;
 			}
 			$typeChange = ( $oldDbType !== $newDbType );
-			$after = '';
-			if ( isset( $previousColumn ) ) {
-				$after = " AFTER {$dbw->addIdentifierQuotes($previousColumn)}";
-			}
 
 			if ( $newColumn === false ) {
 				# If the old schema has an index, check if it needs to be dropped
@@ -216,13 +215,12 @@ class BucketDatabase {
 			}
 
 			if ( $newColumn || $typeChange ) {
-				$alterTableFragments[] = "ADD $escapedFieldName " . $newDbType . " COMMENT $fieldJson" . $after;
+				$alterTableFragments[] = "ADD $escapedFieldName " . $newDbType . " COMMENT $fieldJson";
 			} else {
-				// If an existing column has the same DB type, check for moved position or a change between TEXT/PAGE
-				if ( $previousColumn !== $oldPreviousColumn ||
-					$oldFields[$fieldName]->getType() !== $field->getType() ) {
-					# Acts as a no-op except to update the comment and column position.
-					$alterTableFragments[] = "MODIFY $escapedFieldName " . $newDbType . " COMMENT $fieldJson" . $after;
+				// If an existing column has the same DB type, check for a change between TEXT/PAGE
+				if ( $oldFields[$fieldName]->getType() !== $field->getType() ) {
+					# Acts as a no-op except to update the comment
+					$alterTableFragments[] = "MODIFY $escapedFieldName " . $newDbType . " COMMENT $fieldJson";
 				}
 			}
 			if ( $field->getIndexed() ) {
@@ -230,10 +228,6 @@ class BucketDatabase {
 					$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $field, $dbw );
 				}
 			}
-
-			$oldPreviousColumn = $oldFieldsIterator->key();
-			$oldFieldsIterator->next();
-			$previousColumn = $fieldName;
 			unset( $oldFields[$fieldName] );
 		}
 		// Drop unused columns
