@@ -9,9 +9,12 @@ use OOUI;
 class SpecialBucket extends SpecialPage {
 	private TemplateParser $templateParser;
 
-	public function __construct() {
+	private BucketDatabase $bucketDb;
+
+	public function __construct( BucketDatabase $bucketDb ) {
 		parent::__construct( 'Bucket' );
 		$this->templateParser = new TemplateParser( __DIR__ . '/Templates' );
+		$this->bucketDb = $bucketDb;
 	}
 
 	/**
@@ -148,7 +151,7 @@ class SpecialBucket extends SpecialPage {
 			return;
 		}
 
-		$dbw = BucketDatabase::getDB();
+		$dbw = $this->bucketDb->getDB();
 		$res = $dbw->newSelectQueryBuilder()
 			->from( 'bucket_schemas' )
 			->select( [ 'bucket_name', 'schema_json' ] )

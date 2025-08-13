@@ -37,6 +37,8 @@ class BucketQuery {
 	private ?string $orderByDirection = null;
 	private int $categoryCount = 0;
 
+	public BucketDatabase $bucketDb;
+
 	/**
 	 * @param mixed $condition
 	 * @return bool
@@ -79,7 +81,9 @@ class BucketQuery {
 	/**
 	 * @param array $data
 	 */
-	public function __construct( array $data ) {
+	public function __construct( array $data, BucketDatabase $bucketDb = null ) {
+		$this->bucketDb = $bucketDb ?? MediaWikiServices::getInstance()->getService( 'Bucket.BucketDatabase' );
+
 		// Ensure schema cache is populated with all used buckets
 		$neededSchemas = [];
 		if ( !isset( self::$schemaCache[$data['bucketName']] ) ) {
@@ -92,7 +96,7 @@ class BucketQuery {
 		}
 		// Populate the schema cache with missing schemas
 		if ( !empty( $neededSchemas ) ) {
-			$dbw = BucketDatabase::getDB();
+			$dbw = $this->bucketDb->getDB();
 			$res = $dbw->newSelectQueryBuilder()
 				->from( 'bucket_schemas' )
 				->select( [ 'bucket_name', 'schema_json' ] )
@@ -236,9 +240,9 @@ class BucketQuery {
 	}
 
 	public function getSelectQueryBuilder(): SelectQueryBuilder {
-		$dbw = BucketDatabase::getDB();
+		$dbw = $this->bucketDb->getDB();
 		$builder = $dbw->newSelectQueryBuilder()
-			->from( BucketDatabase::getBucketTableName( $this->getPrimaryBucket()->getName() ) )
+			->from( $this->bucketDb->getBucketTableName( $this->getPrimaryBucket()->getName() ) )
 			->caller( __METHOD__ );
 
 		foreach ( $this->selects as $selector ) {
@@ -450,14 +454,19 @@ class ComparisonConditionNode extends QueryNode {
 	private Operator $operator;
 	private Value $value;
 
-	public function __construct( Selector $selector, Operator $operator, Value $value ) {
+	private BucketDatabase $bucketDb;
+
+	public function __construct(
+		Selector $selector, Operator $operator, Value $value, BucketDatabase $bucketDb = null
+	) {
 		$this->selector = $selector;
 		$this->operator = $operator;
 		$this->value = $value;
+		$this->bucketDb = $bucketDb ?? MediaWikiServices::getInstance()->getService( 'Bucket.BucketDatabase' );
 	}
 
 	public function getWhereSQL( IDatabase $dbw ): IExpression {
-		$dbw = BucketDatabase::getDB();
+		$dbw = $this->bucketDb->getDB();
 		$selector = $this->selector;
 		$fieldName = $selector->getUnsafe();
 		$op = $this->operator->getOperator();
@@ -497,7 +506,11 @@ class FieldSelector extends Selector {
 	private BucketSchema $schema;
 	private BucketSchemaField $schemaField;
 
+	private BucketQuery $query;
+
 	public function __construct( string $fullSelector, BucketQuery $query ) {
+		$this->query = $query;
+
 		// Split on period
 		$parts = explode( '.', $fullSelector );
 		if ( $fullSelector === '' || count( $parts ) > 2 ) {
@@ -506,9 +519,9 @@ class FieldSelector extends Selector {
 		$fieldName = end( $parts );
 		// If we don't have a period, we are the primary bucket.
 		if ( count( $parts ) === 1 ) {
-			$this->schema = $query->getPrimaryBucket();
+			$this->schema = $this->query->getPrimaryBucket();
 		} else {
-			$usedBuckets = $query->getUsedBuckets();
+			$usedBuckets = $this->query->getUsedBuckets();
 			if ( !isset( $usedBuckets[$parts[0]] ) ) {
 				throw new QueryException( wfMessage( 'bucket-query-bucket-not-found', $parts[0] ) );
 			}
@@ -523,12 +536,12 @@ class FieldSelector extends Selector {
 	}
 
 	public function getSafe( IDatabase $dbw ): string {
-		return $dbw->addIdentifierQuotes( BucketDatabase::getBucketTableName( $this->schema->getName() ) )
+		return $dbw->addIdentifierQuotes( $this->query->bucketDb->getBucketTableName( $this->schema->getName() ) )
 			. '.' . $dbw->addIdentifierQuotes( $this->schemaField->getFieldName() );
 	}
 
 	public function getUnsafe(): string {
-		return BucketDatabase::getBucketTableName( $this->schema->getName() )
+		return $this->query->bucketDb->getBucketTableName( $this->schema->getName() )
 			. '.' . $this->schemaField->getFieldName();
 	}
 

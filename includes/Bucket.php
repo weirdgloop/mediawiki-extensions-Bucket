@@ -4,6 +4,7 @@ namespace MediaWiki\Extension\Bucket;
 
 use JsonSerializable;
 use LogicException;
+use MediaWiki\MediaWikiServices;
 use MediaWiki\Message\Message;
 use Wikimedia\Rdbms\IDatabase;
 
@@ -39,8 +40,8 @@ class Bucket {
 		}
 	}
 
-	public static function writePuts( int $pageId, string $titleText, array $puts ) {
-		( new BucketWriter() )->writePuts( $pageId, $titleText, $puts );
+	public static function writePuts( int $pageId, string $titleText, array $puts, BucketDatabase $bucketDb ) {
+		( new BucketWriter( $bucketDb ) )->writePuts( $pageId, $titleText, $puts );
 	}
 
 	/**
@@ -146,7 +147,8 @@ class BucketSchema implements JsonSerializable {
 	}
 
 	public function getTableName(): string {
-		return BucketDatabase::getBucketTableName( $this->bucketName );
+		return MediaWikiServices::getInstance()->getService( 'Bucket.BucketDatabase' )
+			->getBucketTableName( $this->bucketName );
 	}
 
 	public function getSafe( IDatabase $dbw ): string {

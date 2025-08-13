@@ -12,9 +12,12 @@ use Wikimedia\Rdbms\DBQueryTimeoutError;
 class BucketPage extends Article {
 	private TemplateParser $templateParser;
 
+	private BucketDatabase $bucketDb;
+
 	public function __construct( Title $title ) {
 		parent::__construct( $title );
 		$this->templateParser = new TemplateParser( __DIR__ . '/Templates' );
+		$this->bucketDb = MediaWikiServices::getInstance()->getService( 'Bucket.BucketDatabase' );
 	}
 
 	public function view() {
@@ -39,7 +42,7 @@ class BucketPage extends Article {
 		$title = $this->getTitle();
 		$out->setPageTitle( $title );
 
-		$dbw = BucketDatabase::getDB();
+		$dbw = $this->bucketDb->getDB();
 		$linkRenderer = MediaWikiServices::getInstance()->getLinkRenderer();
 
 		try {
@@ -83,7 +86,7 @@ class BucketPage extends Article {
 		try {
 			$maxCount = $dbw->newSelectQueryBuilder()
 			->select( 'COUNT(*)' )
-			->from( BucketDatabase::getBucketTableName( $bucketName ) )
+			->from( $this->bucketDb->getBucketTableName( $bucketName ) )
 			->fetchField();
 
 		} catch ( DBQueryTimeoutError ) {

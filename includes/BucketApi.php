@@ -3,6 +3,7 @@
 namespace MediaWiki\Extension\Bucket;
 
 use MediaWiki\Api\ApiBase;
+use MediaWiki\Api\ApiMain;
 use MediaWiki\Extension\Scribunto\Scribunto;
 use MediaWiki\Extension\Scribunto\ScribuntoException;
 use MediaWiki\MediaWikiServices;
@@ -12,6 +13,12 @@ use Wikimedia\ParamValidator\ParamValidator;
 use Wikimedia\ParamValidator\TypeDef\NumericDef;
 
 class BucketApi extends ApiBase {
+	private BucketDatabase $bucketDb;
+
+	public function __construct( ApiMain $mainModule, string $moduleName, BucketDatabase $bucketDb ) {
+		parent::__construct( $mainModule, $moduleName );
+		$this->bucketDb = $bucketDb;
+	}
 
 	public function execute() {
 		if ( $this->getUser()->pingLimiter( 'bucketapi', 1 ) ) {
@@ -46,7 +53,7 @@ class BucketApi extends ApiBase {
 			// Select everything if input is *
 			$selectNames = [];
 			if ( $select === '*' || $select === '' ) {
-				$dbw = BucketDatabase::getDB();
+				$dbw = $this->bucketDb->getDB();
 				$res = $dbw->newSelectQueryBuilder()
 					->from( 'bucket_schemas' )
 					->select( [ 'bucket_name', 'schema_json' ] )

@@ -13,9 +13,12 @@ use MediaWiki\Title\TitleValue;
 class BucketAction extends Action {
 	private TemplateParser $templateParser;
 
-	public function __construct( Article $article, IContextSource $context ) {
+	private BucketDatabase $bucketDb;
+
+	public function __construct( Article $article, IContextSource $context, BucketDatabase $bucketDb ) {
 		parent::__construct( $article, $context );
 		$this->templateParser = new TemplateParser( __DIR__ . '/Templates' );
+		$this->bucketDb = $bucketDb;
 	}
 
 	/**
@@ -35,7 +38,7 @@ class BucketAction extends Action {
 			'ext.bucket.bucketpage.styles'
 		] );
 
-		$dbw = BucketDatabase::getDB();
+		$dbw = $this->bucketDb->getDB();
 
 		$res = $dbw->newSelectQueryBuilder()
 			->from( 'bucket_pages' )
