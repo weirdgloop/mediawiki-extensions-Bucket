@@ -14,10 +14,13 @@ class BucketPage extends Article {
 
 	private BucketDatabase $bucketDb;
 
+	private BucketPageHelper $bucketPageHelper;
+
 	public function __construct( Title $title ) {
 		parent::__construct( $title );
 		$this->templateParser = new TemplateParser( __DIR__ . '/Templates' );
 		$this->bucketDb = MediaWikiServices::getInstance()->getService( 'Bucket.BucketDatabase' );
+		$this->bucketPageHelper = MediaWikiServices::getInstance()->getService( 'Bucket.BucketPageHelper' );
 	}
 
 	public function view() {
@@ -48,7 +51,7 @@ class BucketPage extends Article {
 		try {
 			$bucketName = Bucket::getValidFieldName( $this->getTitle()->getDBkey() );
 		} catch ( SchemaException $e ) {
-			$out->addWikiTextAsContent( BucketPageHelper::printError( $e->getMessage() ) );
+			$out->addWikiTextAsContent( $this->bucketPageHelper->printError( $e->getMessage() ) );
 			return;
 		}
 
@@ -68,10 +71,10 @@ class BucketPage extends Article {
 		$limit = $request->getInt( 'limit', 20 );
 		$offset = $request->getInt( 'offset', 0 );
 
-		$fullResult = BucketPageHelper::runQuery( $request, $bucketName, $select, $where, $limit, $offset );
+		$fullResult = $this->bucketPageHelper->runQuery( $request, $bucketName, $select, $where, $limit, $offset );
 
 		if ( isset( $fullResult['error'] ) ) {
-			$out->addWikiTextAsContent( BucketPageHelper::printError( $fullResult['error'] ) );
+			$out->addWikiTextAsContent( $this->bucketPageHelper->printError( $fullResult['error'] ) );
 			return;
 		}
 
@@ -99,9 +102,9 @@ class BucketPage extends Article {
 				'browseText' => $out->msg( 'bucket-page-browse-text' )->numParams( $maxCount )->parse(),
 				'resultHeaderText' => $out->msg( 'bucket-page-result-counter' )
 					->numParams( $resultCount, $offset, $endResult )->parse(),
-				'paginationLinks' => BucketPageHelper::getPageLinks(
+				'paginationLinks' => $this->bucketPageHelper->getPageLinks(
 					$title, $limit, $offset, $request->getQueryValues(), ( $resultCount === $limit ) ),
-				'resultTable' => BucketPageHelper::getResultTable(
+				'resultTable' => $this->bucketPageHelper->getResultTable(
 					$this->templateParser, $schemas[$bucketName], $fullResult['fields'], $queryResult ),
 				'diveText' => $linkRenderer->makePreloadedLink(
 					SpecialPage::getTitleValueFor( 'Bucket' ),

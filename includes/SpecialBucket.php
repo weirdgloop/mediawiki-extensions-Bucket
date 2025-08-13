@@ -11,10 +11,13 @@ class SpecialBucket extends SpecialPage {
 
 	private BucketDatabase $bucketDb;
 
-	public function __construct( BucketDatabase $bucketDb ) {
+	private BucketPageHelper $bucketPageHelper;
+
+	public function __construct( BucketDatabase $bucketDb, BucketPageHelper $bucketPageHelper ) {
 		parent::__construct( 'Bucket' );
 		$this->templateParser = new TemplateParser( __DIR__ . '/Templates' );
 		$this->bucketDb = $bucketDb;
+		$this->bucketPageHelper = $bucketPageHelper;
 	}
 
 	/**
@@ -146,7 +149,7 @@ class SpecialBucket extends SpecialPage {
 		try {
 			$bucketName = Bucket::getValidFieldName( $bucket );
 		} catch ( SchemaException ) {
-			$out->addWikiTextAsContent( BucketPageHelper::printError(
+			$out->addWikiTextAsContent( $this->bucketPageHelper->printError(
 				$this->msg( 'bucket-query-bucket-invalid', $bucket )->parse() ) );
 			return;
 		}
@@ -163,11 +166,11 @@ class SpecialBucket extends SpecialPage {
 			$schemas[$row->bucket_name] = json_decode( $row->schema_json, true );
 		}
 
-		$fullResult = BucketPageHelper::runQuery( $request, $bucket, $select, $where, $limit, $offset );
+		$fullResult = $this->bucketPageHelper->runQuery( $request, $bucket, $select, $where, $limit, $offset );
 		$queryResult = [];
 
 		if ( isset( $fullResult['error'] ) ) {
-			$out->addWikiTextAsContent( BucketPageHelper::printError( $fullResult['error'] ) );
+			$out->addWikiTextAsContent( $this->bucketPageHelper->printError( $fullResult['error'] ) );
 			return;
 		} elseif ( isset( $fullResult['bucket'] ) ) {
 			$queryResult = $fullResult['bucket'];
@@ -181,9 +184,9 @@ class SpecialBucket extends SpecialPage {
 			[
 				'resultHeaderText' => $out->msg( 'bucket-page-result-counter' )
 					->numParams( $resultCount, $offset, $endResult )->parse(),
-				'paginationLinks' => BucketPageHelper::getPageLinks(
+				'paginationLinks' => $this->bucketPageHelper->getPageLinks(
 					$this->getFullTitle(), $limit, $offset, $request->getQueryValues(), ( $resultCount === $limit ) ),
-				'resultTable' => BucketPageHelper::getResultTable(
+				'resultTable' => $this->bucketPageHelper->getResultTable(
 					$this->templateParser, $schemas[$bucketName], $fullResult['fields'], $queryResult )
 			]
 		);

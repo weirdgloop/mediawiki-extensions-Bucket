@@ -68,7 +68,8 @@
 		"bucket": {
 			"class": "MediaWiki\\Extension\\Bucket\\BucketAction",
 			"services": [
-				"Bucket.BucketDatabase"
+				"Bucket.BucketDatabase",
+				"Bucket.BucketPageHelper"
 			]
 		}
 	},
@@ -89,7 +90,8 @@
 		"Bucket": {
 			"class": "MediaWiki\\Extension\\Bucket\\SpecialBucket",
 			"services": [
-				"Bucket.BucketDatabase"
+				"Bucket.BucketDatabase",
+				"Bucket.BucketPageHelper"
 			]
 		}
 	},

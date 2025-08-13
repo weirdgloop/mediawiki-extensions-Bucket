@@ -11,5 +11,10 @@ return [
 			$services->getDBLoadBalancer(),
 			$services->getDatabaseFactory()
 		);
+	},
+	'Bucket.BucketPageHelper' => static function ( MediaWikiServices $services ): BucketPageHelper {
+		return new BucketPageHelper(
+			$services->getLinkRenderer()
+		);
 	}
 ];
