@@ -109,7 +109,7 @@ class GeneralHandler implements
 				return false;
 			}
 		} catch ( BucketException $e ) {
-			$status->fatal( $e->getMessage() );
+			$status->fatal( $e->getwfMessage() );
 			return false;
 		}
 	}
@@ -163,7 +163,7 @@ class GeneralHandler implements
 		try {
 			BucketDatabase::createOrModifyTable( $title, $jsonSchema, $isExistingPage );
 		} catch ( BucketException $e ) {
-			$status->fatal( $e->getMessage() );
+			$status->fatal( $e->getwfMessage() );
 			return false;
 		}
 	}
@@ -257,7 +257,7 @@ class GeneralHandler implements
 			}
 		// If we somehow get a page that isn't a valid Bucket name, it will throw a schema exception.
 		} catch ( BucketException $e ) {
-			$status->warning( $e->getMessage() );
+			$status->warning( $e->getwfMessage() );
 			return true;
 		}
 	}

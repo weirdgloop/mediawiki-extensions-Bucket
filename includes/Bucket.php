@@ -4,6 +4,7 @@ namespace MediaWiki\Extension\Bucket;
 
 use JsonSerializable;
 use LogicException;
+use MediaWiki\Message\Message;
 use Wikimedia\Rdbms\IDatabase;
 
 class Bucket {
@@ -273,7 +274,7 @@ class BucketSchemaField implements JsonSerializable {
 					$castValues[] = $castValue;
 					// Repeated fields can only store up to 512 characters in an individual value
 					if ( strlen( $castValue ) > Bucket::REPEATED_CHARACTER_LIMIT ) {
-						throw new BucketException( 'bucket-put-repeated-too-long' );
+						throw new BucketException( wfMessage( 'bucket-put-repeated-too-long' ) );
 					}
 				}
 				if ( count( $castValues ) === 0 ) {
@@ -323,6 +324,16 @@ class BucketSchemaField implements JsonSerializable {
 }
 
 class BucketException extends LogicException {
+	private Message $wfMessage;
+
+	public function __construct( Message $wfMessage ) {
+		parent::__construct( $wfMessage );
+		$this->wfMessage = $wfMessage;
+	}
+
+	public function getwfMessage(): Message {
+		return $this->wfMessage;
+	}
 }
 
 class SchemaException extends BucketException {

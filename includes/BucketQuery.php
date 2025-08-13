@@ -228,7 +228,7 @@ class BucketQuery {
 				// The rdbms query builder throws InvalidArgumentException for input it doesn't like.
 				// We shouldn't be passing anything that it doesn't like, but better to catch here
 				// so we can turn it into a non fatal BucketException
-				throw new BucketException( $e->getMessage() );
+				throw new BucketException( wfMessage( $e->getMessage() ) );
 			}
 		} else {
 			return [];
