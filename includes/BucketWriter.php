@@ -12,8 +12,8 @@ class BucketWriter {
 
 	private BucketDatabase $bucketDb;
 
-	public function __construct( BucketDatabase $bucketDb ) {
-		$this->bucketDb = $bucketDb;
+	public function __construct() {
+		$this->bucketDb = MediaWikiServices::getInstance()->getService( 'Bucket.BucketDatabase' );
 	}
 
 	public function logIssue( string $bucket, string $property, string $type, string $message ): void {

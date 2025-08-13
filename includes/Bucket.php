@@ -40,8 +40,8 @@ class Bucket {
 		}
 	}
 
-	public static function writePuts( int $pageId, string $titleText, array $puts, BucketDatabase $bucketDb ) {
-		( new BucketWriter( $bucketDb ) )->writePuts( $pageId, $titleText, $puts );
+	public static function writePuts( int $pageId, string $titleText, array $puts ) {
+		( new BucketWriter() )->writePuts( $pageId, $titleText, $puts );
 	}
 
 	/**

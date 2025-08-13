@@ -87,11 +87,7 @@ class BucketDatabase {
 	 * The table comments hold a json representation of the applied Bucket schema
 	 * Example comment for field _page_id: {"type":"INTEGER","index":false,"repeated":false}
 	 */
-	private function buildSchemaFromComments( string $bucketName, ?IDatabase $dbw ): BucketSchema {
-		if ( $dbw === null ) {
-			$dbw = $this->getDB();
-		}
-
+	private function buildSchemaFromComments( string $bucketName, IDatabase $dbw ): BucketSchema {
 		$dbTableName = $dbw->addIdentifierQuotes( $this->getBucketTableName( $bucketName ) );
 		$res = $dbw->query( "SHOW FULL COLUMNS FROM $dbTableName;", __METHOD__ );
 

@@ -81,8 +81,8 @@ class BucketQuery {
 	/**
 	 * @param array $data
 	 */
-	public function __construct( array $data, BucketDatabase $bucketDb = null ) {
-		$this->bucketDb = $bucketDb ?? MediaWikiServices::getInstance()->getService( 'Bucket.BucketDatabase' );
+	public function __construct( array $data ) {
+		$this->bucketDb = MediaWikiServices::getInstance()->getService( 'Bucket.BucketDatabase' );
 
 		// Ensure schema cache is populated with all used buckets
 		$neededSchemas = [];
@@ -457,12 +457,12 @@ class ComparisonConditionNode extends QueryNode {
 	private BucketDatabase $bucketDb;
 
 	public function __construct(
-		Selector $selector, Operator $operator, Value $value, BucketDatabase $bucketDb = null
+		Selector $selector, Operator $operator, Value $value
 	) {
 		$this->selector = $selector;
 		$this->operator = $operator;
 		$this->value = $value;
-		$this->bucketDb = $bucketDb ?? MediaWikiServices::getInstance()->getService( 'Bucket.BucketDatabase' );
+		$this->bucketDb = MediaWikiServices::getInstance()->getService( 'Bucket.BucketDatabase' );
 	}
 
 	public function getWhereSQL( IDatabase $dbw ): IExpression {
