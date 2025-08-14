@@ -30,8 +30,6 @@ use MediaWiki\Page\Hook\PageDeleteHook;
 use MediaWiki\Page\Hook\PageUndeleteCompleteHook;
 use MediaWiki\Page\Hook\PageUndeleteHook;
 use MediaWiki\Page\ProperPageIdentity;
-use MediaWiki\Parser\Parser;
-use MediaWiki\Parser\ParserOutput;
 use MediaWiki\Permissions\Authority;
 use MediaWiki\Revision\RenderedRevision;
 use MediaWiki\Revision\RevisionRecord;
@@ -60,12 +58,6 @@ class GeneralHandler implements
 	ParserClearStateHook,
 	ParserLimitReportPrepareHook
 {
-	private BucketDatabase $bucketDb;
-
-	public function __construct( BucketDatabase $bucketDb ) {
-		$this->bucketDb = $bucketDb;
-	}
-
 	private function enabledNamespaces() {
 		$config = MediaWikiServices::getInstance()->getMainConfig();
 		return array_keys( $config->get( 'BucketWriteEnabledNamespaces' ), true );
@@ -110,7 +102,7 @@ class GeneralHandler implements
 		}
 		$title = $page->getDBkey();
 		try {
-			if ( $this->bucketDb->canCreateTable( $title ) ) {
+			if ( BucketDatabase::canCreateTable( $title ) ) {
 				return true;
 			} else {
 				$status->fatal( 'bucket-undelete-error' );
@@ -141,7 +133,7 @@ class GeneralHandler implements
 		$jsonSchema = $content->getData()->value;
 		$title = $page->getDBkey();
 		$isExistingPage = $restoredRev->getParentId() !== null;
-		$this->bucketDb->createOrModifyTable( $title, $jsonSchema, $isExistingPage );
+		BucketDatabase::createOrModifyTable( $title, $jsonSchema, $isExistingPage );
 	}
 
 	/**
@@ -169,7 +161,7 @@ class GeneralHandler implements
 		$title = $page->getDBkey();
 		$isExistingPage = $revRecord->getParentId() !== null;
 		try {
-			$this->bucketDb->createOrModifyTable( $title, $jsonSchema, $isExistingPage );
+			BucketDatabase::createOrModifyTable( $title, $jsonSchema, $isExistingPage );
 		} catch ( BucketException $e ) {
 			$status->fatal( $e->getwfMessage() );
 			return false;
@@ -198,7 +190,7 @@ class GeneralHandler implements
 		$jsonSchema = $content->getData()->value;
 		$title = $title->getDBkey();
 		$isExistingPage = $revCount > $sRevCount;
-		$this->bucketDb->createOrModifyTable( $title, $jsonSchema, $isExistingPage );
+		BucketDatabase::createOrModifyTable( $title, $jsonSchema, $isExistingPage );
 	}
 
 	/**
@@ -256,7 +248,7 @@ class GeneralHandler implements
 		}
 
 		try {
-			$pagesCount = $this->bucketDb->countPagesUsingBucket( $page->getDBkey() );
+			$pagesCount = BucketDatabase::countPagesUsingBucket( $page->getDBkey() );
 			if ( $pagesCount === 0 ) {
 				return true;
 			} else {
@@ -280,7 +272,7 @@ class GeneralHandler implements
 			Bucket::writePuts( $page->getId(), '', [] );
 		} else {
 			try {
-				$this->bucketDb->deleteTable( $page->getDBkey() );
+				BucketDatabase::deleteTable( $page->getDBkey() );
 				// If we somehow get a page that isn't a valid Bucket name, it will throw a schema exception.
 			} catch ( BucketException ) {
 
@@ -346,7 +338,7 @@ class GeneralHandler implements
 
 	/**
 	 * @param Parser $parser
-	 * @param ParserOutput $output
+	 * @param Output $output
 	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/ParserLimitReportPrepare
 	 */
 	public function onParserLimitReportPrepare( $parser, $output ) {

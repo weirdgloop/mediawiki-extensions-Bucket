@@ -12,15 +12,9 @@ use Wikimedia\Rdbms\DBQueryTimeoutError;
 class BucketPage extends Article {
 	private TemplateParser $templateParser;
 
-	private BucketDatabase $bucketDb;
-
-	private BucketPageHelper $bucketPageHelper;
-
 	public function __construct( Title $title ) {
 		parent::__construct( $title );
 		$this->templateParser = new TemplateParser( __DIR__ . '/Templates' );
-		$this->bucketDb = MediaWikiServices::getInstance()->getService( 'Bucket.BucketDatabase' );
-		$this->bucketPageHelper = MediaWikiServices::getInstance()->getService( 'Bucket.BucketPageHelper' );
 	}
 
 	public function view() {
@@ -45,13 +39,13 @@ class BucketPage extends Article {
 		$title = $this->getTitle();
 		$out->setPageTitle( $title );
 
-		$dbw = $this->bucketDb->getDB();
+		$dbw = BucketDatabase::getDB();
 		$linkRenderer = MediaWikiServices::getInstance()->getLinkRenderer();
 
 		try {
 			$bucketName = Bucket::getValidFieldName( $this->getTitle()->getDBkey() );
 		} catch ( SchemaException $e ) {
-			$out->addWikiTextAsContent( $this->bucketPageHelper->printError( $e->getMessage() ) );
+			$out->addWikiTextAsContent( BucketPageHelper::printError( $e->getMessage() ) );
 			return;
 		}
 
@@ -71,10 +65,10 @@ class BucketPage extends Article {
 		$limit = $request->getInt( 'limit', 20 );
 		$offset = $request->getInt( 'offset', 0 );
 
-		$fullResult = $this->bucketPageHelper->runQuery( $request, $bucketName, $select, $where, $limit, $offset );
+		$fullResult = BucketPageHelper::runQuery( $request, $bucketName, $select, $where, $limit, $offset );
 
 		if ( isset( $fullResult['error'] ) ) {
-			$out->addWikiTextAsContent( $this->bucketPageHelper->printError( $fullResult['error'] ) );
+			$out->addWikiTextAsContent( BucketPageHelper::printError( $fullResult['error'] ) );
 			return;
 		}
 
@@ -89,7 +83,7 @@ class BucketPage extends Article {
 		try {
 			$maxCount = $dbw->newSelectQueryBuilder()
 			->select( 'COUNT(*)' )
-			->from( $this->bucketDb->getBucketTableName( $bucketName ) )
+			->from( BucketDatabase::getBucketTableName( $bucketName ) )
 			->fetchField();
 
 		} catch ( DBQueryTimeoutError ) {
@@ -102,9 +96,9 @@ class BucketPage extends Article {
 				'browseText' => $out->msg( 'bucket-page-browse-text' )->numParams( $maxCount )->parse(),
 				'resultHeaderText' => $out->msg( 'bucket-page-result-counter' )
 					->numParams( $resultCount, $offset, $endResult )->parse(),
-				'paginationLinks' => $this->bucketPageHelper->getPageLinks(
+				'paginationLinks' => BucketPageHelper::getPageLinks(
 					$title, $limit, $offset, $request->getQueryValues(), ( $resultCount === $limit ) ),
-				'resultTable' => $this->bucketPageHelper->getResultTable(
+				'resultTable' => BucketPageHelper::getResultTable(
 					$this->templateParser, $schemas[$bucketName], $fullResult['fields'], $queryResult ),
 				'diveText' => $linkRenderer->makePreloadedLink(
 					SpecialPage::getTitleValueFor( 'Bucket' ),

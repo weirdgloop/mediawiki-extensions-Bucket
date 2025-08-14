@@ -2,72 +2,56 @@
 
 namespace MediaWiki\Extension\Bucket;
 
-use MediaWiki\Config\Config;
 use MediaWiki\Config\ConfigException;
 use MediaWiki\MediaWikiServices;
-use Wikimedia\Rdbms\DatabaseFactory;
 use Wikimedia\Rdbms\IDatabase;
-use Wikimedia\Rdbms\ILoadBalancer;
 use Wikimedia\Rdbms\IMaintainableDatabase;
 
 class BucketDatabase {
-	/** @var IMaintainableDatabase do not use this directly, call $this->getDB() instead. */
-	private IMaintainableDatabase $db;
+	private static IMaintainableDatabase $db;
 
-	private ?string $dbUser;
-
-	private ?string $dbPassword;
-
-	private ?string $dbHostname;
-
-	private ILoadBalancer $mainLb;
-
-	private DatabaseFactory $dbFactory;
-
-	public function __construct( Config $config, ILoadBalancer $mainLb, DatabaseFactory $dbFactory ) {
-		$this->dbUser = $config->get( 'BucketDBuser' );
-		$this->dbPassword = $config->get( 'BucketDBpassword' );
-		$this->dbHostname = $config->get( 'BucketDBhostname' );
-		$this->mainLb = $mainLb;
-		$this->dbFactory = $dbFactory;
-	}
-
-	public function getDB(): IMaintainableDatabase {
-		if ( isset( $this->db ) && $this->db->isOpen() ) {
-			return $this->db;
+	public static function getDB(): IMaintainableDatabase {
+		if ( isset( self::$db ) && self::$db->isOpen() ) {
+			return self::$db;
 		}
+		$config = MediaWikiServices::getInstance()->getMainConfig();
+		$bucketDBuser = $config->get( 'BucketDBuser' );
+		$bucketDBpassword = $config->get( 'BucketDBpassword' );
 
-		if ( $this->dbUser === null || $this->dbPassword === null ) {
+		if ( $bucketDBuser === null || $bucketDBpassword === null ) {
 			throw new ConfigException( 'BucketDBuser and BucketDBpassword are required config options' );
 		}
 
-		$mainDB = $this->mainLb->getConnection( DB_PRIMARY );
+		$mainDB = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnection( DB_PRIMARY );
 		$params = [
 			'host' => $mainDB->getServer(),
-			'user' => $this->dbUser,
-			'password' => $this->dbPassword,
+			'user' => $bucketDBuser,
+			'password' => $bucketDBpassword,
 			'dbname' => $mainDB->getDBname(),
 			'utf8Mode' => true,
 			// Weird Gloop specific tweak
 			'defaultMaxExecutionTimeForQueries' => 500
 		];
 
-		$this->db = $this->dbFactory->create( $mainDB->getType(), $params );
+		self::$db = MediaWikiServices::getInstance()->getDatabaseFactory()->create( $mainDB->getType(), $params );
 
 		// MySQL 8.0.17 or higher is required for the implementation of repeated fields.
-		if ( $this->db->getType() !== 'mysql' || version_compare( $this->db->getServerVersion(), '8.0.17', '<' ) ) {
+		if ( self::$db->getType() !== 'mysql' || version_compare( self::$db->getServerVersion(), '8.0.17', '<' ) ) {
 			throw new ConfigException( 'Bucket requires MySQL 8.0.17 or higher' );
 		}
-		return $this->db;
+		return self::$db;
 	}
 
-	private function getBucketDBUser(): string {
-		return "{$this->dbUser}@'{$this->dbHostname}'";
+	private static function getBucketDBUser(): string {
+		$config = MediaWikiServices::getInstance()->getMainConfig();
+		$dbUser = $config->get( 'BucketDBuser' );
+		$dbServer = $config->get( 'BucketDBhostname' );
+		return "$dbUser@'$dbServer'";
 	}
 
-	public function canCreateTable( string $bucketName ): bool {
+	public static function canCreateTable( string $bucketName ): bool {
 		$bucketName = Bucket::getValidBucketName( $bucketName );
-		$dbw = $this->getDB();
+		$dbw = self::getDB();
 		$schemaExists = $dbw->newSelectQueryBuilder()
 			->from( 'bucket_schemas' )
 			->where( [ 'bucket_name' => $bucketName ] )
@@ -75,7 +59,7 @@ class BucketDatabase {
 			->caller( __METHOD__ )
 			->field( 'schema_json' )
 			->fetchField();
-		$tableExists = $dbw->tableExists( $this->getBucketTableName( $bucketName ) );
+		$tableExists = $dbw->tableExists( self::getBucketTableName( $bucketName ) );
 		if ( !$schemaExists && !$tableExists ) {
 			return true;
 		} else {
@@ -87,8 +71,8 @@ class BucketDatabase {
 	 * The table comments hold a json representation of the applied Bucket schema
 	 * Example comment for field _page_id: {"type":"INTEGER","index":false,"repeated":false}
 	 */
-	private function buildSchemaFromComments( string $bucketName, IDatabase $dbw ): BucketSchema {
-		$dbTableName = $dbw->addIdentifierQuotes( $this->getBucketTableName( $bucketName ) );
+	private static function buildSchemaFromComments( string $bucketName, IDatabase $dbw ): BucketSchema {
+		$dbTableName = $dbw->addIdentifierQuotes( self::getBucketTableName( $bucketName ) );
 		$res = $dbw->query( "SHOW FULL COLUMNS FROM $dbTableName;", __METHOD__ );
 
 		$fields = [];
@@ -98,7 +82,7 @@ class BucketDatabase {
 		return new BucketSchema( $bucketName, $fields );
 	}
 
-	public function createOrModifyTable( string $bucketName, object $jsonSchema, bool $isExistingPage ): void {
+	public static function createOrModifyTable( string $bucketName, object $jsonSchema, bool $isExistingPage ): void {
 		$bucketName = Bucket::getValidBucketName( $bucketName );
 		$newSchema = [
 			'_page_id' => new BucketSchemaField( '_page_id', BucketValueType::Integer, false, false ),
@@ -163,23 +147,23 @@ class BucketDatabase {
 		$dbw->onTransactionCommitOrIdle( function () use ( $dbw, $bucketSchema ) {
 			if ( !$dbw->tableExists( $bucketSchema->getTableName() ) ) {
 				// We are a new bucket json
-				$statement = $this->getCreateTableStatement( $bucketSchema, $dbw );
-				$bucketDBuser = $this->getBucketDBUser();
+				$statement = self::getCreateTableStatement( $bucketSchema, $dbw );
+				$bucketDBuser = self::getBucketDBUser();
 				$escapedTableName = $bucketSchema->getSafe( $dbw );
 				// Note: The main database connection is only used to grant access to the new table.
 				MediaWikiServices::getInstance()->getDBLoadBalancer()
 					->getConnection( DB_PRIMARY )->query( "GRANT ALL ON $escapedTableName TO $bucketDBuser;" );
 			} else {
 				// We are an existing bucket json
-				$oldSchema = $this->buildSchemaFromComments( $bucketSchema->getName(), $dbw );
-				$statement = $this->getAlterTableStatement( $bucketSchema, $oldSchema, $dbw );
+				$oldSchema = self::buildSchemaFromComments( $bucketSchema->getName(), $dbw );
+				$statement = self::getAlterTableStatement( $bucketSchema, $oldSchema, $dbw );
 			}
 			$dbw->query( $statement );
 
 			// At this point is is possible that another transaction has changed the table so we start a transaction,
 			// read the column comments (which are the schema), and write that to bucket_schemas
 			$dbw->begin();
-			$commentSchema = $this->buildSchemaFromComments( $bucketSchema->getName(), $dbw );
+			$commentSchema = self::buildSchemaFromComments( $bucketSchema->getName(), $dbw );
 			// If the schema contained in the comments is eqivalent to what we expect (ignoring field ordering)
 			// then we just write the expected schema, to preserve the ordering from the MW page.
 			$expectedFieldsSorted = sort( $bucketSchema->getFields() );
@@ -200,7 +184,7 @@ class BucketDatabase {
 		}, __METHOD__ );
 	}
 
-	private function getAlterTableStatement(
+	private static function getAlterTableStatement(
 		BucketSchema $bucketSchema, BucketSchema $oldSchema, IDatabase $dbw
 	): string {
 		$alterTableFragments = [];
@@ -241,7 +225,7 @@ class BucketDatabase {
 			}
 			if ( $field->getIndexed() ) {
 				if ( $newColumn || $typeChange || $oldFields[$fieldName]->getIndexed() === false ) {
-					$alterTableFragments[] = 'ADD ' . $this->getIndexStatement( $field, $dbw );
+					$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $field, $dbw );
 				}
 			}
 			unset( $oldFields[$fieldName] );
@@ -260,7 +244,7 @@ class BucketDatabase {
 		return "ALTER TABLE $dbTableName " . implode( ', ', $alterTableFragments ) . ';';
 	}
 
-	private function getCreateTableStatement( BucketSchema $newSchema, IDatabase $dbw ): string {
+	private static function getCreateTableStatement( BucketSchema $newSchema, IDatabase $dbw ): string {
 		$createTableFragments = [];
 
 		foreach ( $newSchema->getFields() as $field ) {
@@ -269,7 +253,7 @@ class BucketDatabase {
 			$createTableFragments[] =
 				"{$dbw->addIdentifierQuotes($field->getFieldName())} $dbType COMMENT $fieldJson";
 			if ( $field->getIndexed() ) {
-				$createTableFragments[] = $this->getIndexStatement( $field, $dbw );
+				$createTableFragments[] = self::getIndexStatement( $field, $dbw );
 			}
 		}
 		$createTableFragments[] =
@@ -279,8 +263,8 @@ class BucketDatabase {
 		return "CREATE TABLE $dbTableName (" . implode( ', ', $createTableFragments ) . ') DEFAULT CHARSET=utf8mb4;';
 	}
 
-	public function countPagesUsingBucket( string $bucketName ): int {
-		$dbw = $this->getDB();
+	public static function countPagesUsingBucket( string $bucketName ): int {
+		$dbw = self::getDB();
 		$bucketName = Bucket::getValidBucketName( $bucketName );
 		return $dbw->newSelectQueryBuilder()
 			->table( 'bucket_pages' )
@@ -289,10 +273,10 @@ class BucketDatabase {
 			->fetchRowCount();
 	}
 
-	public function deleteTable( string $bucketName ): void {
-		$dbw = $this->getDB();
+	public static function deleteTable( string $bucketName ): void {
+		$dbw = self::getDB();
 		$bucketName = Bucket::getValidBucketName( $bucketName );
-		$tableName = $dbw->addIdentifierQuotes( $this->getBucketTableName( $bucketName ) );
+		$tableName = $dbw->addIdentifierQuotes( self::getBucketTableName( $bucketName ) );
 
 		$dbw->newDeleteQueryBuilder()
 			->table( 'bucket_schemas' )

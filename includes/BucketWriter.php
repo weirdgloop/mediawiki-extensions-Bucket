@@ -10,12 +10,6 @@ class BucketWriter {
 	 */
 	private array $logs = [];
 
-	private BucketDatabase $bucketDb;
-
-	public function __construct() {
-		$this->bucketDb = MediaWikiServices::getInstance()->getService( 'Bucket.BucketDatabase' );
-	}
-
 	public function logIssue( string $bucket, string $property, string $type, string $message ): void {
 		if ( count( $this->logs ) > 100 ) {
 			return;
@@ -40,7 +34,7 @@ class BucketWriter {
 	 * Called when a page is saved in a Bucket enabled namespace
 	 */
 	public function writePuts( int $pageId, string $titleText, array $puts, bool $writingLogs = false ): void {
-		$dbw = $this->bucketDb->getDB();
+		$dbw = BucketDatabase::getDB();
 		$putLength = 0;
 		$maxiumPutLength = MediaWikiServices::getInstance()->getMainConfig()->get( 'BucketMaxDataPerPage' );
 
@@ -112,7 +106,7 @@ class BucketWriter {
 			$bucketSchema = $schemas[$bucketName];
 
 			$tablePuts = [];
-			$dbTableName = $this->bucketDb->getBucketTableName( $bucketName );
+			$dbTableName = BucketDatabase::getBucketTableName( $bucketName );
 			$res = $dbw->newSelectQueryBuilder()
 				->from( $dbw->addIdentifierQuotes( $dbTableName ) )
 				->select( '*' )
@@ -231,7 +225,7 @@ class BucketWriter {
 				->execute();
 			foreach ( $tablesToDelete as $name ) {
 				$dbw->newDeleteQueryBuilder()
-					->deleteFrom( $this->bucketDb->getBucketTableName( $name ) )
+					->deleteFrom( BucketDatabase::getBucketTableName( $name ) )
 					->where( [ '_page_id' => $pageId ] )
 					->caller( __METHOD__ )
 					->execute();

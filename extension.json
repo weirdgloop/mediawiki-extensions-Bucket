@@ -57,29 +57,17 @@
 	},
 	"HookHandlers": {
 		"main": {
-			"class": "MediaWiki\\Extension\\Bucket\\Hooks\\Handlers\\GeneralHandler",
-			"services": [ "Bucket.BucketDatabase" ]
+			"class": "MediaWiki\\Extension\\Bucket\\Hooks\\Handlers\\GeneralHandler"
 		},
 		"schema": {
 			"class": "MediaWiki\\Extension\\Bucket\\Hooks\\Handlers\\SchemaHandler"
 		}
 	},
 	"Actions": {
-		"bucket": {
-			"class": "MediaWiki\\Extension\\Bucket\\BucketAction",
-			"services": [
-				"Bucket.BucketDatabase",
-				"Bucket.BucketPageHelper"
-			]
-		}
+		"bucket": "MediaWiki\\Extension\\Bucket\\BucketAction"
 	},
 	"APIModules": {
-		"bucket": {
-			"class":"MediaWiki\\Extension\\Bucket\\BucketApi",
-			"services": [
-				"Bucket.BucketDatabase"
-			]
-		}
+		"bucket": "MediaWiki\\Extension\\Bucket\\BucketApi"
 	},
 	"MessagesDirs": {
 		"Bucket": [
@@ -87,13 +75,7 @@
 		]
 	},
 	"SpecialPages": {
-		"Bucket": {
-			"class": "MediaWiki\\Extension\\Bucket\\SpecialBucket",
-			"services": [
-				"Bucket.BucketDatabase",
-				"Bucket.BucketPageHelper"
-			]
-		}
+		"Bucket": "MediaWiki\\Extension\\Bucket\\SpecialBucket"
 	},
 	"ResourceFileModulePaths": {
 		"localBasePath": "",
@@ -156,8 +138,5 @@
 	"ExtensionMessagesFiles": {
 		"BucketAlias": "Bucket.i18n.alias.php"
 	},
-	"ServiceWiringFiles": [
-		"includes/ServiceWiring.php"
-	],
 	"manifest_version": 2
 }

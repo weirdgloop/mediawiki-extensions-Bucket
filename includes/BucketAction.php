@@ -13,17 +13,9 @@ use MediaWiki\Title\TitleValue;
 class BucketAction extends Action {
 	private TemplateParser $templateParser;
 
-	private BucketDatabase $bucketDb;
-
-	private BucketPageHelper $bucketPageHelper;
-
-	public function __construct(
-		Article $article, IContextSource $context, BucketDatabase $bucketDb, BucketPageHelper $bucketPageHelper
-	) {
+	public function __construct( Article $article, IContextSource $context ) {
 		parent::__construct( $article, $context );
 		$this->templateParser = new TemplateParser( __DIR__ . '/Templates' );
-		$this->bucketDb = $bucketDb;
-		$this->bucketPageHelper = $bucketPageHelper;
 	}
 
 	/**
@@ -43,7 +35,7 @@ class BucketAction extends Action {
 			'ext.bucket.bucketpage.styles'
 		] );
 
-		$dbw = $this->bucketDb->getDB();
+		$dbw = BucketDatabase::getDB();
 
 		$res = $dbw->newSelectQueryBuilder()
 			->from( 'bucket_pages' )
@@ -78,13 +70,13 @@ class BucketAction extends Action {
 		$linkRenderer = MediaWikiServices::getInstance()->getLinkRenderer();
 		foreach ( $buckets as $bucketName ) {
 			$bucketTitle = new TitleValue( NS_BUCKET, $bucketName );
-			$fullResult = $this->bucketPageHelper->runQuery(
+			$fullResult = BucketPageHelper::runQuery(
 				$this->getRequest(), $bucketTitle->getDBkey(), '*', "{'page_name', '$luaTitle'}", 500, 0 );
 			$html = $this->templateParser->processTemplate(
 				'BucketAction',
 				[
 					'headerText' => $linkRenderer->makePreloadedLink( $bucketTitle ),
-					'resultTable' => $this->bucketPageHelper->getResultTable( $this->templateParser,
+					'resultTable' => BucketPageHelper::getResultTable( $this->templateParser,
 						$schemas[$bucketName], $fullResult['fields'], $fullResult['bucket'] )
 				]
 			);

@@ -9,15 +9,9 @@ use OOUI;
 class SpecialBucket extends SpecialPage {
 	private TemplateParser $templateParser;
 
-	private BucketDatabase $bucketDb;
-
-	private BucketPageHelper $bucketPageHelper;
-
-	public function __construct( BucketDatabase $bucketDb, BucketPageHelper $bucketPageHelper ) {
+	public function __construct() {
 		parent::__construct( 'Bucket' );
 		$this->templateParser = new TemplateParser( __DIR__ . '/Templates' );
-		$this->bucketDb = $bucketDb;
-		$this->bucketPageHelper = $bucketPageHelper;
 	}
 
 	/**
@@ -149,12 +143,12 @@ class SpecialBucket extends SpecialPage {
 		try {
 			$bucketName = Bucket::getValidFieldName( $bucket );
 		} catch ( SchemaException ) {
-			$out->addWikiTextAsContent( $this->bucketPageHelper->printError(
+			$out->addWikiTextAsContent( BucketPageHelper::printError(
 				$this->msg( 'bucket-query-bucket-invalid', $bucket )->parse() ) );
 			return;
 		}
 
-		$dbw = $this->bucketDb->getDB();
+		$dbw = BucketDatabase::getDB();
 		$res = $dbw->newSelectQueryBuilder()
 			->from( 'bucket_schemas' )
 			->select( [ 'bucket_name', 'schema_json' ] )
@@ -166,11 +160,11 @@ class SpecialBucket extends SpecialPage {
 			$schemas[$row->bucket_name] = json_decode( $row->schema_json, true );
 		}
 
-		$fullResult = $this->bucketPageHelper->runQuery( $request, $bucket, $select, $where, $limit, $offset );
+		$fullResult = BucketPageHelper::runQuery( $request, $bucket, $select, $where, $limit, $offset );
 		$queryResult = [];
 
 		if ( isset( $fullResult['error'] ) ) {
-			$out->addWikiTextAsContent( $this->bucketPageHelper->printError( $fullResult['error'] ) );
+			$out->addWikiTextAsContent( BucketPageHelper::printError( $fullResult['error'] ) );
 			return;
 		} elseif ( isset( $fullResult['bucket'] ) ) {
 			$queryResult = $fullResult['bucket'];
@@ -184,9 +178,9 @@ class SpecialBucket extends SpecialPage {
 			[
 				'resultHeaderText' => $out->msg( 'bucket-page-result-counter' )
 					->numParams( $resultCount, $offset, $endResult )->parse(),
-				'paginationLinks' => $this->bucketPageHelper->getPageLinks(
+				'paginationLinks' => BucketPageHelper::getPageLinks(
 					$this->getFullTitle(), $limit, $offset, $request->getQueryValues(), ( $resultCount === $limit ) ),
-				'resultTable' => $this->bucketPageHelper->getResultTable(
+				'resultTable' => BucketPageHelper::getResultTable(
 					$this->templateParser, $schemas[$bucketName], $fullResult['fields'], $queryResult )
 			]
 		);

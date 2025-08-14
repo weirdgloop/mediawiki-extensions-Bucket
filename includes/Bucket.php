@@ -4,7 +4,6 @@ namespace MediaWiki\Extension\Bucket;
 
 use JsonSerializable;
 use LogicException;
-use MediaWiki\MediaWikiServices;
 use MediaWiki\Message\Message;
 use Wikimedia\Rdbms\IDatabase;
 
@@ -147,8 +146,7 @@ class BucketSchema implements JsonSerializable {
 	}
 
 	public function getTableName(): string {
-		return MediaWikiServices::getInstance()->getService( 'Bucket.BucketDatabase' )
-			->getBucketTableName( $this->bucketName );
+		return BucketDatabase::getBucketTableName( $this->bucketName );
 	}
 
 	public function getSafe( IDatabase $dbw ): string {

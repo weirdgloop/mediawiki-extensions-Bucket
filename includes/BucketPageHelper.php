@@ -5,7 +5,7 @@ namespace MediaWiki\Extension\Bucket;
 use MediaWiki\Api\ApiMain;
 use MediaWiki\Html\Html;
 use MediaWiki\Html\TemplateParser;
-use MediaWiki\Linker\LinkRenderer;
+use MediaWiki\MediaWikiServices;
 use MediaWiki\Request\DerivativeRequest;
 use MediaWiki\Request\WebRequest;
 use MediaWiki\Title\Title;
@@ -13,12 +13,6 @@ use MediaWiki\Title\TitleValue;
 use OOUI;
 
 class BucketPageHelper {
-	private LinkRenderer $linkRenderer;
-
-	public function __construct( LinkRenderer $linkRenderer ) {
-		$this->linkRenderer = $linkRenderer;
-	}
-
 	/**
 	 * @param WebRequest $existing_request
 	 * @param string $bucket
@@ -28,7 +22,7 @@ class BucketPageHelper {
 	 * @param int $offset
 	 * @return array
 	 */
-	public function runQuery(
+	public static function runQuery(
 		WebRequest $existing_request, string $bucket, string $select, string $where, int $limit, int $offset
 	): array {
 		$params = new DerivativeRequest(
@@ -50,7 +44,7 @@ class BucketPageHelper {
 	/**
 	 * @return string - wikitext
 	 */
-	private function formatValue( mixed $value, string $dataType, bool $repeated ): string {
+	private static function formatValue( mixed $value, string $dataType, bool $repeated ): string {
 		if ( $repeated ) {
 			if ( !is_array( $value ) ) {
 				$json = json_decode( $value );
@@ -72,9 +66,9 @@ class BucketPageHelper {
 		$class = 'bucket__value-' . strtolower( $dataType );
 
 		if ( $dataType == 'PAGE' && strlen( $value ) > 0 ) {
+			$renderer = MediaWikiServices::getInstance()->getLinkRenderer();
 			return Html::rawElement(
-				'div', [ 'class' => $class ], $this->linkRenderer->makePreloadedLink(
-					new TitleValue( 0, $value ) ) );
+				'div', [ 'class' => $class ], $renderer->makePreloadedLink( new TitleValue( 0, $value ) ) );
 		} elseif ( $dataType == 'BOOLEAN' ) {
 			$value = $value ? 'true' : 'false';
 			return Html::element( 'span', [
@@ -91,7 +85,7 @@ class BucketPageHelper {
 	 * @param array $result
 	 * @return string - html
 	 */
-	public function getResultTable(
+	public static function getResultTable(
 		TemplateParser $templateParser, array $schema, ?array $fields, array $result ): string {
 		if ( isset( $fields ) && count( $fields ) > 0 ) {
 			$keys = [];
@@ -133,7 +127,7 @@ class BucketPageHelper {
 	 * @param bool $hasNext
 	 * @return OOUI\ButtonGroupWidget
 	 */
-	public function getPageLinks(
+	public static function getPageLinks(
 		Title $title, int $limit, int $offset, array $query, bool $hasNext = true
 	): OOUI\ButtonGroupWidget {
 		$links = [];
@@ -169,7 +163,7 @@ class BucketPageHelper {
 	 * Escapes input and wraps in a standard error format.
 	 * @return string - escaped wikitext
 	 */
-	public function printError( string $msg ) {
+	public static function printError( string $msg ) {
 		return '<strong class="error bucket-error">' . wfEscapeWikiText( $msg ) . '</strong>';
 	}
 }
