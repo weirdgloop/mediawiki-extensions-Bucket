@@ -5,7 +5,6 @@ namespace MediaWiki\Extension\Bucket;
 use MediaWiki\Extension\Scribunto\Engines\LuaCommon\LibraryBase;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Title\MalformedTitleException;
-use MediaWiki\Title\TitleValue;
 use TypeError;
 use Wikimedia\Rdbms\DBQueryTimeoutError;
 
@@ -100,10 +99,10 @@ class LuaLibrary extends LibraryBase {
 	 */
 	private function linkToBucket( $bucketName ) {
 		$parserOutput = $this->getParser()->getOutput();
-		$titleValue = new TitleValue( NS_BUCKET, $bucketName );
+		$titleValue = MediaWikiServices::getInstance()->getTitleParser()->parseTitle( $bucketName, NS_BUCKET );
 		$addedLinks = $parserOutput->getExtensionData( 'bucket:added_links' );
 
-		if ( is_array( $addedLinks ) && in_array( $titleValue->getDBkey(), $addedLinks ) ) {
+		if ( is_array( $addedLinks ) && array_key_exists( $titleValue->getDBkey(), $addedLinks ) ) {
 			return;
 		}
 
