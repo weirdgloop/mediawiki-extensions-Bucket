@@ -37,7 +37,7 @@ class BucketQuery {
 	private ?string $orderByDirection = null;
 	private int $categoryCount = 0;
 
-	public BucketDatabase $bucketDb;
+	private BucketDatabase $bucketDb;
 
 	/**
 	 * @param mixed $condition
@@ -507,9 +507,11 @@ class FieldSelector extends Selector {
 	private BucketSchemaField $schemaField;
 
 	private BucketQuery $query;
+	private BucketDatabase $bucketDb;
 
 	public function __construct( string $fullSelector, BucketQuery $query ) {
 		$this->query = $query;
+		$this->bucketDb = MediaWikiServices::getInstance()->getService( 'Bucket.BucketDatabase' );
 
 		// Split on period
 		$parts = explode( '.', $fullSelector );
@@ -536,12 +538,12 @@ class FieldSelector extends Selector {
 	}
 
 	public function getSafe( IDatabase $dbw ): string {
-		return $dbw->addIdentifierQuotes( $this->query->bucketDb->getBucketTableName( $this->schema->getName() ) )
+		return $dbw->addIdentifierQuotes( $this->bucketDb->getBucketTableName( $this->schema->getName() ) )
 			. '.' . $dbw->addIdentifierQuotes( $this->schemaField->getFieldName() );
 	}
 
 	public function getUnsafe(): string {
-		return $this->query->bucketDb->getBucketTableName( $this->schema->getName() )
+		return $this->bucketDb->getBucketTableName( $this->schema->getName() )
 			. '.' . $this->schemaField->getFieldName();
 	}
 
