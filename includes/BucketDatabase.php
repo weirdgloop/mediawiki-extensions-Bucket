@@ -166,8 +166,10 @@ class BucketDatabase {
 			$commentSchema = self::buildSchemaFromComments( $bucketSchema->getName(), $dbw );
 			// If the schema contained in the comments is eqivalent to what we expect (ignoring field ordering)
 			// then we just write the expected schema, to preserve the ordering from the MW page.
-			$expectedFieldsSorted = sort( $bucketSchema->getFields() );
-			$actualFieldsSorted = sort( $commentSchema->getFields() );
+			$expectedFields = $bucketSchema->getFields();
+			$actualFields = $commentSchema->getFields();
+			$expectedFieldsSorted = sort( $expectedFields );
+			$actualFieldsSorted = sort( $actualFields );
 			if ( json_encode( $expectedFieldsSorted ) === json_encode( $actualFieldsSorted ) ) {
 				$schemaJson = json_encode( $bucketSchema );
 			} else {
