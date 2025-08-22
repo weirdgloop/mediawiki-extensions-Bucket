@@ -25,20 +25,65 @@ class BucketPageHelper {
 	public static function runQuery(
 		WebRequest $existing_request, string $bucket, string $select, string $where, int $limit, int $offset
 	): array {
+		if ( $bucket === null ) {
+			return [ 'error' => wfMessage( 'bucket-empty-bucket-name' ) ];
+		}
+		try {
+			$bucket = Bucket::getValidBucketName( $bucket );
+		} catch ( SchemaException $e ) {
+			return [ 'error' => $e->getMessage() ];
+		}
+
+		// Select everything if input is *
+		$selectNames = [];
+		if ( $select === '*' || $select === '' ) {
+			$dbw = BucketDatabase::getDB();
+			$res = $dbw->newSelectQueryBuilder()
+				->from( 'bucket_schemas' )
+				->select( [ 'bucket_name', 'schema_json' ] )
+				->where( [ 'bucket_name' => $bucket ] )
+				->caller( __METHOD__ )
+				->fetchResultSet();
+			$schemas = [];
+			foreach ( $res as $row ) {
+				$schemas[$row->bucket_name] = json_decode( $row->schema_json, true );
+			}
+			if ( isset( $schemas[$bucket] ) ) {
+				foreach ( $schemas[$bucket] as $name => $value ) {
+					if ( !str_starts_with( $name, '_' ) ) {
+						$selectNames[] = $name;
+					}
+				}
+			}
+		} else {
+			$selectNames = explode( ' ', $select );
+		}
+		$returnSelectNames = $selectNames;
+		foreach ( $selectNames as $idx => $name ) {
+			$selectNames[$idx] = "'" . $name . "'";
+		}
+		$select = implode( ',', $selectNames );
+
+		$questionString = [];
+		$questionString[] = "bucket('$bucket')";
+		$questionString[] = ".select($select)";
+		if ( strlen( $where ) > 0 ) {
+			$questionString[] = ".where($where)";
+		}
+		$questionString[] = ".limit($limit).offset($offset).run()";
+		$questionString = implode( '', $questionString );
 		$params = new DerivativeRequest(
 			$existing_request,
 			[
 				'action' => 'bucket',
-				'bucket' => $bucket,
-				'select' => $select,
-				'where' => $where,
-				'limit' => $limit,
-				'offset' => $offset
+				'query' => $questionString
 			]
 		);
 		$api = new ApiMain( $params );
 		$api->execute();
-		return $api->getResult()->getResultData();
+		$apiResult = $api->getResult()->getResultData();
+		$apiResult['fields'] = $returnSelectNames;
+		return $apiResult;
 	}
 
 	/**

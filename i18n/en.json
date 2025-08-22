@@ -18,10 +18,8 @@
     "bucket-action-title": "View Buckets: $1",
     "bucket-action-writes-empty": "No Buckets are written to from this page.",
 
-    "bucket-api-help-query": "Invalidates all other params. Must be a fully valid lua Bucket call",
-    "bucket-api-help-bucket": "A valid Bucket name. Required if query param is not set",
-    "bucket-api-help-select": "A list of fields to select, seperated by spaces",
-    "bucket-api-help-where": "A lua string that goes inside of bucket.where()",
+    "apihelp-bucket-summary": "Query Bucket through Lua",
+    "bucket-api-help-query": "A Bucket lua statement",
 
 	"bucket-page-browse-text": "Bucket data ($1 total)",
     "bucket-page-result-counter": "Displaying $1 results $2 – $3",
