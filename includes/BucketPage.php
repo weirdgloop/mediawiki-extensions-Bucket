@@ -20,6 +20,7 @@ class BucketPage extends Article {
 	public function view() {
 		$context = $this->getContext();
 		$out = $context->getOutput();
+		$out->addHelpLink( 'https://meta.weirdgloop.org/Extension:Bucket/Bucket namespace', true );
 		$request = $context->getRequest();
 
 		parent::view();
