@@ -147,9 +147,9 @@ class BucketWriter {
 						$singlePut[$dbw->addIdentifierQuotes( $key )] =
 							$bucketSchema->getField( $key )->castValueForDatabase( $value );
 					} catch ( BucketException $e ) {
+						$singlePut[$dbw->addIdentifierQuotes( $key )] = null;
 						self::logIssue(
-							$bucketName, $key, 'bucket-general-error', wfMessage(
-								$e->getMessage(), Bucket::REPEATED_CHARACTER_LIMIT ) );
+							$bucketName, $key, 'bucket-general-error', $e->getMessage() );
 					}
 				}
 				$singlePut[$dbw->addIdentifierQuotes( '_page_id' )] = $pageId;
