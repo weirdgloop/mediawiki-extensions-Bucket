@@ -15,6 +15,7 @@ use Wikimedia\Rdbms\SelectQueryBuilder;
  * @property BucketSchema[] $schemas - The schema objects, populated from self::$schemaCache
  * @property Join[] $joins
  * @property Selector[] $selects
+ * @property FieldSelector[] $orderByFields
  */
 class BucketQuery {
 	public const MAX_LIMIT = 5000;
@@ -33,8 +34,9 @@ class BucketQuery {
 	private QueryNode $where;
 	private int $limit = self::DEFAULT_LIMIT;
 	private int $offset = 0;
-	private ?Selector $orderByField = null;
-	private ?string $orderByDirection = null;
+	private array $orderByFields = [];
+	private ?Selector $userOrderByField = null;
+	private string $orderByDirection = 'ASC';
 	private int $categoryCount = 0;
 
 	/**
@@ -117,6 +119,8 @@ class BucketQuery {
 		$primarySchema = new BucketSchema( $data['bucketName'], self::$schemaCache[$data['bucketName']] );
 		$this->schemas[$primarySchema->getName()] = $primarySchema;
 		$this->primarySchema = $primarySchema;
+		$this->orderByFields[] = new FieldSelector( '_page_id', $this );
+		$this->orderByFields[] = new FieldSelector( '_index', $this );
 
 		foreach ( $data['joins'] as $join ) {
 			if ( !is_array( $join['cond'] ) || count( $join['cond'] ) !== 2 ) {
@@ -135,6 +139,8 @@ class BucketQuery {
 			$this->schemas[$joinTableSchema->getName()] = $joinTableSchema;
 			$join = new BucketJoin( $joinTableSchema, $field1, $field2, $this );
 			$this->joins[$joinTable] = $join;
+			$this->orderByFields[] = new FieldSelector( $joinTableSchema->getName() . '._page_id', $this );
+			$this->orderByFields[] = new FieldSelector( $joinTableSchema->getName() . '._index', $this );
 		}
 
 		// Parse selects
@@ -168,12 +174,12 @@ class BucketQuery {
 			$orderByField = $data['orderBy']['fieldName'];
 			$isSelected = false;
 			if ( self::isCategory( $orderByField ) ) {
-				$this->orderByField = new CategorySelector( $orderByField, $this );
+				$this->userOrderByField = new CategorySelector( $orderByField, $this );
 			} else {
-				$this->orderByField = new FieldSelector( $orderByField, $this );
+				$this->userOrderByField = new FieldSelector( $orderByField, $this );
 			}
 			foreach ( $this->selects as $select ) {
-				if ( $select == $this->orderByField ) {
+				if ( $select == $this->userOrderByField ) {
 					$isSelected = true;
 					break;
 				}
@@ -260,11 +266,14 @@ class BucketQuery {
 		$config = MediaWikiServices::getInstance()->getMainConfig();
 		$builder->setMaxExecutionTime( $config->get( 'BucketMaxQueryExecutionTime' ) );
 
-		$orderByField = $this->orderByField;
-		$orderByDirection = $this->orderByDirection;
-		if ( $orderByField && $orderByDirection ) {
-			$builder->orderBy( $orderByField->getSafe( $dbw ), $orderByDirection );
+		$orderByStrings = [];
+		if ( isset( $this->userOrderByField ) ) {
+			$orderByStrings[] = $this->userOrderByField->getSafe( $dbw );
 		}
+		foreach ( $this->orderByFields as $field ) {
+			$orderByStrings[] = $field->getSafe( $dbw );
+		}
+		$builder->orderBy( $orderByStrings, $this->orderByDirection );
 
 		return $builder;
 	}
