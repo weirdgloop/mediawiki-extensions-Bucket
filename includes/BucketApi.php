@@ -50,10 +50,13 @@ class BucketApi extends ApiBase {
 			return;
 		}
 
-		// Empty results are encoded by mw.text.jsonEncode as arrays. We want them to be objects.
-		// The JSON_FORCE_OBJECT flag is only available when using json_encode from php.
-		$decoded = json_decode( json_encode( json_decode( $result['return'] ), JSON_FORCE_OBJECT ) );
-		$this->getResult()->addValue( null, 'bucket', $decoded );
+		$res = json_decode( $result['return'] );
+		foreach ( $res as $key => $value ) {
+			if ( is_array( $value ) && empty( $value ) ) {
+					$res[$key] = new \stdClass();
+			}
+		}
+		$this->getResult()->addValue( null, 'bucket', $res );
 	}
 
 	/**
