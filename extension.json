@@ -118,7 +118,7 @@
 			"value": "%"
 		},
 		"BucketMaxQueryExecutionTime": {
-			"value": 500
+			"value": 2000
 		},
 		"BucketMaxPageExecutionTime": {
 			"value": 10000
