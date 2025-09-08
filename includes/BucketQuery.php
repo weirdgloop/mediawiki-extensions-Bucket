@@ -334,11 +334,14 @@ class BucketJoin extends Join {
 		$this->joinedTable = $joinedTable;
 		$selector1 = new FieldSelector( $field1, $query );
 		$selector2 = new FieldSelector( $field2, $query );
-		// Cannot join two repeated fields
-		if ( $selector1->getFieldSchema()->getRepeated() && $selector2->getFieldSchema()->getRepeated() ) {
+		// Cannot join on a repeated field
+		if ( $selector1->getFieldSchema()->getRepeated() ) {
 			throw new QueryException( wfMessage(
-				'bucket-query-invalid-join-two-repeated', $selector1->getFieldSchema()->getFieldName(),
-				$selector2->getFieldSchema()->getFieldName() ) );
+				'bucket-query-invalid-join-repeated', $selector1->getFieldSchema()->getFieldName() ) );
+		}
+		if ( $selector2->getFieldSchema()->getRepeated() ) {
+			throw new QueryException( wfMessage(
+				'bucket-query-invalid-join-repeated', $selector2->getFieldSchema()->getFieldName() ) );
 		}
 		// Cannot join with yourself
 		if ( $selector1->getBucketSchema() === $selector2->getBucketSchema() ) {
