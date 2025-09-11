@@ -3,7 +3,8 @@
 		"authors": [
 			"Morgan Lewis",
 			"Jayden Bailey",
-			"Dianliang233"
+			"Dianliang233",
+			"Bilin Tsui (anterdc99)"
 		]
 	},
 	"bucket-desc": "Implements a lightweight interface for storing and accessing structured data",
@@ -79,5 +80,9 @@
 	"bucket-query-expected-category": "Expected Category, found $1",
 	"bucket-query-total-time-expired": "Page has exceeded total time allocated for running Bucket queries",
 	"bucket-limitreport-run-time": "Bucket time usage",
-	"bucket-limitreport-run-time-value": "$1/$2 seconds"
+	"bucket-limitreport-run-time-value": "$1/$2 seconds",
+	"nstab-bucket": "Bucket",
+	"tooltip-ca-nstab-module": "View the bucket page",
+	"namespaceinfo-description-ns9592": "Namespace for buckets, which can store structured data from articles",
+	"namespaceinfo-description-ns9593": "Talk pages for the buckets"
 }
