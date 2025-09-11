@@ -178,7 +178,7 @@ class SpecialBucket extends SpecialPage {
 			'BucketPageView',
 			[
 				'resultHeaderText' => $out->msg( 'bucket-page-result-counter' )
-					->numParams( $resultCount, $offset, $endResult )->parse(),
+					->numParams( $resultCount, $offset == 0 ? $offset : $offset + 1, $endResult )->parse(),
 				'paginationLinks' => BucketPageHelper::getPageLinks(
 					$this->getFullTitle(), $limit, $offset, $request->getQueryValues(), ( $resultCount === $limit ) ),
 				'resultTable' => BucketPageHelper::getResultTable(
