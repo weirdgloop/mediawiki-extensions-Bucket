@@ -34,7 +34,7 @@ class SpecialBucket extends SpecialPage {
 			),
 			[
 				'align' => 'right',
-				'label' => 'Bucket',
+				'label' => $this->msg( 'bucket-view-bucket-name' ),
 				'help' => $this->msg( 'bucket-view-help-bucket-name' )
 			]
 		);
@@ -47,7 +47,7 @@ class SpecialBucket extends SpecialPage {
 			),
 			[
 				'align' => 'right',
-				'label' => 'Select',
+				'label' => $this->msg( 'bucket-view-select' ),
 				'help' => $this->msg( 'bucket-view-help-select' )
 			]
 		);
@@ -60,7 +60,7 @@ class SpecialBucket extends SpecialPage {
 			),
 			[
 				'align' => 'right',
-				'label' => 'Where',
+				'label' => $this->msg( 'bucket-view-where' ),
 				'help' => $this->msg( 'bucket-view-help-where' )
 			]
 		);
@@ -75,7 +75,7 @@ class SpecialBucket extends SpecialPage {
 			),
 			[
 				'align' => 'right',
-				'label' => 'Limit',
+				'label' => $this->msg( 'bucket-view-limit' ),
 				'help' => $this->msg( 'bucket-view-help-limit' )
 			]
 		);
@@ -89,7 +89,7 @@ class SpecialBucket extends SpecialPage {
 			),
 			[
 				'align' => 'right',
-				'label' => 'Offset',
+				'label' => $this->msg( 'bucket-view-offset' ),
 				'help' => $this->msg( 'bucket-view-help-offset' )
 			]
 		);
