@@ -126,7 +126,7 @@ class SpecialBucket extends SpecialPage {
 		$this->setHeaders();
 		$out->enableOOUI();
 		$out->addModuleStyles( 'ext.bucket.bucketpage.styles' );
-		$out->setPageTitle( 'Bucket browse' );
+		$out->setPageTitle( $out->msg( 'bucket' )->text() );
 		$out->addHelpLink( 'https://meta.weirdgloop.org/Extension:Bucket/Bucket browse', true );
 
 		$bucket = $request->getText( 'bucket', '' );
