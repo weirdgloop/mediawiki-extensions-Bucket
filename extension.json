@@ -136,7 +136,8 @@
 		"bucket": "GlobalVarConfig::newInstance"
 	},
 	"ExtensionMessagesFiles": {
-		"BucketAlias": "Bucket.i18n.alias.php"
+		"BucketAlias": "Bucket.i18n.alias.php",
+		"BucketNamespaces": "Bucket.i18n.namespaces.php"
 	},
 	"manifest_version": 2
 }
