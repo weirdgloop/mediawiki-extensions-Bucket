@@ -8,12 +8,7 @@
 
 $namespaceNames = [];
 
-$namespaceAliases = [
-	'贮体' => 9592,
-	'存儲桶' => 9592,
-	'贮体讨论' => 9593,
-	'存儲桶討論' => 9593,
-];
+$namespaceAliases = [];
 
 $namespaceNames['en'] = [
 	9592 => 'Bucket',
