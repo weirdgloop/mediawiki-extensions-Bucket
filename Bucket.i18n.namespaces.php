@@ -15,9 +15,14 @@ $namespaceNames['en'] = [
 	9593 => 'Bucket_talk',
 ];
 
-$namespaceNames['zh'] = [
+$namespaceNames['en'] = [
 	9592 => 'Bucket',
 	9593 => 'Bucket_talk',
+];
+
+$namespaceNames['uk'] = [
+	9592 => 'Bucket',
+	9593 => 'Обговорення_Bucket',
 ];
 
 $namespaceNames['zh-hans'] = [
