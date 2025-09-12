@@ -51,9 +51,11 @@ class BucketApi extends ApiBase {
 		}
 
 		$res = json_decode( $result['return'] );
-		foreach ( $res as $key => $value ) {
-			if ( is_array( $value ) && empty( $value ) ) {
+		if ( gettype( $res ) == 'array' ) {
+			foreach ( $res as $key => $value ) {
+				if ( is_array( $value ) && empty( $value ) ) {
 					$res[$key] = new \stdClass();
+				}
 			}
 		}
 		$this->getResult()->addValue( null, 'bucket', $res );
