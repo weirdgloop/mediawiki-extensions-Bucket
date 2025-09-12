@@ -222,7 +222,15 @@ end
 
 function QueryBuilder:limit(arg)
     if arg ~= nil and type(arg) ~= "number" then
-        printError('bucket-query-must-be-type', 4, 'limit()', 'number or nil', type(arg))
+        printError(
+                'bucket-query-must-be-type', 4, 'limit()', mw.text.listToText(
+                        {
+                                mw.message.new('bucket-query-must-be-type-type-number'):plain(),
+                                mw.message.new('bucket-query-must-be-type-type-nil'):plain(),
+                        },
+                        mw.message.new('word-separator'):plain()..mw.message.new('bucket-query-must-be-type-conjecture'):plain()..mw.message.new('word-separator'):plain()
+                ), type(arg)
+        )
     end
     self.limit = arg
     return self
@@ -230,7 +238,15 @@ end
 
 function QueryBuilder:offset(arg)
     if arg ~= nil and type(arg) ~= "number" then
-        printError('bucket-query-must-be-type', 4, 'offset()', 'number or nil', type(arg))
+        printError(
+                'bucket-query-must-be-type', 4, 'offset()', mw.text.listToText(
+                        {
+                                mw.message.new('bucket-query-must-be-type-type-number'):plain(),
+                                mw.message.new('bucket-query-must-be-type-type-nil'):plain(),
+                        },
+                        mw.message.new('word-separator'):plain()..mw.message.new('bucket-query-must-be-type-conjecture'):plain()..mw.message.new('word-separator'):plain()
+                ), type(arg)
+        )
     end
     self.offset = arg
     return self
@@ -272,7 +288,15 @@ end
 
 function QueryBuilder:sub(identifier)
     if identifier ~= nil and type(identifier) ~= 'string' and type(identifier) ~= 'number' then
-        printError('bucket-query-must-be-type', 4, 'sub()', 'string or nil', type(identifier))
+        printError(
+                'bucket-query-must-be-type', 4, 'sub()', mw.text.listToText(
+                        {
+                                mw.message.new('bucket-query-must-be-type-type-string'):plain(),
+                                mw.message.new('bucket-query-must-be-type-type-nil'):plain(),
+                        },
+                        mw.message.new('word-separator'):plain()..mw.message.new('bucket-query-must-be-type-conjecture'):plain()..mw.message.new('word-separator'):plain()
+                ), type(identifier)
+        )
     end
     self.subversion = identifier
     return self

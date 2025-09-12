@@ -78,13 +78,17 @@
 	"bucket-query-order-by-direction": "orderBy()方向必须是ASC或DESC，但发现了$1",
 	"bucket-query-long-execution-time": "单个存储桶查询所用时间超出允许时间",
 	"bucket-query-must-be-type": "$1参数必须是$2类型，但类型为$3",
+	"bucket-query-must-be-type-conjecture": "或",
+	"bucket-query-must-be-type-type-number": "数值",
+	"bucket-query-must-be-type-type-string": "字符串",
+	"bucket-query-must-be-type-type-nil": "空值",
 	"bucket-query-null-invalid-operator": "对于bucket.Null()，只有“=”和“!=”是有效的比较，但为$1",
 	"bucket-query-expected-category": "期望为分类，但为$1",
 	"bucket-query-total-time-expired": "页面已超出运行存储桶查询所分配的总时间",
 	"bucket-limitreport-run-time": "存储桶时间使用情况",
 	"bucket-limitreport-run-time-value": "$1/$2秒",
 	"nstab-bucket": "存储桶",
-	"tooltip-ca-nstab-module": "查看存储桶页面",
+	"tooltip-ca-nstab-bucket": "查看存储桶页面",
 	"namespaceinfo-description-ns9592": "存储桶的命名空间，可以存储条目的结构化数据",
 	"namespaceinfo-description-ns9593": "存储桶的讨论页"
 }
