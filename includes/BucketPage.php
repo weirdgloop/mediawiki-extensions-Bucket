@@ -96,7 +96,7 @@ class BucketPage extends Article {
 			[
 				'browseText' => $out->msg( 'bucket-page-browse-text' )->numParams( $maxCount )->parse(),
 				'resultHeaderText' => $out->msg( 'bucket-page-result-counter' )
-					->numParams( $resultCount, $offset, $endResult )->parse(),
+					->numParams( $resultCount, $offset == 0 ? $offset : $offset + 1, $endResult )->parse(),
 				'paginationLinks' => BucketPageHelper::getPageLinks(
 					$title, $limit, $offset, $request->getQueryValues(), ( $resultCount === $limit ) ),
 				'resultTable' => BucketPageHelper::getResultTable(

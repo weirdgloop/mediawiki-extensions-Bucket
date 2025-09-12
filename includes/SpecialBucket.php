@@ -34,7 +34,7 @@ class SpecialBucket extends SpecialPage {
 			),
 			[
 				'align' => 'right',
-				'label' => 'Bucket',
+				'label' => $this->msg( 'bucket-view-bucket-name' ),
 				'help' => $this->msg( 'bucket-view-help-bucket-name' )
 			]
 		);
@@ -47,7 +47,7 @@ class SpecialBucket extends SpecialPage {
 			),
 			[
 				'align' => 'right',
-				'label' => 'Select',
+				'label' => $this->msg( 'bucket-view-select' ),
 				'help' => $this->msg( 'bucket-view-help-select' )
 			]
 		);
@@ -60,7 +60,7 @@ class SpecialBucket extends SpecialPage {
 			),
 			[
 				'align' => 'right',
-				'label' => 'Where',
+				'label' => $this->msg( 'bucket-view-where' ),
 				'help' => $this->msg( 'bucket-view-help-where' )
 			]
 		);
@@ -75,7 +75,7 @@ class SpecialBucket extends SpecialPage {
 			),
 			[
 				'align' => 'right',
-				'label' => 'Limit',
+				'label' => $this->msg( 'bucket-view-limit' ),
 				'help' => $this->msg( 'bucket-view-help-limit' )
 			]
 		);
@@ -89,7 +89,7 @@ class SpecialBucket extends SpecialPage {
 			),
 			[
 				'align' => 'right',
-				'label' => 'Offset',
+				'label' => $this->msg( 'bucket-view-offset' ),
 				'help' => $this->msg( 'bucket-view-help-offset' )
 			]
 		);
@@ -126,7 +126,7 @@ class SpecialBucket extends SpecialPage {
 		$this->setHeaders();
 		$out->enableOOUI();
 		$out->addModuleStyles( 'ext.bucket.bucketpage.styles' );
-		$out->setPageTitle( 'Bucket browse' );
+		$out->setPageTitle( $out->msg( 'bucket' )->text() );
 		$out->addHelpLink( 'https://meta.weirdgloop.org/Extension:Bucket/Bucket browse', true );
 
 		$bucket = $request->getText( 'bucket', '' );
@@ -178,7 +178,7 @@ class SpecialBucket extends SpecialPage {
 			'BucketPageView',
 			[
 				'resultHeaderText' => $out->msg( 'bucket-page-result-counter' )
-					->numParams( $resultCount, $offset, $endResult )->parse(),
+					->numParams( $resultCount, $offset == 0 ? $offset : $offset + 1, $endResult )->parse(),
 				'paginationLinks' => BucketPageHelper::getPageLinks(
 					$this->getFullTitle(), $limit, $offset, $request->getQueryValues(), ( $resultCount === $limit ) ),
 				'resultTable' => BucketPageHelper::getResultTable(
