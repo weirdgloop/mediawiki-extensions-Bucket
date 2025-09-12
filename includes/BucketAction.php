@@ -30,7 +30,7 @@ class BucketAction extends Action {
 		$title = $this->getArticle()->getTitle();
 		$pageId = $this->getArticle()->getPage()->getId();
 		$out->addHelpLink( 'https://meta.weirdgloop.org/Extension:Bucket/Bucket action', true );
-		$out->setPageTitleMsg( wfMessage( 'bucket-action-title', $title ) );
+		$out->setPageTitleMsg( wfMessage( 'bucket-action-title', $title->getFullText() ) );
 		$out->addModuleStyles( [
 			'mediawiki.codex.messagebox.styles',
 			'ext.bucket.bucketpage.styles'

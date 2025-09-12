@@ -38,7 +38,7 @@ class BucketPage extends Article {
 		$out->enableOOUI();
 		$out->addModuleStyles( 'ext.bucket.bucketpage.styles' );
 		$title = $this->getTitle();
-		$out->setPageTitle( $title );
+		$out->setPageTitle( $title->getPrefixedDBKey() );
 
 		$dbw = BucketDatabase::getDB();
 		$linkRenderer = MediaWikiServices::getInstance()->getLinkRenderer();
