@@ -8,7 +8,12 @@
 
 $namespaceNames = [];
 
-$namespaceAliases = [];
+$namespaceAliases = [
+	'贮体' => 9592,
+	'存儲桶' => 9592,
+	'贮体讨论' => 9593,
+	'存儲桶討論' => 9593,
+];
 
 $namespaceNames['en'] = [
 	9592 => 'Bucket',
@@ -23,4 +28,9 @@ $namespaceNames['zh'] = [
 $namespaceNames['zh-hans'] = [
 	9592 => '存储桶',
 	9593 => '存储桶讨论',
+];
+
+$namespaceNames['zh-hant'] = [
+	9592 => '貯體',
+	9593 => '貯體討論',
 ];

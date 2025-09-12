@@ -21,3 +21,8 @@ $specialPageAliases['zh'] = [
 $specialPageAliases['zh-hans'] = [
 	'Bucket' => [ '存储桶' ],
 ];
+
+/** Traditional Chinese (中文（繁體）) */
+$specialPageAliases['zh-hant'] = [
+	'Bucket' => [ '貯體' ],
+];
