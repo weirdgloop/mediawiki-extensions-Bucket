@@ -78,13 +78,17 @@
 	"bucket-query-order-by-direction": "orderBy() 方向必須為 ASC 或 DESC，但發現：$1",
 	"bucket-query-long-execution-time": "單一貯體查詢用時過長",
 	"bucket-query-must-be-type": "$1 參數型別必須為 $2，但發現型別 $3",
+	"bucket-query-must-be-type-conjecture": "或",
+	"bucket-query-must-be-type-type-number": "數字",
+	"bucket-query-must-be-type-type-string": "字串",
+	"bucket-query-must-be-type-type-nil": "nil",
 	"bucket-query-null-invalid-operator": "只有「=」和「!=」是 bucket.Null() 有效的比較選項，但發現 $1",
 	"bucket-query-expected-category": "應為分類，但發現 $1",
 	"bucket-query-total-time-expired": "頁面的貯體查詢執行逾時",
 	"bucket-limitreport-run-time": "貯體用時",
 	"bucket-limitreport-run-time-value": "$1/$2 秒",
 	"nstab-bucket": "貯體",
-	"tooltip-ca-nstab-module": "檢視貯體頁面",
+	"tooltip-ca-nstab-bucket": "檢視貯體頁面",
 	"namespaceinfo-description-ns9592": "貯體的命名空間，其可以儲存來自條目的結構化資料",
 	"namespaceinfo-description-ns9593": "貯體的討論頁面"
 }
