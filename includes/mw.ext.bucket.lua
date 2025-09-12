@@ -42,7 +42,7 @@ local function isPossibleField(fieldName)
 end
 
 local function isCategory(fieldName)
-    if fieldName ~= nil and type(fieldName) == 'string' and string.match(fieldName, '^Category:') then
+    if fieldName ~= nil and type(fieldName) == 'string' and string.match(fieldName, '^'..mw.site.namespaces.Category.name..':') then
         return true
     end
     return false
