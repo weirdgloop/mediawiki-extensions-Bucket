@@ -12,6 +12,11 @@ $specialPageAliases['en'] = [
 	'Bucket' => [ 'Bucket' ],
 ];
 
+/** Ukrainian (Українська) */
+$specialPageAliases['uk'] = [
+	'Bucket' => [ 'Bucket' ],
+];
+
 /** Chinese (中文) */
 $specialPageAliases['zh'] = [
 	'Bucket' => [ 'Bucket' ],
