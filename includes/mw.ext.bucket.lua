@@ -64,7 +64,7 @@ local QueryBuilder = {}
 
 function QueryBuilder:new(bucketName)
     if not isPossibleField(bucketName) then
-        printError('bucket-invalid-name-warning', 5, bucketName)
+        printError('bucket-invalid-name-warning', 5, tostring(bucketName))
     end
     -- set everything up here...
     local queryBuilder = {
