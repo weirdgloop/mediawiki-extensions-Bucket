@@ -219,8 +219,12 @@ class BucketDatabase {
 			if ( $newColumn || $typeChange ) {
 				$alterTableFragments[] = "ADD $escapedFieldName " . $newDbType . " COMMENT $fieldJson";
 			} else {
-				// If an existing column has the same DB type, check for a change between TEXT/PAGE
-				if ( $oldFields[$fieldName]->getType() !== $field->getType() ) {
+				// If an existing column has the same DB type, check for a change between TEXT/PAGE,
+				// or a change to the index.
+				if (
+					( $oldFields[$fieldName]->getType() !== $field->getType() )
+					|| ( $field->getIndexed() !== $oldFields[$fieldName]->getIndexed() )
+				) {
 					# Acts as a no-op except to update the comment
 					$alterTableFragments[] = "MODIFY $escapedFieldName " . $newDbType . " COMMENT $fieldJson";
 				}
