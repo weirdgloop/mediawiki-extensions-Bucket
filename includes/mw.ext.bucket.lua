@@ -74,8 +74,8 @@ function QueryBuilder:new(bucketName)
         joins = {},
         orderBy = nil,
         subversion = "",
-        limit = nil,
-        offset = nil,
+        limit_arg = nil,
+        offset_arg = nil,
         debug = false
     }
     setmetatable(queryBuilder, self)
@@ -232,7 +232,7 @@ function QueryBuilder:limit(arg)
                 ), type(arg)
         )
     end
-    self.limit = arg
+    self.limit_arg = arg
     return self
 end
 
@@ -248,7 +248,7 @@ function QueryBuilder:offset(arg)
                 ), type(arg)
         )
     end
-    self.offset = arg
+    self.offset_arg = arg
     return self
 end
 

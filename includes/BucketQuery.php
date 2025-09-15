@@ -162,12 +162,12 @@ class BucketQuery {
 		}
 
 		// Parse other options
-		if ( isset( $data['limit'] ) && is_int( $data['limit'] ) && $data['limit'] > 0 ) {
-			$this->limit = min( $data['limit'], self::MAX_LIMIT );
+		if ( isset( $data['limit_arg'] ) && is_int( $data['limit_arg'] ) && $data['limit_arg'] > 0 ) {
+			$this->limit = min( $data['limit_arg'], self::MAX_LIMIT );
 		}
 
-		if ( isset( $data['offset'] ) && is_int( $data['offset'] ) && $data['offset'] > 0 ) {
-			$this->offset = $data['offset'];
+		if ( isset( $data['offset_arg'] ) && is_int( $data['offset_arg'] ) && $data['offset_arg'] > 0 ) {
+			$this->offset = $data['offset_arg'];
 		}
 
 		if ( isset( $data['orderBy'] ) ) {
