@@ -87,9 +87,9 @@ class BucketQuery {
 		if ( !isset( self::$schemaCache[$data['bucketName']] ) ) {
 			$neededSchemas[] = $data['bucketName'];
 		}
-		foreach ( $data['joins'] as $join ) {
-			if ( !isset( self::$schemaCache[$join['bucketName']] ) ) {
-				$neededSchemas[] = $join['bucketName'];
+		foreach ( $data['joinOrder'] as $joinTable ) {
+			if ( !isset( self::$schemaCache[$joinTable] ) ) {
+				$neededSchemas[] = $joinTable;
 			}
 		}
 		// Populate the schema cache with missing schemas
@@ -122,18 +122,17 @@ class BucketQuery {
 		$this->orderByFields[] = new FieldSelector( '_page_id', $this );
 		$this->orderByFields[] = new FieldSelector( '_index', $this );
 
-		foreach ( $data['joins'] as $join ) {
-			if ( !is_array( $join['cond'] ) || count( $join['cond'] ) !== 2 ) {
-				throw new QueryException( wfMessage( 'bucket-query-invalid-join', json_encode( $join ) ) );
-			}
-			$joinTable = $join['bucketName'];
-			$field1 = $join['cond'][0];
-			$field2 = $join['cond'][1];
-			$schema = self::$schemaCache[$join['bucketName']];
-
+		foreach ( $data['joinOrder'] as $joinTable ) {
 			if ( isset( $this->joins[$joinTable] ) ) {
 				throw new QueryException( wfMessage( 'bucket-query-duplicate-join', $joinTable ) );
 			}
+			$join = $data['joins'][$joinTable];
+			if ( !is_array( $join ) || !is_array( $join['cond'] ) || count( $join['cond'] ) !== 2 ) {
+				throw new QueryException( wfMessage( 'bucket-query-invalid-join', json_encode( $join ) ) );
+			}
+			$field1 = $join['cond'][0];
+			$field2 = $join['cond'][1];
+			$schema = self::$schemaCache[$joinTable];
 
 			$joinTableSchema = new BucketSchema( $joinTable, $schema );
 			$this->schemas[$joinTableSchema->getName()] = $joinTableSchema;

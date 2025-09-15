@@ -72,6 +72,7 @@ function QueryBuilder:new(bucketName)
         selects = {},
         wheres = {op = "AND", operands = {}},
         joins = {},
+        joinOrder = {},
         orderBy = nil,
         subversion = "",
         limit_arg = nil,
@@ -217,6 +218,7 @@ function QueryBuilder:join(bucketName, fieldOne, fieldTwo)
     end
 
     self.joins[bucketName] = {bucketName = bucketName, cond = {fieldOne, fieldTwo}}
+    table.insert(self.joinOrder, bucketName)
     return self
 end
 

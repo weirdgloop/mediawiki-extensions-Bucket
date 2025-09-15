@@ -74,8 +74,8 @@ class LuaLibrary extends LibraryBase {
 		}
 		try {
 			$this->linkToBucket( $data['bucketName'] );
-			foreach ( $data['joins'] as $join ) {
-				$this->linkToBucket( $join['bucketName'] );
+			foreach ( $data['joinOrder'] as $joinTable ) {
+				$this->linkToBucket( $joinTable );
 			}
 			$data = self::convertFromLuaTable( $data );
 			$rows = Bucket::runSelect( $data );
