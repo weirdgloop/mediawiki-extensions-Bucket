@@ -83,7 +83,7 @@
 	},
 	"ResourceModules": {
 		"ext.bucket.bucketpage.styles": {
-			"styles": "resources/ext.bucket.bucketpage.styles.css"
+			"styles": "resources/ext.bucket.bucketpage.styles.less"
 		}
 	},
 	"config": {
