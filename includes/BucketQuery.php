@@ -255,7 +255,7 @@ class BucketQuery {
 			if ( $join instanceof CategoryJoin ) {
 				$builder->leftJoin( 'categorylinks', $join->getAlias(), $join->getSQL( $dbw ) );
 			} else {
-				$builder->leftJoin( $join->getAlias( $dbw ), $join->getAlias( $dbw ), $join->getSQL( $dbw ) );
+				$builder->leftJoin( $join->getAlias(), $join->getAlias(), $join->getSQL( $dbw ) );
 			}
 		}
 

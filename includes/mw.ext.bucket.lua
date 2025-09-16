@@ -212,11 +212,13 @@ function QueryBuilder:join(bucketName, fieldOne, fieldTwo)
         printError('bucket-query-invalid-join', 4, mw.text.jsonEncode({bucketName, fieldOne, fieldTwo}))
     end
 
-    if self.joins[bucketName] ~= nil then
-        printError('bucket-query-duplicate-join', 4, bucketName)
+    for _, v in pairs(self.joins) do
+        if v.bucketName == bucketName then
+            printError('bucket-query-duplicate-join', 4, bucketName)
+        end
     end
 
-    self.joins[bucketName] = {bucketName = bucketName, cond = {fieldOne, fieldTwo}}
+    table.insert(self.joins, {bucketName = bucketName, cond = {fieldOne, fieldTwo}})
     return self
 end
 
