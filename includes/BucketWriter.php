@@ -108,7 +108,7 @@ class BucketWriter {
 			$tablePuts = [];
 			$dbTableName = BucketDatabase::getBucketTableName( $bucketName );
 			$res = $dbw->newSelectQueryBuilder()
-				->from( $dbw->addIdentifierQuotes( $dbTableName ) )
+				->from( $dbTableName )
 				->select( '*' )
 				->forUpdate()
 				->where( [ '_page_id' => $pageId ] )
