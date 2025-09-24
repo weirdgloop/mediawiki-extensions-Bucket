@@ -15,6 +15,11 @@ $namespaceNames['en'] = [
 	9593 => 'Bucket_talk',
 ];
 
+$namespaceNames['ja'] = [
+	9592 => 'Bucket',
+	9593 => 'Bucket・トーク',
+];
+
 $namespaceNames['uk'] = [
 	9592 => 'Bucket',
 	9593 => 'Обговорення_Bucket',
