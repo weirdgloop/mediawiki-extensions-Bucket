@@ -10,6 +10,11 @@ $namespaceNames = [];
 
 $namespaceAliases = [];
 
+$namespaceNames['de'] = [
+	9592 => 'Bucket',
+	9593 => 'Bucket_Diskussion',
+];
+
 $namespaceNames['en'] = [
 	9592 => 'Bucket',
 	9593 => 'Bucket_talk',
