@@ -31,7 +31,9 @@ class MemberOfExpression extends Expression {
 
 	public function toSql( DbQuoter $dbQuoter ): string {
 		if ( $this->op === '!=' ) {
-			return ( new NotExpression( $this ) )->toSql( $dbQuoter );
+			// Recreate this expression but with =
+			$negatedExpression = new MemberOfExpression( $this->field, '=', $this->value );
+			return ( new NotExpression( $negatedExpression ) )->toSql( $dbQuoter );
 		}
 		return $dbQuoter->addQuotes( $this->value ) . ' MEMBER OF(' . $this->field . ')';
 	}
