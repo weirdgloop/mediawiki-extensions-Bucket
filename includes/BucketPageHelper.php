@@ -112,8 +112,14 @@ class BucketPageHelper {
 
 		if ( $dataType == 'PAGE' && strlen( $value ) > 0 ) {
 			$renderer = MediaWikiServices::getInstance()->getLinkRenderer();
-			return Html::rawElement(
-				'div', [ 'class' => $class ], $renderer->makePreloadedLink( new TitleValue( 0, $value ) ) );
+			$link = TitleValue::tryNew( 0, $value );
+			if ( $link != null ) {
+				return Html::rawElement(
+					'div', [ 'class' => $class ], $renderer->makePreloadedLink( $link ) );
+			} else {
+				return Html::rawElement(
+					'div', [ 'class' => $class ], $value );
+			}
 		} elseif ( $dataType == 'BOOLEAN' ) {
 			$value = $value ? 'true' : 'false';
 			return Html::element( 'span', [
