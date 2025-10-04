@@ -150,7 +150,7 @@ class BucketSchema implements JsonSerializable {
 	}
 
 	public function getSafe( IDatabase $dbw ): string {
-		return $dbw->addIdentifierQuotes( $this->getTableName() );
+		return $dbw->tableName( $this->getTableName() );
 	}
 
 	public function jsonSerialize(): array {
