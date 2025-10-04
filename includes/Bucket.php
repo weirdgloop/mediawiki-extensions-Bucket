@@ -298,9 +298,6 @@ class BucketSchemaField implements JsonSerializable {
 		$type = $this->getType();
 		if ( $this->getRepeated() ) {
 			$ret = [];
-			if ( $value === null ) {
-				$value = '';
-			}
 			$jsonData = json_decode( $value, true );
 			// If we are in a repeated field but only holding a scalar, make it an array anyway.
 			if ( !is_array( $jsonData ) ) {
