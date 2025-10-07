@@ -12,6 +12,7 @@ class Bucket {
 	public const EXTENSION_BUCKET_NAMES_KEY = 'bucket:puts_bucket_names';
 	public const ISSUES_BUCKET = 'bucket_issues';
 	public const REPEATED_CHARACTER_LIMIT = 512;
+	public const REPEATED_CHARACTER_TOTAL_LIMIT = 5254;
 	public const TEXT_BYTE_LIMIT = 65535;
 
 	public static function getValidFieldName( ?string $fieldName ): string {
@@ -265,6 +266,7 @@ class BucketSchemaField implements JsonSerializable {
 				}
 				$value = array_values( $value );
 				$castValues = [];
+				$totalLength = 0;
 				foreach ( $value as $single ) {
 					if ( $single === null ) {
 						continue;
@@ -282,6 +284,11 @@ class BucketSchemaField implements JsonSerializable {
 						throw new BucketException( wfMessage( 'bucket-put-repeated-too-long' )
 							->numParams( Bucket::REPEATED_CHARACTER_LIMIT ) );
 					}
+					$totalLength = $totalLength + strlen( $castValue );
+				}
+				if ( $totalLength > Bucket::REPEATED_CHARACTER_TOTAL_LIMIT ) {
+					throw new BucketException( wfMessage( 'bucket-put-repeated-total-too-long' )
+						->numParams( $totalLength, Bucket::REPEATED_CHARACTER_TOTAL_LIMIT ) );
 				}
 				if ( count( $castValues ) === 0 ) {
 					return null;
