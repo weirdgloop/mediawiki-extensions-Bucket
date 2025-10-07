@@ -12,6 +12,7 @@ class Bucket {
 	public const EXTENSION_BUCKET_NAMES_KEY = 'bucket:puts_bucket_names';
 	public const ISSUES_BUCKET = 'bucket_issues';
 	public const REPEATED_CHARACTER_LIMIT = 512;
+	public const TEXT_BYTE_LIMIT = 65535;
 
 	public static function getValidFieldName( ?string $fieldName ): string {
 		if ( $fieldName !== null
@@ -243,7 +244,11 @@ class BucketSchemaField implements JsonSerializable {
 		switch ( $this->getDatabaseValueType() ) {
 			case DatabaseValueType::Text:
 				if ( is_array( $value ) ) {
-					return json_encode( $value );
+					$value = json_encode( $value );
+				}
+				if ( strlen( $value ) > Bucket::TEXT_BYTE_LIMIT ) {
+					throw new BucketException( wfMessage( 'bucket-put-text-too-long' )
+						->numParams( strlen( $value ), Bucket::TEXT_BYTE_LIMIT ) );
 				}
 				return $value;
 			case DatabaseValueType::Double:
