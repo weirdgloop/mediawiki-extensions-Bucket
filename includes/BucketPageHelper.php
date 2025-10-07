@@ -137,7 +137,7 @@ class BucketPageHelper {
 	 * @return string - html
 	 */
 	public static function getResultTable(
-		TemplateParser $templateParser, array $schema, ?array $fields, array $result ): string {
+		TemplateParser $templateParser, array $schema, ?array $fields, ?array $result ): string {
 		if ( isset( $fields ) && count( $fields ) > 0 ) {
 			$keys = [];
 			$rows = [];
@@ -148,14 +148,16 @@ class BucketPageHelper {
 				}
 			}
 
-			foreach ( $result as $row ) {
-				$tr = [];
-				foreach ( $keys as $key ) {
-					$tr[] = isset( $row[$key] ) ? self::formatValue(
-						$row[$key], $schema[$key]['type'], $schema[$key]['repeated'] ) :
-						'<span class="bucket__value-null">null</span>';
+			if ( isset( $result ) ) {
+				foreach ( $result as $row ) {
+					$tr = [];
+					foreach ( $keys as $key ) {
+						$tr[] = isset( $row[$key] ) ? self::formatValue(
+							$row[$key], $schema[$key]['type'], $schema[$key]['repeated'] ) :
+							'<span class="bucket__value-null">null</span>';
+					}
+					$rows[] = $tr;
 				}
-				$rows[] = $tr;
 			}
 
 			return $templateParser->processTemplate(
