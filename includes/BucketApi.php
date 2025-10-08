@@ -13,6 +13,7 @@ use Wikimedia\ParamValidator\ParamValidator;
 class BucketApi extends ApiBase {
 
 	public function execute() {
+		$this->getMain()->setCacheMode( 'public' );
 		if ( $this->getUser()->pingLimiter( 'bucketapi', 1 ) ) {
 			return;
 		}
