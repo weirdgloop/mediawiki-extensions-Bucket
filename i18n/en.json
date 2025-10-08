@@ -51,6 +51,8 @@
 	"bucket-put-syntax-error": "bucket.put() argument must be a table",
 	"bucket-put-repeated-too-long": "Repeated value too long, individual values can be no more than $1 characters",
 	"bucket-put-repeated-total-too-long": "The repeated field is too large. Found $1 bytes, maximum allowed is $2 bytes",
+	"bucket-put-error-1713": "Too much indexed data in one row. You MUST set index to false on some fields. This error can be avoided by limiting the length of text stored in indexed fields",
+	"bucket-put-db-error": "Database error: $1",
 	"bucket-put-text-too-long": "Too much data in one text field. Found $1 bytes, maximum allowed is $2 bytes",
 	"bucket-put-total-too-long": "Too much bucket data written on page. Attempting to write $1 characters. Limit is $2 characters",
 	"bucket-put-function-value": "bucket.put() value cannot be a function",
