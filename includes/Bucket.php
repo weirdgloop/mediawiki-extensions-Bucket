@@ -32,8 +32,14 @@ class Bucket {
 		if ( ucfirst( $bucketName ) !== ucfirst( strtolower( $bucketName ) ) ) {
 			throw new SchemaException( wfMessage( 'bucket-capital-name-error' ) );
 		}
+		$cleanName = strtolower( trim( $bucketName ) );
+		// Add MW prefix to name to check total length
+		$fullTableName = BucketDatabase::getDB()->tableName( BucketDatabase::getBucketTableName( $cleanName ), 'raw' );
+		if ( strlen( $fullTableName ) > 60 ) {
+			throw new SchemaException( wfMessage( 'bucket-invalid-name-warning', $bucketName ) );
+		}
 		try {
-			return self::getValidFieldName( $bucketName );
+			return self::getValidFieldName( $cleanName );
 		} catch ( SchemaException ) {
 			throw new SchemaException( wfMessage( 'bucket-invalid-name-warning', $bucketName ) );
 		}
@@ -150,7 +156,7 @@ class BucketSchema implements JsonSerializable {
 	}
 
 	public function getSafe( IDatabase $dbw ): string {
-		return $dbw->tableName( $this->getTableName() );
+		return $dbw->addIdentifierQuotes( $this->getTableName() );
 	}
 
 	public function jsonSerialize(): array {
