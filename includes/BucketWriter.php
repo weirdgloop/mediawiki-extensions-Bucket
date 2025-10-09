@@ -3,8 +3,6 @@
 namespace MediaWiki\Extension\Bucket;
 
 use MediaWiki\MediaWikiServices;
-use Wikimedia\Rdbms\DBError;
-use Wikimedia\Rdbms\IMaintainableDatabase;
 
 class BucketWriter {
 	/**
@@ -178,21 +176,17 @@ class BucketWriter {
 			if ( $putLength <= $maxiumPutLength || $writingLogs ) {
 				$newPutHashes[$bucketName] =
 					[ '_page_id' => $pageId, 'bucket_name' => $bucketName, 'put_hash' => $newHash ];
-				try {
-					$dbw->newDeleteQueryBuilder()
-						->deleteFrom( $dbw->addIdentifierQuotes( $dbTableName ) )
-						->where( [ '_page_id' => $pageId ] )
-						->caller( __METHOD__ )
-						->execute();
-					$dbw->newInsertQueryBuilder()
-						->insert( $dbw->addIdentifierQuotes( $dbTableName ) )
-						->rows( $tablePuts )
-						->caller( __METHOD__ )
-						->execute();
-				} catch ( DBError $e ) {
-					unset( $newPutHashes[$bucketName] );
-					$this->logDBError( $e, $dbw, $bucketName );
-				}
+
+				$dbw->newDeleteQueryBuilder()
+					->deleteFrom( $dbw->addIdentifierQuotes( $dbTableName ) )
+					->where( [ '_page_id' => $pageId ] )
+					->caller( __METHOD__ )
+					->execute();
+				$dbw->newInsertQueryBuilder()
+					->insert( $dbw->addIdentifierQuotes( $dbTableName ) )
+					->rows( $tablePuts )
+					->caller( __METHOD__ )
+					->execute();
 			}
 		}
 
@@ -216,53 +210,26 @@ class BucketWriter {
 			);
 		}
 
+		if ( count( $this->logs ) > 0 ) {
+			self::writePuts( $pageId, $titleText, [ Bucket::ISSUES_BUCKET => array_values( $this->logs ) ], true );
+			unset( $bucket_hash[Bucket::ISSUES_BUCKET] );
+		}
+
 		// Clean up bucket_pages entries for buckets that are no longer written to on this page.
 		$tablesToDelete = array_keys( $bucket_hash );
 		if ( count( $tablesToDelete ) > 0 ) {
-			foreach ( $tablesToDelete as $key => $name ) {
-				if ( $name == Bucket::ISSUES_BUCKET ) {
-					// Wait until the end in case we log an issue in the loop
-					continue;
-				}
-				try {
-					$dbw->newDeleteQueryBuilder()
-						->deleteFrom( BucketDatabase::getBucketTableName( $name ) )
-						->where( [ '_page_id' => $pageId ] )
-						->caller( __METHOD__ )
-						->execute();
-				} catch ( DBError $e ) {
-					// If we failed to delete from the table, we can't remove it from bucket_pages
-					unset( $tablesToDelete[$key] );
-					$this->logDBError( $e, $dbw, $name );
-				}
-			}
-			if ( count( $this->logs ) > 0 ) {
-				unset( $tablesToDelete[array_search( Bucket::ISSUES_BUCKET, $tablesToDelete )] );
-			} elseif ( array_search( Bucket::ISSUES_BUCKET, $tablesToDelete ) !== false ) {
-				$dbw->newDeleteQueryBuilder()
-					->deleteFrom( BucketDatabase::getBucketTableName( Bucket::ISSUES_BUCKET ) )
-					->where( [ '_page_id' => $pageId ] )
-					->caller( __METHOD__ )
-					->execute();
-			}
 			$dbw->newDeleteQueryBuilder()
 				->deleteFrom( 'bucket_pages' )
 				->where( [ '_page_id' => $pageId, 'bucket_name' => $tablesToDelete ] )
 				->caller( __METHOD__ )
 				->execute();
-		}
-		if ( count( $this->logs ) > 0 ) {
-			self::writePuts( $pageId, $titleText, [ Bucket::ISSUES_BUCKET => array_values( $this->logs ) ], true );
-		}
-	}
-
-	private function logDBError( DBError $e, IMaintainableDatabase $dbw, string $bucketName ) {
-		if ( $dbw->lastErrno() == 1713 ) {
-			self::logIssue(
-				$bucketName, '', 'bucket-general-error', wfMessage( 'bucket-put-error-1713' ) );
-		} else {
-			self::logIssue(
-				$bucketName, '', 'bucket-general-error', wfMessage( 'bucket-put-db-error', $e->getMessage() ) );
+			foreach ( $tablesToDelete as $name ) {
+				$dbw->newDeleteQueryBuilder()
+					->deleteFrom( BucketDatabase::getBucketTableName( $name ) )
+					->where( [ '_page_id' => $pageId ] )
+					->caller( __METHOD__ )
+					->execute();
+			}
 		}
 	}
 }

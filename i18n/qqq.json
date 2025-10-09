@@ -48,8 +48,6 @@
 	"bucket-put-syntax-error": "Message on syntax error in bucket.put()",
 	"bucket-put-repeated-too-long": "Message on repeated value too long. $1 for the maximum bytes allowed",
 	"bucket-put-repeated-total-too-long": "Message on repeated field too long. $1 for bytes used. $2 for bytes allowed",
-	"bucket-put-error-1713": "Message on too many long indexed text fields. Instruct user the data will not be updated until some fields are removed or not indexed",
-	"bucket-put-db-error": "Message on generic DB error. $1 is error text",
 	"bucket-put-text-too-long": "Message on text field data too long. $1 for length of input text (in bytes), $2 for maximum bytes allowed",
 	"bucket-put-total-too-long": "Message on write too much bucket data on page. $1 for numbers of attempting write characters, $2 for the maximum characters allowed",
 	"bucket-put-function-value": "Message on specifies a function as value for bucket.put()",
