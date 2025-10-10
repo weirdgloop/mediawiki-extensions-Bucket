@@ -299,7 +299,8 @@ class BucketDatabase {
 				// Typecasting for repeated fields doesn't give us any advantage
 				return "INDEX $fieldName((CAST($fieldName AS CHAR(512) ARRAY)))";
 			case DatabaseValueType::Text:
-				return "INDEX $fieldName($fieldName(255))";
+				// More than 40 characters can cause a MySQL error 1713: Undo log record is too big.
+				return "INDEX $fieldName($fieldName(40))";
 			default:
 				return "INDEX $fieldName($fieldName)";
 		}
