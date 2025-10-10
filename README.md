@@ -12,6 +12,7 @@ Bucket aims to be simpler in nature, by providing a very straight forward interf
 * [Scribunto](https://github.com/wikimedia/mediawiki-extensions-Scribunto)
 
 ## Installing
+Bucket is still under active development, and the API and schema are unstable and may change at any time. We strongly recommend not using Bucket in production yet, but if you do, please let us know, so we can let you know about breaking changes when they happen.
 
 1. Enable the extension using `wfLoadExtension( 'Bucket' );`
 2. Run `update.php` to create the required database tables
