@@ -42,12 +42,13 @@ class SetupDBPermission extends Maintenance {
 		$query = [];
 
 		// We only need to be able to select from the categorylinks table.
-		$query[] = "GRANT SELECT ON `$dbName`.`categorylinks` TO $fullUserName;";
+		$categoryLinksTable = $dbw->tableName( 'categorylinks' );
+		$query[] = "GRANT SELECT ON `$dbName`.$categoryLinksTable TO $fullUserName;";
 
 		// These tables we want to select, insert, and delete rows.
-		$specialTables = [ 'bucket_pages', 'bucket_schemas' ];
+		$specialTables = [ $dbw->tableName( 'bucket_pages' ), $dbw->tableName( 'bucket_schemas' ) ];
 		foreach ( $specialTables as $table ) {
-			$query[] = "GRANT SELECT, INSERT, UPDATE, DELETE ON `$dbName`.`$table` TO $fullUserName;";
+			$query[] = "GRANT SELECT, INSERT, UPDATE, DELETE ON `$dbName`.$table TO $fullUserName;";
 		}
 
 		// Grab existing Bucket tables, in case we are migrating an existing install to a new account.
@@ -58,7 +59,7 @@ class SetupDBPermission extends Maintenance {
 			->caller( __METHOD__ )
 			->fetchResultSet();
 		foreach ( $res as $row ) {
-			$table = $dbw->addIdentifierQuotes( 'bucket__' . $row->bucket_name );
+			$table = $dbw->tableName( 'bucket__' . $row->bucket_name );
 			$query[] =
 				"GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, DROP ON `$dbName`.$table TO $fullUserName;";
 		}

@@ -178,12 +178,12 @@ class BucketWriter {
 					[ '_page_id' => $pageId, 'bucket_name' => $bucketName, 'put_hash' => $newHash ];
 
 				$dbw->newDeleteQueryBuilder()
-					->deleteFrom( $dbw->addIdentifierQuotes( $dbTableName ) )
+					->deleteFrom( $dbTableName )
 					->where( [ '_page_id' => $pageId ] )
 					->caller( __METHOD__ )
 					->execute();
 				$dbw->newInsertQueryBuilder()
-					->insert( $dbw->addIdentifierQuotes( $dbTableName ) )
+					->insert( $dbTableName )
 					->rows( $tablePuts )
 					->caller( __METHOD__ )
 					->execute();

@@ -253,7 +253,7 @@ class BucketQuery {
 
 		foreach ( $this->joins as $join ) {
 			if ( $join instanceof CategoryJoin ) {
-				$builder->leftJoin( 'categorylinks', $join->getAlias(), $join->getSQL( $dbw ) );
+				$builder->leftJoin( $dbw->tableName( 'categorylinks' ), $join->getAlias(), $join->getSQL( $dbw ) );
 			} else {
 				$builder->leftJoin( $join->getAlias(), $join->getAlias(), $join->getSQL( $dbw ) );
 			}

@@ -34,8 +34,14 @@ class Bucket {
 		if ( ucfirst( $bucketName ) !== ucfirst( strtolower( $bucketName ) ) ) {
 			throw new SchemaException( wfMessage( 'bucket-capital-name-error' ) );
 		}
+		$cleanName = strtolower( trim( $bucketName ) );
+		// Add MW prefix to name to check total length
+		$fullTableName = BucketDatabase::getDB()->tableName( BucketDatabase::getBucketTableName( $cleanName ), 'raw' );
+		if ( strlen( $fullTableName ) > 60 ) {
+			throw new SchemaException( wfMessage( 'bucket-invalid-name-warning', $bucketName ) );
+		}
 		try {
-			return self::getValidFieldName( $bucketName );
+			return self::getValidFieldName( $cleanName );
 		} catch ( SchemaException ) {
 			throw new SchemaException( wfMessage( 'bucket-invalid-name-warning', $bucketName ) );
 		}
@@ -310,9 +316,6 @@ class BucketSchemaField implements JsonSerializable {
 		$type = $this->getType();
 		if ( $this->getRepeated() ) {
 			$ret = [];
-			if ( $value === null ) {
-				$value = '';
-			}
 			$jsonData = json_decode( $value, true );
 			// If we are in a repeated field but only holding a scalar, make it an array anyway.
 			if ( !is_array( $jsonData ) ) {

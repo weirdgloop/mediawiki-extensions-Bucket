@@ -29,6 +29,7 @@ class BucketDatabase {
 			'password' => $bucketDBpassword,
 			'dbname' => $mainDB->getDBname(),
 			'utf8Mode' => true,
+			'tablePrefix' => $mainDB->tablePrefix(),
 			// Weird Gloop specific tweak
 			'defaultMaxExecutionTimeForQueries' => 500
 		];
@@ -72,7 +73,7 @@ class BucketDatabase {
 	 * Example comment for field _page_id: {"type":"INTEGER","index":false,"repeated":false}
 	 */
 	private static function buildSchemaFromComments( string $bucketName, IDatabase $dbw ): BucketSchema {
-		$dbTableName = $dbw->addIdentifierQuotes( self::getBucketTableName( $bucketName ) );
+		$dbTableName = $dbw->tableName( self::getBucketTableName( $bucketName ) );
 		$res = $dbw->query( "SHOW FULL COLUMNS FROM $dbTableName;", __METHOD__ );
 
 		$fields = [];
@@ -149,7 +150,7 @@ class BucketDatabase {
 				// We are a new bucket json
 				$statement = self::getCreateTableStatement( $bucketSchema, $dbw );
 				$bucketDBuser = self::getBucketDBUser();
-				$escapedTableName = $bucketSchema->getSafe( $dbw );
+				$escapedTableName = $dbw->tableName( $bucketSchema->getTableName( $dbw ) );
 				// Note: The main database connection is only used to grant access to the new table.
 				MediaWikiServices::getInstance()->getDBLoadBalancer()
 					->getConnection( DB_PRIMARY )->query( "GRANT ALL ON $escapedTableName TO $bucketDBuser;" );
@@ -246,7 +247,7 @@ class BucketDatabase {
 			$alterTableFragments[] = "DROP $escapedDeletedColumn";
 		}
 
-		$dbTableName = $dbw->addIdentifierQuotes( $bucketSchema->getTableName() );
+		$dbTableName = $dbw->tableName( $bucketSchema->getTableName() );
 		return "ALTER TABLE $dbTableName " . implode( ', ', $alterTableFragments ) . ';';
 	}
 
@@ -265,7 +266,7 @@ class BucketDatabase {
 		$createTableFragments[] =
 			"PRIMARY KEY ({$dbw->addIdentifierQuotes('_page_id')}, {$dbw->addIdentifierQuotes('_index')})";
 
-		$dbTableName = $dbw->addIdentifierQuotes( $newSchema->getTableName() );
+		$dbTableName = $dbw->tableName( $newSchema->getTableName() );
 		return "CREATE TABLE $dbTableName (" . implode( ', ', $createTableFragments ) . ') DEFAULT CHARSET=utf8mb4;';
 	}
 
@@ -282,7 +283,7 @@ class BucketDatabase {
 	public static function deleteTable( string $bucketName ): void {
 		$dbw = self::getDB();
 		$bucketName = Bucket::getValidBucketName( $bucketName );
-		$tableName = $dbw->addIdentifierQuotes( self::getBucketTableName( $bucketName ) );
+		$tableName = $dbw->tableName( self::getBucketTableName( $bucketName ) );
 
 		$dbw->newDeleteQueryBuilder()
 			->table( 'bucket_schemas' )
