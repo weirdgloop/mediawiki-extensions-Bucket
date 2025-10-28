@@ -73,13 +73,18 @@ class BucketDatabase {
 	 * Example comment for field _page_id: {"type":"INTEGER","index":false,"repeated":false}
 	 */
 	private static function buildSchemaFromComments( string $bucketName, IDatabase $dbw ): BucketSchema {
-		$dbTableName = $dbw->tableName( self::getBucketTableName( $bucketName ) );
-		$res = $dbw->query( "SHOW FULL COLUMNS FROM $dbTableName;", __METHOD__ );
-
+		$dbTableNames = self::getRelatedTableNames( $bucketName );
 		$fields = [];
-		foreach ( $res as $val ) {
-			$fields[] = BucketSchemaField::fromJson( $val->Field, $val->Comment );
+		foreach ( $dbTableNames as $result ) {
+			$tableName = $result->Name;
+			$res = $dbw->query( "SHOW FULL COLUMNS FROM $tableName;", __METHOD__ );
+			foreach ( $res as $val ) {
+				if ( $val->Comment !== '' ) {
+					$fields[] = BucketSchemaField::fromJson( $val->Field, $val->Comment );
+				}
+			}
 		}
+
 		return new BucketSchema( $bucketName, $fields );
 	}
 
@@ -148,18 +153,22 @@ class BucketDatabase {
 		$dbw->onTransactionCommitOrIdle( function () use ( $dbw, $bucketSchema ) {
 			if ( !$dbw->tableExists( $bucketSchema->getTableName() ) ) {
 				// We are a new bucket json
-				$statement = self::getCreateTableStatement( $bucketSchema, $dbw );
+				$statements = self::getCreateTableStatement( $bucketSchema, $dbw );
 				$bucketDBuser = self::getBucketDBUser();
-				$escapedTableName = $dbw->tableName( $bucketSchema->getTableName( $dbw ) );
-				// Note: The main database connection is only used to grant access to the new table.
-				MediaWikiServices::getInstance()->getDBLoadBalancer()
-					->getConnection( DB_PRIMARY )->query( "GRANT ALL ON $escapedTableName TO $bucketDBuser;" );
+				foreach ( $statements as $table ) {
+					$escapedTableName = $dbw->tableName( $table[0] );
+					// Note: The main database connection is only used to grant access to the new table.
+					MediaWikiServices::getInstance()->getDBLoadBalancer()
+						->getConnection( DB_PRIMARY )->query( "GRANT ALL ON $escapedTableName TO $bucketDBuser;" );
+				}
 			} else {
 				// We are an existing bucket json
 				$oldSchema = self::buildSchemaFromComments( $bucketSchema->getName(), $dbw );
-				$statement = self::getAlterTableStatement( $bucketSchema, $oldSchema, $dbw );
+				$statements = self::getAlterTableStatement( $bucketSchema, $oldSchema, $dbw );
 			}
-			$dbw->query( $statement );
+			foreach ( $statements as $table ) {
+				$dbw->query( $table[1] );
+			}
 
 			// At this point is is possible that another transaction has changed the table so we start a transaction,
 			// read the column comments (which are the schema), and write that to bucket_schemas
@@ -189,14 +198,16 @@ class BucketDatabase {
 
 	private static function getAlterTableStatement(
 		BucketSchema $bucketSchema, BucketSchema $oldSchema, IDatabase $dbw
-	): string {
+	): array {
 		$alterTableFragments = [];
+		$tableStatements = [];
 
 		$oldFields = $oldSchema->getFields();
 		foreach ( $bucketSchema->getFields() as $fieldName => $field ) {
 			$escapedFieldName = $dbw->addIdentifierQuotes( $fieldName );
 			$fieldJson = $dbw->addQuotes( json_encode( $field ) );
 			$newDbType = $field->getDatabaseValueType()->value;
+			// TODO a field becoming (un)repeated needs to be treated as a column add/delete
 			$newColumn = true;
 			if ( isset( $oldFields[$fieldName] ) ) {
 				$oldDbType = $oldFields[$fieldName]->getDatabaseValueType()->value;
@@ -248,26 +259,78 @@ class BucketDatabase {
 		}
 
 		$dbTableName = $dbw->tableName( $bucketSchema->getTableName() );
-		return "ALTER TABLE $dbTableName " . implode( ', ', $alterTableFragments ) . ';';
+		$tableStatements[] = [
+			$dbTableName,
+			"ALTER TABLE $dbTableName " . implode( ', ', $alterTableFragments ) . ';'
+		];
+
+		return $tableStatements;
 	}
 
-	private static function getCreateTableStatement( BucketSchema $newSchema, IDatabase $dbw ): string {
+	private static function getCreateTableStatement( BucketSchema $newSchema, IDatabase $dbw ): array {
 		$createTableFragments = [];
+		$tableStatements = [];
 
 		foreach ( $newSchema->getFields() as $field ) {
 			$dbType = $field->getDatabaseValueType()->value;
 			$fieldJson = $dbw->addQuotes( json_encode( $field ) );
-			$createTableFragments[] =
-				"{$dbw->addIdentifierQuotes($field->getFieldName())} $dbType COMMENT $fieldJson";
-			if ( $field->getIndexed() ) {
-				$createTableFragments[] = self::getIndexStatement( $field, $dbw );
+			if ( $field->getRepeated() === true ) {
+				$tableStatements[] = self::getCreateRepeatedTableStatement( $newSchema, $field, $dbw );
+			} else {
+				$createTableFragments[] =
+					"{$dbw->addIdentifierQuotes($field->getFieldName())} $dbType COMMENT $fieldJson";
+				if ( $field->getIndexed() ) {
+					$createTableFragments[] = self::getIndexStatement( $field, $dbw );
+				}
 			}
 		}
 		$createTableFragments[] =
 			"PRIMARY KEY ({$dbw->addIdentifierQuotes('_page_id')}, {$dbw->addIdentifierQuotes('_index')})";
-
 		$dbTableName = $dbw->tableName( $newSchema->getTableName() );
-		return "CREATE TABLE $dbTableName (" . implode( ', ', $createTableFragments ) . ') DEFAULT CHARSET=utf8mb4;';
+
+		$tableStatements[] = [
+			$dbTableName,
+			"CREATE TABLE $dbTableName (" . implode( ', ', $createTableFragments ) . ') DEFAULT CHARSET=utf8mb4;'
+		];
+
+		return $tableStatements;
+	}
+
+	private static function getCreateRepeatedTableStatement(
+		BucketSchema $newSchema, BucketSchemaField $originalField, IDatabase $dbw ): array {
+		$createTableFragments = [];
+		$repeatedSchema = [
+			$newSchema->getField( '_page_id' ),
+			$newSchema->getField( '_index' ),
+			new BucketSchemaField( '_repeated_index', BucketValueType::Integer, false, false ),
+			$originalField
+		];
+
+		foreach ( $repeatedSchema as $field ) {
+			$dbType = $field->getDatabaseValueType()->value;
+			$fragment = "{$dbw->addIdentifierQuotes($field->getFieldName())} $dbType";
+			if ( $field->getFieldName() === $originalField->getFieldName() ) {
+				// Only save comment for the value field
+				$fragment = $fragment . ' COMMENT ' . $dbw->addQuotes( json_encode( $field ) );
+			}
+			$createTableFragments[] = $fragment;
+			if ( $field->getIndexed() ) {
+				$createTableFragments[] = self::getIndexStatement( $field, $dbw );
+			}
+		}
+
+		$pageIDSafe = $dbw->addIdentifierQuotes( '_page_id' );
+		$indexSafe = $dbw->addIdentifierQuotes( '_index' );
+		$repeatedIndexSafe = $dbw->addIdentifierQuotes( '_repeated_index' );
+
+		$createTableFragments[] =
+			"PRIMARY KEY ({$pageIDSafe}, {$indexSafe}, {$repeatedIndexSafe}) ";
+		// TODO ensure double underscore can't happen in normal buckets
+		$dbTableName = $dbw->tableName( $newSchema->getTableName() . '__' . $originalField->getFieldName() );
+		return [
+			$dbTableName,
+			"CREATE TABLE $dbTableName (" . implode( ', ', $createTableFragments ) . ') DEFAULT CHARSET=utf8mb4;'
+		];
 	}
 
 	public static function countPagesUsingBucket( string $bucketName ): int {
@@ -283,22 +346,22 @@ class BucketDatabase {
 	public static function deleteTable( string $bucketName ): void {
 		$dbw = self::getDB();
 		$bucketName = Bucket::getValidBucketName( $bucketName );
-		$tableName = $dbw->tableName( self::getBucketTableName( $bucketName ) );
-
 		$dbw->newDeleteQueryBuilder()
 			->table( 'bucket_schemas' )
 			->where( [ 'bucket_name' => $bucketName ] )
 			->caller( __METHOD__ )
 			->execute();
-		$dbw->query( "DROP TABLE IF EXISTS $tableName" );
+
+		$deleteTableNames = self::getRelatedTableNames( $bucketName );
+		$str = implode( ',', $deleteTableNames );
+		if ( $str !== '' ) {
+			$dbw->query( "DROP TABLE IF EXISTS $str" );
+		}
 	}
 
 	private static function getIndexStatement( BucketSchemaField $field, IDatabase $dbw ): string {
 		$fieldName = $dbw->addIdentifierQuotes( $field->getFieldName() );
 		switch ( $field->getDatabaseValueType() ) {
-			case DatabaseValueType::Json:
-				// Typecasting for repeated fields doesn't give us any advantage
-				return "INDEX $fieldName((CAST($fieldName AS CHAR(512) ARRAY)))";
 			case DatabaseValueType::Text:
 				// More than 40 characters can cause a MySQL error 1713: Undo log record is too big.
 				return "INDEX $fieldName($fieldName(40))";
@@ -307,12 +370,29 @@ class BucketDatabase {
 		}
 	}
 
-	/**
-	 * @param string $bucketName
-	 * @return string
-	 */
-	public static function getBucketTableName( $bucketName ): string {
+	public static function getBucketTableName( string $bucketName ): string {
 		return 'bucket__' . $bucketName;
 	}
 
+	public static function getRepeatedFieldTableName( string $bucketName, string $fieldName ): string {
+		return 'bucket__' . $bucketName . '__' . $fieldName;
+	}
+
+	public static function getRelatedTableNames( string $bucketName ): array {
+		$dbw = self::getDB();
+		$bucketDbTableName = $dbw->addQuotes(
+			$dbw->tableName( self::getBucketTableName( $bucketName ), 'raw' ) );
+		$repeatedDbTableNames = $dbw->addQuotes(
+			$dbw->tableName( self::getBucketTableName( $bucketName ), 'raw' ) . '__%' );
+		// Find all relevant table names. This will be the regular Bucket table and also any repeated field tables
+		$dbTableNames = $dbw->query(
+			"SHOW TABLE STATUS WHERE (Name = $bucketDbTableName OR Name LIKE $repeatedDbTableNames);",
+			__METHOD__ );
+
+		$names = [];
+		foreach ( $dbTableNames as $entry ) {
+			$names[] = $entry->Name;
+		}
+		return $names;
+	}
 }

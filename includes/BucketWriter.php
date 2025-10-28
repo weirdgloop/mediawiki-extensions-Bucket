@@ -123,7 +123,21 @@ class BucketWriter {
 					self::logIssue(
 						$bucketName, $fieldName, 'bucket-general-error', wfMessage( 'bucket-schema-outdated-error' ) );
 				} else {
-					$fields[$fieldName] = true;
+					// TODO I don't think this check is in the right place
+					if ( $bucketSchema->getField( $fieldName )->getRepeated() === true
+					// TODO is the table exists check worth it?
+						&& $dbw->tableExists(
+							BucketDatabase::getRepeatedFieldTableName( $bucketName, $fieldName ) === false ) ) {
+						// TODO unique repeated table doesn't exist error?
+						self::logIssue(
+							$bucketName,
+							$fieldName,
+							'bucket-general-error',
+							wfMessage( 'bucket-schema-outdated-error' )
+						);
+					} else {
+						$fields[$fieldName] = true;
+					}
 				}
 			}
 			foreach ( $bucketData as $idx => $singleData ) {
@@ -134,18 +148,48 @@ class BucketWriter {
 					continue;
 				}
 				foreach ( $singleData as $key => $value ) {
-					if ( !isset( $fields[$key] ) || !$fields[$key] ) {
-						self::logIssue(
-							$bucketName, $key, 'bucket-general-warning', wfMessage(
-								'bucket-put-key-missing-warning', $key, $bucketName ) );
+					// TODO this is just assuming that repeated tables exist
+					if ( $bucketSchema->getField( $key )->getRepeated() === false ) {
+						if ( !isset( $fields[$key] ) || !$fields[$key] ) {
+							self::logIssue(
+								$bucketName, $key, 'bucket-general-warning', wfMessage(
+									'bucket-put-key-missing-warning', $key, $bucketName ) );
+						}
+					} else {
+						$fields[$key] = true;
 					}
 				}
 				$singlePut = [];
 				foreach ( $fields as $key => $_ ) {
 					$value = $singleData[$key] ?? null;
 					try {
-						$singlePut[$dbw->addIdentifierQuotes( $key )] =
-							$bucketSchema->getField( $key )->castValueForDatabase( $value );
+						$field = $bucketSchema->getField( $key );
+						if ( $field->getRepeated() === true ) {
+							if ( !is_array( $value ) ) {
+								// Wrap single values in an array for compatability
+								$value = [ $value ];
+							}
+							$value = array_values( $value );
+							$repeatedIndex = 0;
+							foreach ( $value as $single ) {
+								if ( $single === null ) {
+									continue;
+								}
+								$repeatedPut = [];
+								$repeatedPut[$dbw->addIdentifierQuotes( '_page_id' )] = $pageId;
+								$repeatedPut[$dbw->addIdentifierQuotes( '_index' )] = $idx;
+								$repeatedPut[$dbw->addIdentifierQuotes( '_repeated_index' )] = $repeatedIndex;
+								$repeatedPut[$dbw->addIdentifierQuotes( $key )] =
+									$field->castValueForDatabase( $single );
+								$tablePuts[
+									BucketDatabase::getRepeatedFieldTableName( $bucketName, $key )
+								][$repeatedIndex] = $repeatedPut;
+								$repeatedIndex += 1;
+							}
+						} else {
+							$singlePut[$dbw->addIdentifierQuotes( $key )] =
+								$field->castValueForDatabase( $value );
+						}
 					} catch ( BucketException $e ) {
 						$singlePut[$dbw->addIdentifierQuotes( $key )] = null;
 						self::logIssue(
@@ -159,7 +203,7 @@ class BucketWriter {
 				if ( isset( $sub ) && strlen( $sub ) > 0 ) {
 					$singlePut[$dbw->addIdentifierQuotes( 'page_name_sub' )] = $titleText . '#' . $sub;
 				}
-				$tablePuts[$idx] = $singlePut;
+				$tablePuts[$dbTableName][$idx] = $singlePut;
 			}
 
 			# Check these puts against the hash of the last time we did puts.
@@ -176,17 +220,19 @@ class BucketWriter {
 			if ( $putLength <= $maxiumPutLength || $writingLogs ) {
 				$newPutHashes[$bucketName] =
 					[ '_page_id' => $pageId, 'bucket_name' => $bucketName, 'put_hash' => $newHash ];
-
-				$dbw->newDeleteQueryBuilder()
-					->deleteFrom( $dbTableName )
-					->where( [ '_page_id' => $pageId ] )
-					->caller( __METHOD__ )
-					->execute();
-				$dbw->newInsertQueryBuilder()
-					->insert( $dbTableName )
-					->rows( $tablePuts )
-					->caller( __METHOD__ )
-					->execute();
+				// $tablePuts contains a list of DB names and the data that should be written to them
+				foreach ( $tablePuts as $subTableName => $subTablePuts ) {
+					$dbw->newDeleteQueryBuilder()
+						->deleteFrom( $subTableName )
+						->where( [ '_page_id' => $pageId ] )
+						->caller( __METHOD__ )
+						->execute();
+					$dbw->newInsertQueryBuilder()
+						->insert( $subTableName )
+						->rows( $subTablePuts )
+						->caller( __METHOD__ )
+						->execute();
+				}
 			}
 		}
 
@@ -223,12 +269,17 @@ class BucketWriter {
 				->where( [ '_page_id' => $pageId, 'bucket_name' => $tablesToDelete ] )
 				->caller( __METHOD__ )
 				->execute();
-			foreach ( $tablesToDelete as $name ) {
-				$dbw->newDeleteQueryBuilder()
-					->deleteFrom( BucketDatabase::getBucketTableName( $name ) )
-					->where( [ '_page_id' => $pageId ] )
-					->caller( __METHOD__ )
-					->execute();
+			foreach ( $tablesToDelete as $baseName ) {
+				// TODO what kind of perf hit do we have from getRelatedTableNames?
+				//TODO maybe we just read the schema and try and delete from every repeated field name?
+				$relatedTables = BucketDatabase::getRelatedTableNames( $baseName );
+				foreach ( $relatedTables as $name ) {
+					$dbw->newDeleteQueryBuilder()
+						->deleteFrom( $name )
+						->where( [ '_page_id' => $pageId ] )
+						->caller( __METHOD__ )
+						->execute();
+				}
 			}
 		}
 	}

@@ -28,6 +28,7 @@ class BucketQuery {
 
 	private array $schemas = [];
 	private array $categories = [];
+	private array $repeatedFields = [];
 	private BucketSchema $primarySchema;
 	private array $joins = [];
 	private array $selects = [];
@@ -204,6 +205,14 @@ class BucketQuery {
 		}
 	}
 
+	public function addRepeatedJoin( BucketSchema $parent, string $field ) {
+		$uniqueName = $parent->getName() . $field;
+		if ( !isset( $this->repeatedFields[$uniqueName] ) ) {
+			$this->repeatedFields[$uniqueName] = true;
+			$this->joins[] = new RepeatedFieldJoin( $parent, $field, $this );
+		}
+	}
+
 	public function getCategoryAlias( string $category ): string {
 		return $this->categories[$category];
 	}
@@ -375,6 +384,30 @@ class BucketJoin extends Join {
 	}
 }
 
+class RepeatedFieldJoin extends Join {
+	private BucketSchema $parent;
+	private string $fieldName;
+
+	public function __construct( BucketSchema $parent, string $repeatedField, BucketQuery $query ) {
+		$this->parent = $parent;
+		$this->fieldName = $repeatedField;
+	}
+
+	public function getAlias(): string {
+		// TODO do we need to do something special here?
+		return BucketDatabase::getRepeatedFieldTableName( $this->parent->getName(), $this->fieldName );
+	}
+
+	public function getSQL( IDatabase $dbw ): array {
+		$bucketTableName = $this->parent->getSafe( $dbw );
+		return [
+			// Must be all in one string to avoid the table name being treated as a string value.
+			"{$dbw->addIdentifierQuotes( $this->getAlias() )}._page_id = $bucketTableName._page_id",
+			"{$dbw->addIdentifierQuotes( $this->getAlias() )}._index = $bucketTableName._index"
+		];
+	}
+}
+
 class CategoryJoin extends Join {
 	private CategorySelector $categorySelector;
 	private string $categoryName;
@@ -532,16 +565,36 @@ class FieldSelector extends Selector {
 				wfMessage( 'bucket-query-field-not-found-in-bucket', $fieldName, $this->schema->getName() ) );
 		}
 		$this->schemaField = $fields[$fieldName];
+
+		// TODO repeated stuff? Need to add tables as joins?
+		if ( $this->schemaField->getRepeated() ) {
+			$query->addRepeatedJoin( $this->schema, $this->schemaField->getFieldName() );
+		}
 	}
 
 	public function getSafe( IDatabase $dbw ): string {
-		return $dbw->addIdentifierQuotes( BucketDatabase::getBucketTableName( $this->schema->getName() ) )
-			. '.' . $dbw->addIdentifierQuotes( $this->schemaField->getFieldName() );
+		if ( $this->getFieldSchema()->getRepeated() ) {
+			$dbName = BucketDatabase::getRepeatedFieldTableName(
+				$this->schema->getName(), $this->schemaField->getFieldName() );
+			return 'JSON_ARRAYAGG(' . $dbw->addIdentifierQuotes( $dbName )
+				. '.' . $dbw->addIdentifierQuotes( $this->schemaField->getFieldName() ) . ')';
+		} else {
+			return $dbw->addIdentifierQuotes( BucketDatabase::getBucketTableName( $this->schema->getName() ) )
+				. '.' . $dbw->addIdentifierQuotes( $this->schemaField->getFieldName() );
+		}
 	}
 
 	public function getUnsafe(): string {
-		return BucketDatabase::getBucketTableName( $this->schema->getName() )
-			. '.' . $this->schemaField->getFieldName();
+		if ( $this->getFieldSchema()->getRepeated() ) {
+			// TODO check what this is used before and if the JSON_ARRAYAGG will break it
+			return BucketDatabase::getRepeatedFieldTableName(
+				$this->schema->getName(), $this->schemaField->getFieldName() )
+				. '.' . $this->schemaField->getFieldName();
+
+		} else {
+			return BucketDatabase::getBucketTableName( $this->schema->getName() )
+				. '.' . $this->schemaField->getFieldName();
+		}
 	}
 
 	public function getSelectSQL( IDatabase $dbw ): string {
