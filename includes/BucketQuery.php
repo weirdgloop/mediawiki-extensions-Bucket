@@ -529,6 +529,7 @@ class ComparisonConditionNode extends QueryNode {
 
 		if (
 			$selector instanceof FieldSelector
+			&& $value !== null
 			&& $selector->getFieldSchema()->getRepeated() === true
 		) {
 			$repeatedFieldTable = BucketDatabase::getRepeatedFieldTableName(
@@ -537,19 +538,11 @@ class ComparisonConditionNode extends QueryNode {
 			$subquery = $dbw->newSelectQueryBuilder()
 				->from( $repeatedFieldTable )
 				->select( [ '_page_id', '_index' ] )
+				->where( $dbw->expr( $selector->getUnsafe(), $op, $value ) )
 				->caller( __METHOD__ );
-			// Select everything if we are comparing to null
-			if ( $value !== null ) {
-				$subquery->where( $dbw->expr( $selector->getUnsafe(), $op, $value ) );
-			}
 			$subquery = $subquery->getSQL();
-
-			$in = '(`bucket__test`.`_page_id`, `bucket__test`.`_index`) ';
-			// equal to NULL is equivalent to NOT in the repeated table
-			if ( $value == null && $op == '=' ) {
-				$in = $in . 'NOT ';
-			}
-			$in = $in . 'IN ';
+			$tableNameSafe = $dbw->tableName( $selector->getBucketSchema()->getTableName() );
+			$in = "($tableNameSafe._page_id, $tableNameSafe._index) IN ";
 			// TODO maybe make a SubqueryExpression?
 			return new RawSQLExpression( $in . new Subquery( $subquery ) );
 		} else {
@@ -593,22 +586,18 @@ class FieldSelector extends Selector {
 				wfMessage( 'bucket-query-field-not-found-in-bucket', $fieldName, $this->schema->getName() ) );
 		}
 		$this->schemaField = $fields[$fieldName];
-
-		if ( $this->schemaField->getRepeated() ) {
-			$query->addRepeatedJoin( $this->schema, $this->schemaField->getFieldName() );
-		}
 	}
 
 	public function getSafe( IDatabase $dbw ): string {
-		if ( $this->getFieldSchema()->getRepeated() ) {
-			$dbName = BucketDatabase::getRepeatedFieldTableName(
-				$this->schema->getName(), $this->schemaField->getFieldName() );
-			return $dbw->addIdentifierQuotes( $dbName )
-				. '.' . $dbw->addIdentifierQuotes( $this->schemaField->getFieldName() );
-		} else {
+		// if ( $this->getFieldSchema()->getRepeated() ) {
+		// 	$dbName = BucketDatabase::getRepeatedFieldTableName(
+		// 		$this->schema->getName(), $this->schemaField->getFieldName() );
+		// 	return $dbw->addIdentifierQuotes( $dbName )
+		// 		. '.' . $dbw->addIdentifierQuotes( $this->schemaField->getFieldName() );
+		// } else {
 			return $dbw->addIdentifierQuotes( BucketDatabase::getBucketTableName( $this->schema->getName() ) )
 				. '.' . $dbw->addIdentifierQuotes( $this->schemaField->getFieldName() );
-		}
+		// }
 	}
 
 	public function getUnsafe(): string {

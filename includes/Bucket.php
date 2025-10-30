@@ -267,35 +267,10 @@ class BucketSchemaField implements JsonSerializable {
 					$value = [ $value ];
 				}
 				$value = array_values( $value );
-				$castValues = [];
-				$totalLength = 0;
-				foreach ( $value as $single ) {
-					if ( $single === null ) {
-						continue;
-					}
-					/**
-					 * >, <, >=, <= operators are disallowed on repeated fields, so the type
-					 * does not matter, as long as the type matches what is being queried.
-					 * The simplest way to accomplish this is ensure every repeated value is stored
-					 * and queried as a string.
-					 */
-					$castValue = strval( $single );
-					$castValues[] = $castValue;
-					// Repeated fields can only store up to 512 characters in an individual value
-					if ( strlen( $castValue ) > Bucket::REPEATED_CHARACTER_LIMIT ) {
-						throw new BucketException( wfMessage( 'bucket-put-repeated-too-long' )
-							->numParams( Bucket::REPEATED_CHARACTER_LIMIT ) );
-					}
-					$totalLength = $totalLength + strlen( $castValue );
-				}
-				if ( $totalLength > Bucket::REPEATED_CHARACTER_TOTAL_LIMIT ) {
-					throw new BucketException( wfMessage( 'bucket-put-repeated-total-too-long' )
-						->numParams( $totalLength, Bucket::REPEATED_CHARACTER_TOTAL_LIMIT ) );
-				}
-				if ( count( $castValues ) === 0 ) {
+				if ( count( $value ) === 0 ) {
 					return null;
 				}
-				return json_encode( $castValues );
+				return json_encode( $value );
 			default:
 				return null;
 		}

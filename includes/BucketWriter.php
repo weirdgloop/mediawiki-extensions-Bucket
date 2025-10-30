@@ -178,7 +178,6 @@ class BucketWriter {
 								$repeatedPut = [];
 								$repeatedPut[$dbw->addIdentifierQuotes( '_page_id' )] = $pageId;
 								$repeatedPut[$dbw->addIdentifierQuotes( '_index' )] = $idx;
-								$repeatedPut[$dbw->addIdentifierQuotes( '_repeated_index' )] = $repeatedIndex;
 								$repeatedPut[$dbw->addIdentifierQuotes( $key )] =
 									$field->castValueForDatabase( $single );
 								$tablePuts[
@@ -186,10 +185,8 @@ class BucketWriter {
 								][] = $repeatedPut;
 								$repeatedIndex += 1;
 							}
-						} else {
-							$singlePut[$dbw->addIdentifierQuotes( $key )] =
-								$field->castValueForDatabase( $value );
 						}
+						$singlePut[$dbw->addIdentifierQuotes( $key )] = $field->castValueForDatabase( $value );
 					} catch ( BucketException $e ) {
 						$singlePut[$dbw->addIdentifierQuotes( $key )] = null;
 						self::logIssue(

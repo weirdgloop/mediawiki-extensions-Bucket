@@ -240,7 +240,7 @@ class BucketDatabase {
 					$alterTableFragments[] = "MODIFY $escapedFieldName " . $newDbType . " COMMENT $fieldJson";
 				}
 			}
-			if ( $field->getIndexed() ) {
+			if ( $field->getIndexed() && !$field->getRepeated() ) {
 				if ( $newColumn || $typeChange || $oldFields[$fieldName]->getIndexed() === false ) {
 					$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $field, $dbw );
 				}
@@ -250,10 +250,6 @@ class BucketDatabase {
 		// Drop unused columns
 		foreach ( $oldFields as $deletedColumn => $val ) {
 			$escapedDeletedColumn = $dbw->addIdentifierQuotes( $deletedColumn );
-			if ( $val->getRepeated() === true ) {
-				// We must explicitly drop indexes for repeated fields
-				$alterTableFragments[] = "DROP INDEX $escapedDeletedColumn";
-			}
 			$alterTableFragments[] = "DROP $escapedDeletedColumn";
 		}
 
@@ -275,12 +271,11 @@ class BucketDatabase {
 			$fieldJson = $dbw->addQuotes( json_encode( $field ) );
 			if ( $field->getRepeated() === true ) {
 				$tableStatements[] = self::getCreateRepeatedTableStatement( $newSchema, $field, $dbw );
-			} else {
-				$createTableFragments[] =
-					"{$dbw->addIdentifierQuotes($field->getFieldName())} $dbType COMMENT $fieldJson";
-				if ( $field->getIndexed() ) {
-					$createTableFragments[] = self::getIndexStatement( $field, $dbw );
-				}
+			}
+			$createTableFragments[] =
+				"{$dbw->addIdentifierQuotes($field->getFieldName())} $dbType COMMENT $fieldJson";
+			if ( $field->getIndexed() && !$field->getRepeated() ) {
+				$createTableFragments[] = self::getIndexStatement( $field, $dbw );
 			}
 		}
 		$createTableFragments[] =
@@ -299,9 +294,8 @@ class BucketDatabase {
 		BucketSchema $newSchema, BucketSchemaField $originalField, IDatabase $dbw ): array {
 		$createTableFragments = [];
 		$repeatedSchema = [
-			$newSchema->getField( '_page_id' ),
-			$newSchema->getField( '_index' ),
-			new BucketSchemaField( '_repeated_index', BucketValueType::Integer, false, false ),
+			new BucketSchemaField( '_page_id', BucketValueType::Integer, true, false ),
+			new BucketSchemaField( '_index', BucketValueType::Integer, true, false ),
 			$originalField
 		];
 
@@ -318,12 +312,8 @@ class BucketDatabase {
 			}
 		}
 
-		$pageIDSafe = $dbw->addIdentifierQuotes( '_page_id' );
-		$indexSafe = $dbw->addIdentifierQuotes( '_index' );
-		$repeatedIndexSafe = $dbw->addIdentifierQuotes( '_repeated_index' );
-
-		$createTableFragments[] =
-			"PRIMARY KEY ({$pageIDSafe}, {$indexSafe}, {$repeatedIndexSafe}) ";
+		// Create a key to match the main table primary key
+		$createTableFragments[] = 'INDEX idx_page_index (_page_id, _index)';
 		// TODO ensure double underscore can't happen in normal buckets
 		$dbTableName = $dbw->tableName( $newSchema->getTableName() . '__' . $originalField->getFieldName() );
 		return [
