@@ -3,13 +3,14 @@
 namespace MediaWiki\Extension\Bucket;
 
 use InvalidArgumentException;
-use MediaWiki\Extension\Bucket\Expression\MemberOfExpression;
 use MediaWiki\Extension\Bucket\Expression\NotExpression;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Title\Title;
 use Wikimedia\Rdbms\IDatabase;
 use Wikimedia\Rdbms\IExpression;
+use Wikimedia\Rdbms\RawSQLExpression;
 use Wikimedia\Rdbms\SelectQueryBuilder;
+use Wikimedia\Rdbms\Subquery;
 
 /**
  * @property BucketSchema[] $schemas - The schema objects, populated from self::$schemaCache
@@ -261,11 +262,7 @@ class BucketQuery {
 		}
 
 		foreach ( $this->joins as $join ) {
-			if ( $join instanceof CategoryJoin ) {
-				$builder->leftJoin( $dbw->tableName( 'categorylinks' ), $join->getAlias(), $join->getSQL( $dbw ) );
-			} else {
-				$builder->leftJoin( $join->getAlias(), $join->getAlias(), $join->getSQL( $dbw ) );
-			}
+			$builder->leftJoin( $join->getJoinTable( $dbw ), $join->getAlias(), $join->getSQL( $dbw ) );
 		}
 
 		$builder->where( $this->getWhereSQL( $dbw ) );
@@ -331,6 +328,8 @@ class BucketQuery {
 abstract class Join {
 	abstract public function getSQL( IDatabase $dbw ): array;
 
+	abstract public function getJoinTable( IDatabase $dbw ): string|SelectQueryBuilder;
+
 	abstract public function getAlias(): string;
 }
 
@@ -365,6 +364,10 @@ class BucketJoin extends Join {
 		$this->selector2 = $selector2;
 	}
 
+	public function getJoinTable( IDatabase $dbw ): string {
+		return $this->joinedTable->getTableName();
+	}
+
 	public function getAlias(): string {
 		return $this->joinedTable->getTableName();
 	}
@@ -391,6 +394,18 @@ class RepeatedFieldJoin extends Join {
 	public function __construct( BucketSchema $parent, string $repeatedField, BucketQuery $query ) {
 		$this->parent = $parent;
 		$this->fieldName = $repeatedField;
+	}
+
+	public function getJoinTable( IDatabase $dbw ): SelectQueryBuilder {
+		$tableName = $dbw->tableName( $this->getAlias() );
+		$safeFieldName = $dbw->addIdentifierQuotes( $this->fieldName );
+		return $dbw->newSelectQueryBuilder()
+			->from( $this->getAlias() )
+			->select( [
+				'_page_id',
+				'_index',
+				$this->fieldName => "JSON_ARRAYAGG($tableName.$safeFieldName)" ] )
+			->groupBy( [ '_page_id', '_index' ] );
 	}
 
 	public function getAlias(): string {
@@ -420,6 +435,10 @@ class CategoryJoin extends Join {
 		$this->categorySelector = new CategorySelector( $categoryName, $query );
 		$this->categoryName = $categoryName;
 		$this->query = $query;
+	}
+
+	public function getJoinTable( IDatabase $dbw ): string {
+		return $dbw->tableName( 'categorylinks' );
 	}
 
 	public function getAlias(): string {
@@ -510,20 +529,29 @@ class ComparisonConditionNode extends QueryNode {
 
 		if (
 			$selector instanceof FieldSelector
-			// Null check is the same for repeated and non repeated fields
-			&& $value !== null
 			&& $selector->getFieldSchema()->getRepeated() === true
 		) {
-			if ( $op === '=' || $op === '!=' ) {
-				/**
-				 * >, <, >=, <= operators are disallowed on repeated fields, so the type
-				 * does not matter, as long as the type matches what is being indexed.
-				 * The simplest way to accomplish this is ensure every repeated value is stored
-				 * and queried as a string.
-				 */
-				return new MemberOfExpression( $fieldName, $op, strval( $value ) );
+			$repeatedFieldTable = BucketDatabase::getRepeatedFieldTableName(
+				$selector->getBucketSchema()->getName(),
+				$selector->getFieldSchema()->getFieldName() );
+			$subquery = $dbw->newSelectQueryBuilder()
+				->from( $repeatedFieldTable )
+				->select( [ '_page_id', '_index' ] )
+				->caller( __METHOD__ );
+			// Select everything if we are comparing to null
+			if ( $value !== null ) {
+				$subquery->where( $dbw->expr( $selector->getUnsafe(), $op, $value ) );
 			}
-			throw new QueryException( wfMessage( 'bucket-query-where-repeated-unsupported', $op, $fieldName ) );
+			$subquery = $subquery->getSQL();
+
+			$in = '(`bucket__test`.`_page_id`, `bucket__test`.`_index`) ';
+			// equal to NULL is equivalent to NOT in the repeated table
+			if ( $value == null && $op == '=' ) {
+				$in = $in . 'NOT ';
+			}
+			$in = $in . 'IN ';
+			// TODO maybe make a SubqueryExpression?
+			return new RawSQLExpression( $in . new Subquery( $subquery ) );
 		} else {
 			return $dbw->expr( $selector->getUnsafe(), $op, $value );
 		}
@@ -566,7 +594,6 @@ class FieldSelector extends Selector {
 		}
 		$this->schemaField = $fields[$fieldName];
 
-		// TODO repeated stuff? Need to add tables as joins?
 		if ( $this->schemaField->getRepeated() ) {
 			$query->addRepeatedJoin( $this->schema, $this->schemaField->getFieldName() );
 		}
@@ -576,8 +603,8 @@ class FieldSelector extends Selector {
 		if ( $this->getFieldSchema()->getRepeated() ) {
 			$dbName = BucketDatabase::getRepeatedFieldTableName(
 				$this->schema->getName(), $this->schemaField->getFieldName() );
-			return 'JSON_ARRAYAGG(' . $dbw->addIdentifierQuotes( $dbName )
-				. '.' . $dbw->addIdentifierQuotes( $this->schemaField->getFieldName() ) . ')';
+			return $dbw->addIdentifierQuotes( $dbName )
+				. '.' . $dbw->addIdentifierQuotes( $this->schemaField->getFieldName() );
 		} else {
 			return $dbw->addIdentifierQuotes( BucketDatabase::getBucketTableName( $this->schema->getName() ) )
 				. '.' . $dbw->addIdentifierQuotes( $this->schemaField->getFieldName() );

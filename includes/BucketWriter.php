@@ -183,7 +183,7 @@ class BucketWriter {
 									$field->castValueForDatabase( $single );
 								$tablePuts[
 									BucketDatabase::getRepeatedFieldTableName( $bucketName, $key )
-								][$repeatedIndex] = $repeatedPut;
+								][] = $repeatedPut;
 								$repeatedIndex += 1;
 							}
 						} else {

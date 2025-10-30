@@ -76,8 +76,7 @@ class BucketDatabase {
 		$dbTableNames = self::getRelatedTableNames( $bucketName );
 		$fields = [];
 		foreach ( $dbTableNames as $result ) {
-			$tableName = $result->Name;
-			$res = $dbw->query( "SHOW FULL COLUMNS FROM $tableName;", __METHOD__ );
+			$res = $dbw->query( "SHOW FULL COLUMNS FROM $result;", __METHOD__ );
 			foreach ( $res as $val ) {
 				if ( $val->Comment !== '' ) {
 					$fields[] = BucketSchemaField::fromJson( $val->Field, $val->Comment );
