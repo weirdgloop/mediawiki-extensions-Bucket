@@ -101,7 +101,6 @@ enum DatabaseValueType: string {
 	case Double = 'DOUBLE';
 	case Integer = 'INTEGER';
 	case Boolean = 'BOOLEAN';
-	case Json = 'JSON';
 }
 
 /**
@@ -226,27 +225,44 @@ class BucketSchemaField implements JsonSerializable {
 	 */
 	public function getDatabaseValueType(): DatabaseValueType {
 		if ( $this->getRepeated() ) {
-			return DatabaseValueType::Json;
-		} else {
-			switch ( $this->getType() ) {
-				case BucketValueType::Text:
-				case BucketValueType::Page:
-					return DatabaseValueType::Text;
-				case BucketValueType::Boolean:
-					return DatabaseValueType::Boolean;
-				case BucketValueType::Double:
-					return DatabaseValueType::Double;
-				case BucketValueType::Integer:
-					return DatabaseValueType::Integer;
-				default:
-					return DatabaseValueType::Text;
-			}
+			return DatabaseValueType::Text;
+		}
+		switch ( $this->getType() ) {
+			case BucketValueType::Text:
+			case BucketValueType::Page:
+				return DatabaseValueType::Text;
+			case BucketValueType::Boolean:
+				return DatabaseValueType::Boolean;
+			case BucketValueType::Double:
+				return DatabaseValueType::Double;
+			case BucketValueType::Integer:
+				return DatabaseValueType::Integer;
+			default:
+				return DatabaseValueType::Text;
 		}
 	}
 
 	public function castValueForDatabase( mixed $value ): mixed {
 		if ( $value === null ) {
 			return null;
+		}
+		if ( $this->getRepeated() === true ) {
+			if ( !is_array( $value ) ) {
+				// Wrap single values in an array for compatability
+				$value = [ $value ];
+			}
+			$value = array_values( $value );
+			$outputValues = [];
+			foreach ( $value as $single ) {
+				if ( $single === null ) {
+					continue;
+				}
+				$outputValues[] = $single;
+			}
+			if ( count( $outputValues ) === 0 ) {
+				return null;
+			}
+			return json_encode( $outputValues );
 		}
 		switch ( $this->getDatabaseValueType() ) {
 			case DatabaseValueType::Text:
@@ -265,23 +281,6 @@ class BucketSchemaField implements JsonSerializable {
 			case DatabaseValueType::Boolean:
 				// MySQL uses 1 for true, 0 for false
 				return (int)filter_var( $value, FILTER_VALIDATE_BOOL );
-			case DatabaseValueType::Json:
-				if ( !is_array( $value ) ) {
-					// Wrap single values in an array for compatability
-					$value = [ $value ];
-				}
-				$value = array_values( $value );
-				$outputValues = [];
-				foreach ( $value as $single ) {
-					if ( $single === null ) {
-						continue;
-					}
-					$outputValues[] = $single;
-				}
-				if ( count( $outputValues ) === 0 ) {
-					return null;
-				}
-				return json_encode( $outputValues );
 			default:
 				return null;
 		}
@@ -309,14 +308,17 @@ class BucketSchemaField implements JsonSerializable {
 				$ret[] = $nonRepeatedData->castValueForLua( $subVal );
 			}
 			return $ret;
-		} elseif ( $type === BucketValueType::Text || $type === BucketValueType::Page ) {
-			return $value;
-		} elseif ( $type === BucketValueType::Double ) {
-			return floatval( $value );
-		} elseif ( $type === BucketValueType::Integer ) {
-			return intval( $value );
-		} elseif ( $type === BucketValueType::Boolean ) {
-			return boolval( $value );
+		}
+		switch ( $type ) {
+			case BucketValueType::Text:
+			case BucketValueType::Page:
+				return $value;
+			case BucketValueType::Double:
+				return floatval( $value );
+			case BucketValueType::Integer:
+				return intval( $value );
+			case BucketValueType::Boolean:
+				return boolval( $value );
 		}
 	}
 }
