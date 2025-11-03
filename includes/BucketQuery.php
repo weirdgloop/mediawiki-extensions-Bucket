@@ -206,14 +206,6 @@ class BucketQuery {
 		}
 	}
 
-	public function addRepeatedJoin( BucketSchema $parent, string $field ) {
-		$uniqueName = $parent->getName() . $field;
-		if ( !isset( $this->repeatedFields[$uniqueName] ) ) {
-			$this->repeatedFields[$uniqueName] = true;
-			$this->joins[] = new RepeatedFieldJoin( $parent, $field, $this );
-		}
-	}
-
 	public function getCategoryAlias( string $category ): string {
 		return $this->categories[$category];
 	}
@@ -340,6 +332,8 @@ class BucketJoin extends Join {
 	private FieldSelector $selector2;
 
 	public function __construct( BucketSchema $joinedTable, string $field1, string $field2, BucketQuery $query ) {
+		// TODO What does joining between 2 repeated fields look like?
+		//TODO Is performance now better for the joining on one repeated field case?
 		$this->joinedTable = $joinedTable;
 		$selector1 = new FieldSelector( $field1, $query );
 		$selector2 = new FieldSelector( $field2, $query );
@@ -378,49 +372,7 @@ class BucketJoin extends Join {
 		$selector1Safe = $selector1->getSafe( $dbw );
 		$selector2 = $this->selector2;
 		$selector2Safe = $selector2->getSafe( $dbw );
-		if ( $selector1->getFieldSchema()->getRepeated() ) {
-			return [ "$selector2Safe MEMBER OF($selector1Safe)" ];
-		} elseif ( $selector2->getFieldSchema()->getRepeated() ) {
-			return [ "$selector1Safe MEMBER OF($selector2Safe)" ];
-		} else {
-			return [ "$selector1Safe = $selector2Safe" ];
-		}
-	}
-}
-
-class RepeatedFieldJoin extends Join {
-	private BucketSchema $parent;
-	private string $fieldName;
-
-	public function __construct( BucketSchema $parent, string $repeatedField, BucketQuery $query ) {
-		$this->parent = $parent;
-		$this->fieldName = $repeatedField;
-	}
-
-	public function getJoinTable( IDatabase $dbw ): SelectQueryBuilder {
-		$tableName = $dbw->tableName( $this->getAlias() );
-		$safeFieldName = $dbw->addIdentifierQuotes( $this->fieldName );
-		return $dbw->newSelectQueryBuilder()
-			->from( $this->getAlias() )
-			->select( [
-				'_page_id',
-				'_index',
-				$this->fieldName => "JSON_ARRAYAGG($tableName.$safeFieldName)" ] )
-			->groupBy( [ '_page_id', '_index' ] );
-	}
-
-	public function getAlias(): string {
-		// TODO do we need to do something special here?
-		return BucketDatabase::getRepeatedFieldTableName( $this->parent->getName(), $this->fieldName );
-	}
-
-	public function getSQL( IDatabase $dbw ): array {
-		$bucketTableName = $this->parent->getSafe( $dbw );
-		return [
-			// Must be all in one string to avoid the table name being treated as a string value.
-			"{$dbw->addIdentifierQuotes( $this->getAlias() )}._page_id = $bucketTableName._page_id",
-			"{$dbw->addIdentifierQuotes( $this->getAlias() )}._index = $bucketTableName._index"
-		];
+		return [ "$selector1Safe = $selector2Safe" ];
 	}
 }
 

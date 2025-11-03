@@ -203,6 +203,9 @@ class BucketDatabase {
 			$fieldJson = $dbw->addQuotes( json_encode( $field ) );
 			$newDbType = $field->getDatabaseValueType()->value;
 			// TODO a field becoming (un)repeated needs to be treated as a column add/delete
+			// TODO Do we truncate the full repeated column when the type changes?
+			// We won't actually need to change the type, the full columns are always TEXT
+			// containing json.
 			$newColumn = true;
 			if ( isset( $oldFields[$fieldName] ) ) {
 				$oldDbType = $oldFields[$fieldName]->getDatabaseValueType()->value;
