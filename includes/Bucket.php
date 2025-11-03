@@ -225,18 +225,22 @@ class BucketSchemaField implements JsonSerializable {
 	 * The ValueType that this field is stored as in the database.
 	 */
 	public function getDatabaseValueType(): DatabaseValueType {
-		switch ( $this->getType() ) {
-			case BucketValueType::Text:
-			case BucketValueType::Page:
-				return DatabaseValueType::Text;
-			case BucketValueType::Boolean:
-				return DatabaseValueType::Boolean;
-			case BucketValueType::Double:
-				return DatabaseValueType::Double;
-			case BucketValueType::Integer:
-				return DatabaseValueType::Integer;
-			default:
-				return DatabaseValueType::Text;
+		if ( $this->getRepeated() ) {
+			return DatabaseValueType::Json;
+		} else {
+			switch ( $this->getType() ) {
+				case BucketValueType::Text:
+				case BucketValueType::Page:
+					return DatabaseValueType::Text;
+				case BucketValueType::Boolean:
+					return DatabaseValueType::Boolean;
+				case BucketValueType::Double:
+					return DatabaseValueType::Double;
+				case BucketValueType::Integer:
+					return DatabaseValueType::Integer;
+				default:
+					return DatabaseValueType::Text;
+			}
 		}
 	}
 
@@ -267,10 +271,17 @@ class BucketSchemaField implements JsonSerializable {
 					$value = [ $value ];
 				}
 				$value = array_values( $value );
-				if ( count( $value ) === 0 ) {
+				$outputValues = [];
+				foreach ( $value as $single ) {
+					if ( $single === null ) {
+						continue;
+					}
+					$outputValues[] = $single;
+				}
+				if ( count( $outputValues ) === 0 ) {
 					return null;
 				}
-				return json_encode( $value );
+				return json_encode( $outputValues );
 			default:
 				return null;
 		}

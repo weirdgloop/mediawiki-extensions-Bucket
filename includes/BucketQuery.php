@@ -237,6 +237,7 @@ class BucketQuery {
 	}
 
 	private function getWhereSQL( IDatabase $dbw ): IExpression|array {
+		// TODO combine subquery wheres when acting on the same field
 		if ( isset( $this->where ) ) {
 			try {
 				return $this->where->getWhereSQL( $dbw );
@@ -535,10 +536,11 @@ class ComparisonConditionNode extends QueryNode {
 			$repeatedFieldTable = BucketDatabase::getRepeatedFieldTableName(
 				$selector->getBucketSchema()->getName(),
 				$selector->getFieldSchema()->getFieldName() );
+			$repeatedFieldSelect = $repeatedFieldTable . '.' . $selector->getFieldSchema()->getFieldName();
 			$subquery = $dbw->newSelectQueryBuilder()
 				->from( $repeatedFieldTable )
 				->select( [ '_page_id', '_index' ] )
-				->where( $dbw->expr( $selector->getUnsafe(), $op, $value ) )
+				->where( $dbw->expr( $repeatedFieldSelect, $op, $value ) )
 				->caller( __METHOD__ );
 			$subquery = $subquery->getSQL();
 			$tableNameSafe = $dbw->tableName( $selector->getBucketSchema()->getTableName() );
@@ -589,28 +591,13 @@ class FieldSelector extends Selector {
 	}
 
 	public function getSafe( IDatabase $dbw ): string {
-		// if ( $this->getFieldSchema()->getRepeated() ) {
-		// 	$dbName = BucketDatabase::getRepeatedFieldTableName(
-		// 		$this->schema->getName(), $this->schemaField->getFieldName() );
-		// 	return $dbw->addIdentifierQuotes( $dbName )
-		// 		. '.' . $dbw->addIdentifierQuotes( $this->schemaField->getFieldName() );
-		// } else {
-			return $dbw->addIdentifierQuotes( BucketDatabase::getBucketTableName( $this->schema->getName() ) )
-				. '.' . $dbw->addIdentifierQuotes( $this->schemaField->getFieldName() );
-		// }
+		return $dbw->addIdentifierQuotes( BucketDatabase::getBucketTableName( $this->schema->getName() ) )
+			. '.' . $dbw->addIdentifierQuotes( $this->schemaField->getFieldName() );
 	}
 
 	public function getUnsafe(): string {
-		if ( $this->getFieldSchema()->getRepeated() ) {
-			// TODO check what this is used before and if the JSON_ARRAYAGG will break it
-			return BucketDatabase::getRepeatedFieldTableName(
-				$this->schema->getName(), $this->schemaField->getFieldName() )
-				. '.' . $this->schemaField->getFieldName();
-
-		} else {
-			return BucketDatabase::getBucketTableName( $this->schema->getName() )
-				. '.' . $this->schemaField->getFieldName();
-		}
+		return BucketDatabase::getBucketTableName( $this->schema->getName() )
+			. '.' . $this->schemaField->getFieldName();
 	}
 
 	public function getSelectSQL( IDatabase $dbw ): string {

@@ -73,17 +73,13 @@ class BucketDatabase {
 	 * Example comment for field _page_id: {"type":"INTEGER","index":false,"repeated":false}
 	 */
 	private static function buildSchemaFromComments( string $bucketName, IDatabase $dbw ): BucketSchema {
-		$dbTableNames = self::getRelatedTableNames( $bucketName );
-		$fields = [];
-		foreach ( $dbTableNames as $result ) {
-			$res = $dbw->query( "SHOW FULL COLUMNS FROM $result;", __METHOD__ );
-			foreach ( $res as $val ) {
-				if ( $val->Comment !== '' ) {
-					$fields[] = BucketSchemaField::fromJson( $val->Field, $val->Comment );
-				}
-			}
-		}
+		$dbTableName = $dbw->tableName( self::getBucketTableName( $bucketName ) );
+		$res = $dbw->query( "SHOW FULL COLUMNS FROM $dbTableName;", __METHOD__ );
 
+		$fields = [];
+		foreach ( $res as $val ) {
+			$fields[] = BucketSchemaField::fromJson( $val->Field, $val->Comment );
+		}
 		return new BucketSchema( $bucketName, $fields );
 	}
 
@@ -293,19 +289,16 @@ class BucketDatabase {
 	private static function getCreateRepeatedTableStatement(
 		BucketSchema $newSchema, BucketSchemaField $originalField, IDatabase $dbw ): array {
 		$createTableFragments = [];
+		// Recreate the field definition but with repeated = false
 		$repeatedSchema = [
 			new BucketSchemaField( '_page_id', BucketValueType::Integer, true, false ),
 			new BucketSchemaField( '_index', BucketValueType::Integer, true, false ),
-			$originalField
+			new BucketSchemaField( $originalField->getFieldName(), $originalField->getType(), true, false )
 		];
 
 		foreach ( $repeatedSchema as $field ) {
 			$dbType = $field->getDatabaseValueType()->value;
 			$fragment = "{$dbw->addIdentifierQuotes($field->getFieldName())} $dbType";
-			if ( $field->getFieldName() === $originalField->getFieldName() ) {
-				// Only save comment for the value field
-				$fragment = $fragment . ' COMMENT ' . $dbw->addQuotes( json_encode( $field ) );
-			}
 			$createTableFragments[] = $fragment;
 			if ( $field->getIndexed() ) {
 				$createTableFragments[] = self::getIndexStatement( $field, $dbw );

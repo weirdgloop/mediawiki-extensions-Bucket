@@ -119,25 +119,12 @@ class BucketWriter {
 			$fieldNames = $res->getFieldNames();
 			foreach ( $fieldNames as $fieldName ) {
 				// If the table has a field that isn't present in the schema, the schema must be out of date.
+				// TODO a repeated field check?
 				if ( !isset( $bucketSchema->getFields()[$fieldName] ) ) {
 					self::logIssue(
 						$bucketName, $fieldName, 'bucket-general-error', wfMessage( 'bucket-schema-outdated-error' ) );
 				} else {
-					// TODO I don't think this check is in the right place
-					if ( $bucketSchema->getField( $fieldName )->getRepeated() === true
-					// TODO is the table exists check worth it?
-						&& $dbw->tableExists(
-							BucketDatabase::getRepeatedFieldTableName( $bucketName, $fieldName ) === false ) ) {
-						// TODO unique repeated table doesn't exist error?
-						self::logIssue(
-							$bucketName,
-							$fieldName,
-							'bucket-general-error',
-							wfMessage( 'bucket-schema-outdated-error' )
-						);
-					} else {
-						$fields[$fieldName] = true;
-					}
+					$fields[$fieldName] = true;
 				}
 			}
 			foreach ( $bucketData as $idx => $singleData ) {
@@ -148,23 +135,24 @@ class BucketWriter {
 					continue;
 				}
 				foreach ( $singleData as $key => $value ) {
-					// TODO this is just assuming that repeated tables exist
-					if ( $bucketSchema->getField( $key )->getRepeated() === false ) {
-						if ( !isset( $fields[$key] ) || !$fields[$key] ) {
-							self::logIssue(
-								$bucketName, $key, 'bucket-general-warning', wfMessage(
-									'bucket-put-key-missing-warning', $key, $bucketName ) );
-						}
-					} else {
-						$fields[$key] = true;
+					if ( !isset( $fields[$key] ) || !$fields[$key] ) {
+						self::logIssue(
+							$bucketName, $key, 'bucket-general-warning', wfMessage(
+								'bucket-put-key-missing-warning', $key, $bucketName ) );
 					}
 				}
 				$singlePut = [];
 				foreach ( $fields as $key => $_ ) {
 					$value = $singleData[$key] ?? null;
 					try {
-						$field = $bucketSchema->getField( $key );
+						$field = $bucketSchema->getFields()[$key];
 						if ( $field->getRepeated() === true ) {
+							$singleField = new BucketSchemaField(
+								$field->getFieldName(),
+								$field->getType(),
+								true,
+								false
+							);
 							if ( !is_array( $value ) ) {
 								// Wrap single values in an array for compatability
 								$value = [ $value ];
@@ -179,7 +167,7 @@ class BucketWriter {
 								$repeatedPut[$dbw->addIdentifierQuotes( '_page_id' )] = $pageId;
 								$repeatedPut[$dbw->addIdentifierQuotes( '_index' )] = $idx;
 								$repeatedPut[$dbw->addIdentifierQuotes( $key )] =
-									$field->castValueForDatabase( $single );
+									$singleField->castValueForDatabase( $single );
 								$tablePuts[
 									BucketDatabase::getRepeatedFieldTableName( $bucketName, $key )
 								][] = $repeatedPut;
