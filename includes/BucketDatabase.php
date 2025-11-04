@@ -149,19 +149,25 @@ class BucketDatabase {
 			if ( !$dbw->tableExists( $bucketSchema->getTableName() ) ) {
 				// We are a new bucket json
 				$statements = self::getCreateTableStatement( $bucketSchema, $dbw );
-				$bucketDBuser = self::getBucketDBUser();
-				foreach ( $statements as $table ) {
-					$escapedTableName = $dbw->tableName( $table[0] );
-					// Note: The main database connection is only used to grant access to the new table.
-					MediaWikiServices::getInstance()->getDBLoadBalancer()
-						->getConnection( DB_PRIMARY )->query( "GRANT ALL ON $escapedTableName TO $bucketDBuser;" );
-				}
 			} else {
 				// We are an existing bucket json
 				$oldSchema = self::buildSchemaFromComments( $bucketSchema->getName(), $dbw );
 				$statements = self::getAlterTableStatement( $bucketSchema, $oldSchema, $dbw );
 			}
 			foreach ( $statements as $table ) {
+				// TODO I don't like this if, but we probably don't want to do
+				// grants on every modified table every time?
+				if ( $table[0] !== '' ) {
+					$bucketDBuser = self::getBucketDBUser();
+					$escapedTableName = $dbw->tableName( $table[0] );
+					// Note: The main database connection is only used to grant access to the new table.
+					MediaWikiServices::getInstance()->getDBLoadBalancer()
+						->getConnection( DB_PRIMARY )->query( "GRANT ALL ON $escapedTableName TO $bucketDBuser;" );
+				}
+				file_put_contents( MW_INSTALL_PATH . '/cook.txt',
+					'' . print_r( $table[1], true ) . "\n\n",
+					FILE_APPEND
+				);
 				$dbw->query( $table[1] );
 			}
 
@@ -202,20 +208,17 @@ class BucketDatabase {
 			$escapedFieldName = $dbw->addIdentifierQuotes( $fieldName );
 			$fieldJson = $dbw->addQuotes( json_encode( $field ) );
 			$newDbType = $field->getDatabaseValueType()->value;
-			// TODO a field becoming (un)repeated needs to be treated as a column add/delete
-			// TODO Do we truncate the full repeated column when the type changes?
-			// We won't actually need to change the type, the full columns are always TEXT
-			// containing json.
 			$newColumn = true;
 			if ( isset( $oldFields[$fieldName] ) ) {
-				$oldDbType = $oldFields[$fieldName]->getDatabaseValueType()->value;
+				$oldField = $oldFields[$fieldName];
 				$newColumn = false;
 			}
-			$typeChange = ( $oldDbType !== $newDbType );
+			// Ignore repeated type since all repeated fields are JSON type
+			$typeChange = ( $field->getDatabaseValueType( true ) !== $oldField->getDatabaseValueType( true ) );
 
 			if ( $newColumn === false ) {
 				# If the old schema has an index, check if it needs to be dropped
-				if ( $oldFields[$fieldName]->getIndexed() ) {
+				if ( $oldField->getIndexed() && !$oldField->getRepeated() ) {
 					if ( $typeChange || $field->getIndexed() === false ) {
 						$alterTableFragments[] = "DROP INDEX $escapedFieldName";
 					}
@@ -223,11 +226,21 @@ class BucketDatabase {
 				# Always drop and then re-add the column for field type changes.
 				if ( $typeChange ) {
 					$alterTableFragments[] = "DROP $escapedFieldName";
+					if ( $oldField->getRepeated() ) {
+						$repeatedTableName = self::getRepeatedFieldTableName( $bucketSchema->getName(), $fieldName );
+						$tableStatements[] = [
+							'',
+							"DROP TABLE IF EXISTS $repeatedTableName;"
+						];
+					}
 				}
 			}
 
 			if ( $newColumn || $typeChange ) {
-				$alterTableFragments[] = "ADD $escapedFieldName " . $newDbType . " COMMENT $fieldJson";
+				$alterTableFragments[] = "ADD $escapedFieldName $newDbType COMMENT $fieldJson";
+				if ( $field->getRepeated() ) {
+					$tableStatements[] = self::getCreateRepeatedTableStatement( $bucketSchema, $field, $dbw );
+				}
 			} else {
 				// If an existing column has the same DB type, check for a change between TEXT/PAGE,
 				// or a change to the index.
@@ -236,7 +249,7 @@ class BucketDatabase {
 					|| ( $field->getIndexed() !== $oldFields[$fieldName]->getIndexed() )
 				) {
 					# Acts as a no-op except to update the comment
-					$alterTableFragments[] = "MODIFY $escapedFieldName " . $newDbType . " COMMENT $fieldJson";
+					$alterTableFragments[] = "MODIFY $escapedFieldName $newDbType COMMENT $fieldJson";
 				}
 			}
 			if ( $field->getIndexed() && !$field->getRepeated() ) {
@@ -250,11 +263,18 @@ class BucketDatabase {
 		foreach ( $oldFields as $deletedColumn => $val ) {
 			$escapedDeletedColumn = $dbw->addIdentifierQuotes( $deletedColumn );
 			$alterTableFragments[] = "DROP $escapedDeletedColumn";
+			if ( $val->getRepeated() === true ) {
+				$repeatedTableName = self::getRepeatedFieldTableName( $bucketSchema->getName(), $val->getFieldName() );
+				$tableStatements[] = [
+					'',
+					"DROP TABLE IF EXISTS $repeatedTableName;"
+				];
+			}
 		}
 
 		$dbTableName = $dbw->tableName( $bucketSchema->getTableName() );
 		$tableStatements[] = [
-			$dbTableName,
+			'', // The table name used for granting permissions, but an altered table already has permissions
 			"ALTER TABLE $dbTableName " . implode( ', ', $alterTableFragments ) . ';'
 		];
 
@@ -293,14 +313,15 @@ class BucketDatabase {
 		BucketSchema $newSchema, BucketSchemaField $originalField, IDatabase $dbw ): array {
 		$createTableFragments = [];
 		// Recreate the field definition but with repeated = false
+		// TODO would this be better if it was just part of getCreateTableStatement?
 		$repeatedSchema = [
 			new BucketSchemaField( '_page_id', BucketValueType::Integer, true, false ),
 			new BucketSchemaField( '_index', BucketValueType::Integer, true, false ),
-			new BucketSchemaField( $originalField->getFieldName(), $originalField->getType(), true, false )
+			$originalField
 		];
 
 		foreach ( $repeatedSchema as $field ) {
-			$dbType = $field->getDatabaseValueType()->value;
+			$dbType = $field->getDatabaseValueType( true )->value;
 			$fragment = "{$dbw->addIdentifierQuotes($field->getFieldName())} $dbType";
 			$createTableFragments[] = $fragment;
 			if ( $field->getIndexed() ) {
@@ -346,7 +367,7 @@ class BucketDatabase {
 
 	private static function getIndexStatement( BucketSchemaField $field, IDatabase $dbw ): string {
 		$fieldName = $dbw->addIdentifierQuotes( $field->getFieldName() );
-		switch ( $field->getDatabaseValueType() ) {
+		switch ( $field->getDatabaseValueType( true ) ) {
 			case DatabaseValueType::Text:
 				// More than 40 characters can cause a MySQL error 1713: Undo log record is too big.
 				return "INDEX $fieldName($fieldName(40))";

@@ -223,9 +223,10 @@ class BucketSchemaField implements JsonSerializable {
 
 	/**
 	 * The ValueType that this field is stored as in the database.
+	 * @param bool $ignoreRepeated - if true will return the type of the repeated query table
 	 */
-	public function getDatabaseValueType(): DatabaseValueType {
-		if ( $this->getRepeated() ) {
+	public function getDatabaseValueType( bool $ignoreRepeated = false ): DatabaseValueType {
+		if ( $this->getRepeated() && !$ignoreRepeated ) {
 			return DatabaseValueType::Json;
 		}
 		switch ( $this->getType() ) {
