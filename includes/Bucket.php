@@ -101,6 +101,7 @@ enum DatabaseValueType: string {
 	case Double = 'DOUBLE';
 	case Integer = 'INTEGER';
 	case Boolean = 'BOOLEAN';
+	case Json = 'JSON';
 }
 
 /**
@@ -225,7 +226,7 @@ class BucketSchemaField implements JsonSerializable {
 	 */
 	public function getDatabaseValueType(): DatabaseValueType {
 		if ( $this->getRepeated() ) {
-			return DatabaseValueType::Text;
+			return DatabaseValueType::Json;
 		}
 		switch ( $this->getType() ) {
 			case BucketValueType::Text:
@@ -246,24 +247,6 @@ class BucketSchemaField implements JsonSerializable {
 		if ( $value === null ) {
 			return null;
 		}
-		if ( $this->getRepeated() === true ) {
-			if ( !is_array( $value ) ) {
-				// Wrap single values in an array for compatability
-				$value = [ $value ];
-			}
-			$value = array_values( $value );
-			$outputValues = [];
-			foreach ( $value as $single ) {
-				if ( $single === null ) {
-					continue;
-				}
-				$outputValues[] = $single;
-			}
-			if ( count( $outputValues ) === 0 ) {
-				return null;
-			}
-			return json_encode( $outputValues );
-		}
 		switch ( $this->getDatabaseValueType() ) {
 			case DatabaseValueType::Text:
 				if ( is_array( $value ) ) {
@@ -281,6 +264,23 @@ class BucketSchemaField implements JsonSerializable {
 			case DatabaseValueType::Boolean:
 				// MySQL uses 1 for true, 0 for false
 				return (int)filter_var( $value, FILTER_VALIDATE_BOOL );
+			case DatabaseValueType::Json:
+				if ( !is_array( $value ) ) {
+					// Wrap single values in an array for compatability
+					$value = [ $value ];
+				}
+				$value = array_values( $value );
+				$outputValues = [];
+				foreach ( $value as $single ) {
+					if ( $single === null ) {
+						continue;
+					}
+					$outputValues[] = $single;
+				}
+				if ( count( $outputValues ) === 0 ) {
+					return null;
+				}
+				return json_encode( $outputValues );
 			default:
 				return null;
 		}
