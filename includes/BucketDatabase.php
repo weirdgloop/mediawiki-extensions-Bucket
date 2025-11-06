@@ -214,7 +214,9 @@ class BucketDatabase {
 				$newColumn = false;
 			}
 			// Ignore repeated type since all repeated fields are JSON type
-			$typeChange = ( $field->getDatabaseValueType( true ) !== $oldField->getDatabaseValueType( true ) );
+			$typeChange =
+				( $field->getDatabaseValueType( true ) !== $oldField->getDatabaseValueType( true ) )
+				|| ( $field->getDatabaseValueType() !== $oldField->getDatabaseValueType() );
 
 			if ( $newColumn === false ) {
 				# If the old schema has an index, check if it needs to be dropped
@@ -312,7 +314,6 @@ class BucketDatabase {
 	private static function getCreateRepeatedTableStatement(
 		BucketSchema $newSchema, BucketSchemaField $originalField, IDatabase $dbw ): array {
 		$createTableFragments = [];
-		// Recreate the field definition but with repeated = false
 		// TODO would this be better if it was just part of getCreateTableStatement?
 		$repeatedSchema = [
 			new BucketSchemaField( '_page_id', BucketValueType::Integer, true, false ),

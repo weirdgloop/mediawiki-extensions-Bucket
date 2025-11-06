@@ -119,7 +119,6 @@ class BucketWriter {
 			$fieldNames = $res->getFieldNames();
 			foreach ( $fieldNames as $fieldName ) {
 				// If the table has a field that isn't present in the schema, the schema must be out of date.
-				// TODO a repeated field check?
 				if ( !isset( $bucketSchema->getFields()[$fieldName] ) ) {
 					self::logIssue(
 						$bucketName, $fieldName, 'bucket-general-error', wfMessage( 'bucket-schema-outdated-error' ) );
