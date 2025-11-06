@@ -302,7 +302,6 @@ class BucketQuery {
 				$children[] = $child;
 			}
 			foreach ( $subqueryChildren as $fieldName => $group ) {
-				// TODO does this maintain logic?
 				if ( $condition['op'] === 'OR' ) {
 					$newNode = new OrNode( $group, true );
 				} else {
@@ -486,9 +485,6 @@ class SubqueryNode extends QueryNode {
 	private QueryNode $child;
 
 	public function __construct( FieldSelector $selector, QueryNode $child ) {
-		if ( !$selector->getFieldSchema()->getRepeated() ) {
-			throw new QueryException( wfMessage( 'debugging' ) );
-		}
 		$this->selector = $selector;
 		$this->child = $child;
 	}

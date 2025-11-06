@@ -164,10 +164,6 @@ class BucketDatabase {
 					MediaWikiServices::getInstance()->getDBLoadBalancer()
 						->getConnection( DB_PRIMARY )->query( "GRANT ALL ON $escapedTableName TO $bucketDBuser;" );
 				}
-				file_put_contents( MW_INSTALL_PATH . '/cook.txt',
-					'' . print_r( $table[1], true ) . "\n\n",
-					FILE_APPEND
-				);
 				$dbw->query( $table[1] );
 			}
 
@@ -213,7 +209,7 @@ class BucketDatabase {
 				$oldField = $oldFields[$fieldName];
 				$newColumn = false;
 			}
-			// Ignore repeated type since all repeated fields are JSON type
+			// Check if the type has changed either for the regular or repeated column
 			$typeChange =
 				( $field->getDatabaseValueType( true ) !== $oldField->getDatabaseValueType( true ) )
 				|| ( $field->getDatabaseValueType() !== $oldField->getDatabaseValueType() );
@@ -314,7 +310,6 @@ class BucketDatabase {
 	private static function getCreateRepeatedTableStatement(
 		BucketSchema $newSchema, BucketSchemaField $originalField, IDatabase $dbw ): array {
 		$createTableFragments = [];
-		// TODO would this be better if it was just part of getCreateTableStatement?
 		$repeatedSchema = [
 			new BucketSchemaField( '_page_id', BucketValueType::Integer, true, false ),
 			new BucketSchemaField( '_index', BucketValueType::Integer, true, false ),
@@ -391,7 +386,7 @@ class BucketDatabase {
 			$dbw->tableName( self::getBucketTableName( $bucketName ), 'raw' ) );
 		$repeatedDbTableNames = $dbw->addQuotes(
 			$dbw->tableName( self::getBucketTableName( $bucketName ), 'raw' ) . '__%' );
-		// Find all relevant table names. This will be the regular Bucket table and also any repeated field tables
+		// Find all relevant table names. This is the regular Bucket table and also any repeated field tables
 		$dbTableNames = $dbw->query(
 			"SHOW TABLE STATUS WHERE (Name = $bucketDbTableName OR Name LIKE $repeatedDbTableNames);",
 			__METHOD__ );

@@ -146,6 +146,7 @@ class BucketWriter {
 					try {
 						$field = $bucketSchema->getFields()[$key];
 						if ( $field->getRepeated() === true ) {
+							// Non-repeated copy of field
 							$singleField = new BucketSchemaField(
 								$field->getFieldName(),
 								$field->getType(),
@@ -205,15 +206,15 @@ class BucketWriter {
 				$newPutHashes[$bucketName] =
 					[ '_page_id' => $pageId, 'bucket_name' => $bucketName, 'put_hash' => $newHash ];
 				// $tablePuts contains a list of DB names and the data that should be written to them
-				foreach ( $tablePuts as $subTableName => $subTablePuts ) {
+				foreach ( $tablePuts as $singleTableName => $singleTablePuts ) {
 					$dbw->newDeleteQueryBuilder()
-						->deleteFrom( $subTableName )
+						->deleteFrom( $singleTableName )
 						->where( [ '_page_id' => $pageId ] )
 						->caller( __METHOD__ )
 						->execute();
 					$dbw->newInsertQueryBuilder()
-						->insert( $subTableName )
-						->rows( $subTablePuts )
+						->insert( $singleTableName )
+						->rows( $singleTablePuts )
 						->caller( __METHOD__ )
 						->execute();
 				}
@@ -254,8 +255,6 @@ class BucketWriter {
 				->caller( __METHOD__ )
 				->execute();
 			foreach ( $tablesToDelete as $baseName ) {
-				// TODO what kind of perf hit do we have from getRelatedTableNames?
-				//TODO maybe we just read the schema and try and delete from every repeated field name?
 				$relatedTables = BucketDatabase::getRelatedTableNames( $baseName );
 				foreach ( $relatedTables as $name ) {
 					$dbw->newDeleteQueryBuilder()
