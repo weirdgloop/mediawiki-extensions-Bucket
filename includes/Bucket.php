@@ -11,19 +11,30 @@ class Bucket {
 	public const EXTENSION_DATA_KEY = 'bucket:puts';
 	public const EXTENSION_BUCKET_NAMES_KEY = 'bucket:puts_bucket_names';
 	public const ISSUES_BUCKET = 'bucket_issues';
-	public const REPEATED_CHARACTER_LIMIT = 512;
-	public const REPEATED_CHARACTER_TOTAL_LIMIT = 5254;
 	public const TEXT_BYTE_LIMIT = 65535;
 
-	public static function getValidFieldName( ?string $fieldName ): string {
+	private static function isValidName( string $name ): bool {
+		if (
+			// Disallow numeric names as the MW RDBMS treats numeric tables names as ints in some circumstances.
+			is_numeric( $name ) === false
+			&& !str_starts_with( $name, '_' )
+			&& strpos( $name, '__' ) === false
+			&& preg_match( '/^[a-zA-Z0-9_]+$/D', $name )
+		) {
+			return true;
+		}
+		return false;
+	}
+
+	public static function getValidFieldName( string $bucketName, ?string $fieldName ): string {
 		if ( $fieldName !== null
-			// Disallow numeric field names as the MW RDBMS treats numeric tables names as ints in some circumstances.
-			&& is_numeric( $fieldName ) === false
-			&& !str_starts_with( $fieldName, '_' )
-			&& preg_match( '/^[a-zA-Z0-9_]+$/D', $fieldName ) ) {
-			$cleanName = strtolower( trim( $fieldName ) );
-			// MySQL has a maximum of 64, lets limit it to 60 in case we need to append to fields for some reason later
-			if ( strlen( $cleanName ) <= 60 ) {
+			&& self::isValidName( $fieldName )
+		) {
+			$cleanName = trim( $fieldName );
+			$dbw = BucketDatabase::getDB();
+			$fullName = $dbw->tableName( BucketDatabase::getRepeatedFieldTableName( $bucketName, $cleanName ), 'raw' );
+			// MySQL has a maximum of 64 characters for a table name
+			if ( strlen( $fullName ) <= 64 ) {
 				return $cleanName;
 			}
 		}
@@ -34,17 +45,15 @@ class Bucket {
 		if ( ucfirst( $bucketName ) !== ucfirst( strtolower( $bucketName ) ) ) {
 			throw new SchemaException( wfMessage( 'bucket-capital-name-error' ) );
 		}
-		$cleanName = strtolower( trim( $bucketName ) );
-		// Add MW prefix to name to check total length
-		$fullTableName = BucketDatabase::getDB()->tableName( BucketDatabase::getBucketTableName( $cleanName ), 'raw' );
-		if ( strlen( $fullTableName ) > 60 ) {
-			throw new SchemaException( wfMessage( 'bucket-invalid-name-warning', $bucketName ) );
+		if ( self::isValidName( $bucketName ) ) {
+			$cleanName = strtolower( trim( $bucketName ) );
+			$dbw = BucketDatabase::getDB();
+			$fullName = $dbw->tableName( BucketDatabase::getRepeatedFieldTableName( $bucketName, '' ), 'raw' );
+			if ( strlen( $fullName ) <= 64 ) {
+				return $cleanName;
+			}
 		}
-		try {
-			return self::getValidFieldName( $cleanName );
-		} catch ( SchemaException ) {
-			throw new SchemaException( wfMessage( 'bucket-invalid-name-warning', $bucketName ) );
-		}
+		throw new SchemaException( wfMessage( 'bucket-invalid-name-warning', $bucketName ) );
 	}
 
 	public static function writePuts( int $pageId, string $titleText, array $puts ) {

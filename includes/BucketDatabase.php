@@ -36,6 +36,7 @@ class BucketDatabase {
 
 		self::$db = MediaWikiServices::getInstance()->getDatabaseFactory()->create( $mainDB->getType(), $params );
 
+		// TODO: figure out new min version
 		// MySQL 8.0.17 or higher is required for the implementation of repeated fields.
 		if ( self::$db->getType() !== 'mysql' || version_compare( self::$db->getServerVersion(), '8.0.17', '<' ) ) {
 			throw new ConfigException( 'Bucket requires MySQL 8.0.17 or higher' );
@@ -109,7 +110,7 @@ class BucketDatabase {
 				throw new SchemaException( wfMessage( 'bucket-schema-must-be-strings', $fieldName ) );
 			}
 
-			$lcFieldName = Bucket::getValidFieldName( $fieldName );
+			$lcFieldName = Bucket::getValidFieldName( $bucketName, $fieldName );
 
 			if ( isset( $newSchema[$lcFieldName] ) ) {
 				throw new SchemaException( wfMessage( 'bucket-schema-duplicated-field-name', $fieldName ) );

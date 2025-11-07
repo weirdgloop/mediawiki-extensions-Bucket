@@ -78,7 +78,7 @@ class BucketWriter {
 			}
 
 			try {
-				$bucketNameTmp = Bucket::getValidFieldName( $bucketName );
+				$bucketNameTmp = Bucket::getValidBucketName( $bucketName );
 			} catch ( SchemaException ) {
 				self::logIssue(
 					$bucketName, '', 'bucket-general-warning', wfMessage(
