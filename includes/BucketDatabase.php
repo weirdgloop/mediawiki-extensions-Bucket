@@ -308,7 +308,10 @@ class BucketDatabase {
 		return $tableStatements;
 	}
 
-	private static function getCreateRepeatedTableStatement(
+	/**
+	 * Temporarily public for migration
+	 */
+	public static function getCreateRepeatedTableStatement(
 		BucketSchema $newSchema, BucketSchemaField $originalField, IDatabase $dbw ): array {
 		$createTableFragments = [];
 		$repeatedSchema = [
@@ -328,7 +331,6 @@ class BucketDatabase {
 
 		// Create a key to match the main table primary key
 		$createTableFragments[] = 'INDEX idx_page_index (_page_id, _index)';
-		// TODO ensure double underscore can't happen in normal buckets
 		$dbTableName = $dbw->tableName( $newSchema->getTableName() . '__' . $originalField->getFieldName() );
 		return [
 			$dbTableName,

@@ -4,6 +4,7 @@ namespace MediaWiki\Extension\Bucket;
 
 use JsonSerializable;
 use LogicException;
+use MediaWiki\MediaWikiServices;
 use MediaWiki\Message\Message;
 use Wikimedia\Rdbms\IDatabase;
 
@@ -12,6 +13,11 @@ class Bucket {
 	public const EXTENSION_BUCKET_NAMES_KEY = 'bucket:puts_bucket_names';
 	public const ISSUES_BUCKET = 'bucket_issues';
 	public const TEXT_BYTE_LIMIT = 65535;
+
+	public static function isForceOldRepeated(): bool {
+		$config = MediaWikiServices::getInstance()->getMainConfig();
+		return $config->get( 'BucketForceOldRepeatedQuery' );
+	}
 
 	private static function isValidName( string $name ): bool {
 		if (
