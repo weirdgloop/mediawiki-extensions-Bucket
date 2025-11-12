@@ -2,9 +2,9 @@
 
 namespace MediaWiki\Extension\Bucket;
 
+use MediaWiki\Deferred\LinksUpdate\LinksUpdate;
 use MediaWiki\Maintenance\Maintenance;
 use MediaWiki\MediaWikiServices;
-use MediaWiki\Deferred\LinksUpdate\LinksUpdate;
 
 $IP = getenv( 'MW_INSTALL_PATH' );
 if ( $IP === false ) {
@@ -23,21 +23,21 @@ class RefreshAllBuckets extends Maintenance {
 	}
 
 	public function execute() {
-        $services = MediaWikiServices::getInstance();
-        $bucketNS = $services->getNamespaceInfo()->getCanonicalIndex('bucket');
-        $pages = $services->getPageStore()->newSelectQueryBuilder()
-            ->where(['page_namespace' => $bucketNS])
-            ->fetchPageRecords();
-        foreach ($pages as $page) {
-            $this->output("Queuing page: {$page->getDBkey()}\n");
-            LinksUpdate::queueRecursiveJobsForTable(
-                $page,
-                'templatelinks',
-                'bucket-reparse',
-                'unknown',
-                MediaWikiServices::getInstance()->getBacklinkCacheFactory()->getBacklinkCache($page)
-            );
-        }
+		$services = MediaWikiServices::getInstance();
+		$bucketNS = $services->getNamespaceInfo()->getCanonicalIndex( 'bucket' );
+		$pages = $services->getPageStore()->newSelectQueryBuilder()
+			->where( [ 'page_namespace' => $bucketNS ] )
+			->fetchPageRecords();
+		foreach ( $pages as $page ) {
+			$this->output( "Queuing page: {$page->getDBkey()}\n" );
+			LinksUpdate::queueRecursiveJobsForTable(
+				$page,
+				'templatelinks',
+				'bucket-reparse',
+				'unknown',
+				MediaWikiServices::getInstance()->getBacklinkCacheFactory()->getBacklinkCache( $page )
+			);
+		}
 		return true;
 	}
 }
