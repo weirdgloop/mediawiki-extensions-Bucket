@@ -52,7 +52,7 @@ class BucketWriter {
 
 		$schemas = [];
 
-		if ( count( $puts ) > 0 ) {
+		if ( count( $puts ) > 0 || count( $bucket_hash ) > 0 ) {
 			// Combine existing written bucket list and new written bucket list.
 			$relevantBuckets = array_merge( array_keys( $puts ), array_keys( $bucket_hash ) );
 			$res = $dbw->newSelectQueryBuilder()
@@ -253,7 +253,7 @@ class BucketWriter {
 				->caller( __METHOD__ )
 				->execute();
 			foreach ( $tablesToDelete as $baseName ) {
-				$relatedTables = BucketDatabase::getRelatedTableNames( $baseName );
+				$relatedTables = BucketDatabase::getRelatedTableNames( $baseName, $schemas[$baseName] );
 				foreach ( $relatedTables as $name ) {
 					$dbw->newDeleteQueryBuilder()
 						->deleteFrom( $name )

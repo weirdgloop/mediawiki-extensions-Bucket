@@ -348,17 +348,28 @@ class BucketDatabase {
 	public static function deleteTable( string $bucketName ): void {
 		$dbw = self::getDB();
 		$bucketName = Bucket::getValidBucketName( $bucketName );
+		$res = $dbw->newSelectQueryBuilder()
+			->from( 'bucket_schemas' )
+			->select( [ 'bucket_name', 'schema_json' ] )
+			->lockInShareMode()
+			->where( [ 'bucket_name' => $bucketName ] )
+			->caller( __METHOD__ )
+			->fetchRow();
+		if ( $res !== false ) {
+			$schema = new BucketSchema(
+				$res->bucket_name,
+				json_decode( $res->schema_json, true )
+			);
+			$deleteTableNames = self::getRelatedTableNames( $bucketName, $schema );
+			foreach ( $deleteTableNames as $name ) {
+				$dbw->dropTable( $name );
+			}
+		}
 		$dbw->newDeleteQueryBuilder()
 			->table( 'bucket_schemas' )
 			->where( [ 'bucket_name' => $bucketName ] )
 			->caller( __METHOD__ )
 			->execute();
-
-		$deleteTableNames = self::getRelatedTableNames( $bucketName );
-		$str = implode( ',', $deleteTableNames );
-		if ( $str !== '' ) {
-			$dbw->query( "DROP TABLE IF EXISTS $str" );
-		}
 	}
 
 	private static function getIndexStatement( BucketSchemaField $field, IDatabase $dbw ): string {
@@ -380,20 +391,12 @@ class BucketDatabase {
 		return 'bucket__' . $bucketName . '__' . $fieldName;
 	}
 
-	public static function getRelatedTableNames( string $bucketName ): array {
-		$dbw = self::getDB();
-		$bucketDbTableName = $dbw->addQuotes(
-			$dbw->tableName( self::getBucketTableName( $bucketName ), 'raw' ) );
-		$repeatedDbTableNames = $dbw->addQuotes(
-			$dbw->tableName( self::getBucketTableName( $bucketName ), 'raw' ) . '__%' );
-		// Find all relevant table names. This is the regular Bucket table and also any repeated field tables
-		$dbTableNames = $dbw->query(
-			"SHOW TABLE STATUS WHERE (Name = $bucketDbTableName OR Name LIKE $repeatedDbTableNames);",
-			__METHOD__ );
-
-		$names = [];
-		foreach ( $dbTableNames as $entry ) {
-			$names[] = $entry->Name;
+	public static function getRelatedTableNames( string $bucketName, BucketSchema $schema ): array {
+		$names = [ self::getBucketTableName( $bucketName ) ];
+		foreach ( $schema->getFields() as $field ) {
+			if ( $field->getRepeated() ) {
+				$names[] = self::getRepeatedFieldTableName( $bucketName, $field->getFieldName() );
+			}
 		}
 		return $names;
 	}
