@@ -33,6 +33,7 @@
 	"bucket-page-dive-text": "The link to [[Special:Bucket]] in bucket page",
 	"bucket-results-per-page-tooltip": "The title of the buttons that changes page size. $1 for new page size",
 	"bucket-delete-fail-in-use": "Message on attempting to delete a non-empty bucket. $1 for pages uses this bucket",
+	"bucket-undelete-error": "Message when undeleting a bucket page fails. This can only be fixed by a system administrator",
 	"bucket-general-error": "Fallback for error messages",
 	"bucket-general-warning": "Fallback for warning messages",
 	"bucket-php-type-error": "Message on a exception thrown, but not belongs to any other defined situations. $1 for PHP exception",

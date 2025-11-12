@@ -127,7 +127,7 @@
 			"value": 1000000
 		},
 		"BucketForceOldRepeatedQuery": {
-			"value": true
+			"value": false
 		}
 	},
 	"GroupPermissions": {

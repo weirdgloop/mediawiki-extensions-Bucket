@@ -310,9 +310,9 @@ class BucketQuery {
 			}
 			foreach ( $subqueryChildren as $fieldName => $group ) {
 				if ( $condition['op'] === 'OR' ) {
-					$newNode = new OrNode( $group, true );
+					$newNode = new OrNode( $group );
 				} else {
-					$newNode = new AndNode( $group, true );
+					$newNode = new AndNode( $group );
 				}
 				$children[] = new SubqueryNode( $subquerySelectors[$fieldName], $newNode );
 			}
@@ -504,7 +504,7 @@ class SubqueryNode extends QueryNode {
 		$subquery = $dbw->newSelectQueryBuilder()
 			->from( $repeatedFieldTable )
 			->select( [ '_page_id', '_index' ] )
-			->where( $this->child->getWhereSQL( $dbw, true ) )
+			->where( $this->child->getWhereSQL( $dbw ) )
 			->caller( __METHOD__ );
 		$subquery = $subquery->getSQL();
 		$tableNameSafe = $dbw->tableName( $selector->getBucketSchema()->getTableName() );

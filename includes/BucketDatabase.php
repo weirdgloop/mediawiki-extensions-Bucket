@@ -201,18 +201,20 @@ class BucketDatabase {
 			$fieldJson = $dbw->addQuotes( json_encode( $field ) );
 			$newDbType = $field->getDatabaseValueType()->value;
 			$newColumn = true;
+			$oldField = null;
 			if ( isset( $oldFields[$fieldName] ) ) {
 				$oldField = $oldFields[$fieldName];
 				$newColumn = false;
 			}
 			// Check if the type has changed either for the regular or repeated column
 			$typeChange =
-				( $field->getDatabaseValueType( true ) !== $oldField->getDatabaseValueType( true ) )
-				|| ( $field->getDatabaseValueType() !== $oldField->getDatabaseValueType() );
+				$oldField !== null &&
+				( ( $field->getDatabaseValueType( true ) !== $oldField->getDatabaseValueType( true ) )
+				|| ( $field->getDatabaseValueType() !== $oldField->getDatabaseValueType() ) );
 
 			if ( $newColumn === false ) {
 				# If the old schema has an index, check if it needs to be dropped
-				if ( $oldField->getIndexed() && !$oldField->getRepeated() ) {
+				if ( $oldField !== null && $oldField->getIndexed() && !$oldField->getRepeated() ) {
 					if ( $typeChange || $field->getIndexed() === false ) {
 						$alterTableFragments[] = "DROP INDEX $escapedFieldName";
 					}
@@ -220,7 +222,7 @@ class BucketDatabase {
 				# Always drop and then re-add the column for field type changes.
 				if ( $typeChange ) {
 					$alterTableFragments[] = "DROP $escapedFieldName";
-					if ( $oldField->getRepeated() ) {
+					if ( $oldField !== null && $oldField->getRepeated() ) {
 						$repeatedTableName = self::getRepeatedFieldTableName( $bucketSchema->getName(), $fieldName );
 						$tableStatements[] = [
 							'',

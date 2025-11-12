@@ -158,7 +158,6 @@ class BucketWriter {
 								$value = [ $value ];
 							}
 							$value = array_values( $value );
-							$repeatedIndex = 0;
 							foreach ( $value as $single ) {
 								if ( $single === null ) {
 									continue;
@@ -171,7 +170,6 @@ class BucketWriter {
 								$tablePuts[
 									BucketDatabase::getRepeatedFieldTableName( $bucketName, $key )
 								][] = $repeatedPut;
-								$repeatedIndex += 1;
 							}
 						}
 						$singlePut[$dbw->addIdentifierQuotes( $key )] = $field->castValueForDatabase( $value );
