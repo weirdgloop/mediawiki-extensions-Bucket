@@ -151,16 +151,14 @@ class BucketDatabase {
 				$statements = self::getAlterTableStatement( $bucketSchema, $oldSchema, $dbw );
 			}
 			foreach ( $statements as $table ) {
-				// TODO I don't like this if, but we probably don't want to do
-				// grants on every modified table every time?
-				if ( $table[0] !== '' ) {
+				if ( isset( $table['permissionName'] ) ) {
 					$bucketDBuser = self::getBucketDBUser();
-					$escapedTableName = $dbw->tableName( $table[0] );
+					$escapedTableName = $dbw->tableName( $table['permissionName'] );
 					// Note: The main database connection is only used to grant access to the new table.
 					MediaWikiServices::getInstance()->getDBLoadBalancer()
 						->getConnection( DB_PRIMARY )->query( "GRANT ALL ON $escapedTableName TO $bucketDBuser;" );
 				}
-				$dbw->query( $table[1] );
+				$dbw->query( $table['statement'] );
 			}
 
 			// At this point is is possible that another transaction has changed the table so we start a transaction,
@@ -225,8 +223,7 @@ class BucketDatabase {
 					if ( $oldField !== null && $oldField->getRepeated() ) {
 						$repeatedTableName = self::getRepeatedFieldTableName( $bucketSchema->getName(), $fieldName );
 						$tableStatements[] = [
-							'',
-							"DROP TABLE IF EXISTS $repeatedTableName;"
+							'statement' => "DROP TABLE IF EXISTS $repeatedTableName;"
 						];
 					}
 				}
@@ -262,16 +259,14 @@ class BucketDatabase {
 			if ( $val->getRepeated() === true ) {
 				$repeatedTableName = self::getRepeatedFieldTableName( $bucketSchema->getName(), $val->getFieldName() );
 				$tableStatements[] = [
-					'',
-					"DROP TABLE IF EXISTS $repeatedTableName;"
+					'statement' => "DROP TABLE IF EXISTS $repeatedTableName;"
 				];
 			}
 		}
 
 		$dbTableName = $dbw->tableName( $bucketSchema->getTableName() );
 		$tableStatements[] = [
-			'', // The table name used for granting permissions, but an altered table already has permissions
-			"ALTER TABLE $dbTableName " . implode( ', ', $alterTableFragments ) . ';'
+			'statement' => "ALTER TABLE $dbTableName " . implode( ', ', $alterTableFragments ) . ';'
 		];
 
 		return $tableStatements;
@@ -298,8 +293,9 @@ class BucketDatabase {
 		$dbTableName = $dbw->tableName( $newSchema->getTableName() );
 
 		$tableStatements[] = [
-			$dbTableName,
-			"CREATE TABLE $dbTableName (" . implode( ', ', $createTableFragments ) . ') DEFAULT CHARSET=utf8mb4;'
+			'permissionName' => $dbTableName,
+			'statement' =>
+				"CREATE TABLE $dbTableName (" . implode( ', ', $createTableFragments ) . ') DEFAULT CHARSET=utf8mb4;'
 		];
 
 		return $tableStatements;
@@ -330,8 +326,9 @@ class BucketDatabase {
 		$createTableFragments[] = 'INDEX idx_page_index (_page_id, _index)';
 		$dbTableName = self::getRepeatedFieldTableName( $newSchema->getName(), $originalField->getFieldName() );
 		return [
-			$dbTableName,
-			"CREATE TABLE $dbTableName (" . implode( ', ', $createTableFragments ) . ') DEFAULT CHARSET=utf8mb4;'
+			'permissionName' => $dbTableName,
+			'statement' =>
+				"CREATE TABLE $dbTableName (" . implode( ', ', $createTableFragments ) . ') DEFAULT CHARSET=utf8mb4;'
 		];
 	}
 
