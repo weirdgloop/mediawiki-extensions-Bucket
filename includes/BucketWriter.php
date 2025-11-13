@@ -162,7 +162,7 @@ class BucketWriter {
 								$repeatedPut[$dbw->addIdentifierQuotes( $key )] =
 									$field->castSubValueForDatabase( $single );
 								$tablePuts[
-									BucketDatabase::getRepeatedFieldTableName( $bucketName, $key )
+									BucketDatabase::getSubTableName( $bucketName, $key )
 								][] = $repeatedPut;
 							}
 						}
@@ -247,7 +247,7 @@ class BucketWriter {
 				->caller( __METHOD__ )
 				->execute();
 			foreach ( $tablesToDelete as $baseName ) {
-				$tables = BucketDatabase::getSubTableNames( $baseName, $schemas[$baseName] );
+				$tables = BucketDatabase::getBucketSubTableNames( $baseName, $schemas[$baseName] );
 				$tables[] = BucketDatabase::getBucketTableName( $baseName );
 				foreach ( $tables as $name ) {
 					$dbw->newDeleteQueryBuilder()

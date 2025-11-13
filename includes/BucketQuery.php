@@ -498,7 +498,7 @@ class SubqueryNode extends QueryNode {
 
 	public function getWhereSQL( IDatabase $dbw ): IExpression {
 		$selector = $this->selector;
-		$repeatedFieldTable = BucketDatabase::getRepeatedFieldTableName(
+		$repeatedFieldTable = BucketDatabase::getSubTableName(
 			$selector->getBucketSchema()->getName(),
 			$selector->getFieldSchema()->getFieldName() );
 		$subquery = $dbw->newSelectQueryBuilder()
@@ -603,7 +603,7 @@ class FieldSelector extends Selector {
 
 	public function getUnsafe(): string {
 		if ( $this->subquery ) {
-			$repeatedFieldTable = BucketDatabase::getRepeatedFieldTableName(
+			$repeatedFieldTable = BucketDatabase::getSubTableName(
 				$this->getBucketSchema()->getName(),
 				$this->getFieldSchema()->getFieldName()
 			);

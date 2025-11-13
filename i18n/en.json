@@ -45,6 +45,8 @@
 	"bucket-invalid-name-warning": "Bucket name $1 is invalid",
 	"bucket-capital-name-warning": "Bucket name should be all lower cases, with underscores instead of spaces",
 	"bucket-capital-name-error": "Bucket name must be all lower case",
+	"bucket-long-bucket-name-error": "Bucket name \"$1\" is too long. Found $2 characters, maximum is $3 characters",
+	"bucket-long-field-name-error": "Field name \"$1\" is too long for this bucket. Found $2 characters, maximum is $3 charactes",
 	"bucket-no-exist-error": "Bucket doesn't exist",
 	"bucket-already-exist-error": "The bucket database table already exists",
 	"bucket-schema-outdated-error": "The bucket schema and table do not match. Please edit the bucket page to resynchronize the table",

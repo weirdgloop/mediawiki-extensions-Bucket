@@ -38,10 +38,18 @@ class Bucket {
 		) {
 			$cleanName = strtolower( trim( $fieldName ) );
 			$dbw = BucketDatabase::getDB();
-			$fullName = $dbw->tableName( BucketDatabase::getRepeatedFieldTableName( $bucketName, $cleanName ), 'raw' );
+			$fullName = $dbw->tableName( BucketDatabase::getSubTableName( $bucketName, $cleanName ), 'raw' );
 			// MySQL has a maximum of 64 characters for a table name
 			if ( strlen( $fullName ) <= 64 ) {
 				return $cleanName;
+			} else {
+				throw new SchemaException(
+					wfMessage( 'bucket-long-field-name-error' )
+						->params( $fieldName )
+						->numParams( [
+							strlen( $cleanName ),
+							64 - strlen( $dbw->tableName( BucketDatabase::getSubTableName( $bucketName, '' ), 'raw' ) )
+						] ) );
 			}
 		}
 		throw new SchemaException( wfMessage( 'bucket-schema-invalid-field-name', $fieldName ) );
@@ -54,9 +62,17 @@ class Bucket {
 		if ( self::isValidName( $bucketName ) ) {
 			$cleanName = strtolower( trim( $bucketName ) );
 			$dbw = BucketDatabase::getDB();
-			$fullName = $dbw->tableName( BucketDatabase::getRepeatedFieldTableName( $bucketName, '' ), 'raw' );
-			if ( strlen( $fullName ) <= 64 ) {
+			$fullName = $dbw->tableName( BucketDatabase::getSubTableName( $bucketName, '' ), 'raw' );
+			if ( strlen( $fullName ) <= 55 ) {
 				return $cleanName;
+			} else {
+				throw new SchemaException(
+					wfMessage( 'bucket-long-bucket-name-error' )
+						->params( $bucketName )
+						->numParams( [
+							strlen( $cleanName ),
+							55 - strlen( $dbw->tableName( BucketDatabase::getBucketTableName( '' ), 'raw' ) )
+						] ) );
 			}
 		}
 		throw new SchemaException( wfMessage( 'bucket-invalid-name-warning', $bucketName ) );

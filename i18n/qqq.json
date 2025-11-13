@@ -42,6 +42,8 @@
 	"bucket-invalid-name-warning": "Message on accessing a bucket with invalid name. $1 for the bucket name",
 	"bucket-capital-name-warning": "Message on accessing a bucket with capitalized letters and underscores",
 	"bucket-capital-name-error": "Message on accessing a bucket with capitalized letters",
+	"bucket-long-bucket-name-error": "Message on bucket name too long to be saved. $1 is bucket name. Found $2 characters, maximum is $3 characters",
+	"bucket-long-field-name-error": "Message on field name too long to be saved. $1 is field name. Found $2 characters, maximum is $3 charactes",
 	"bucket-no-exist-error": "Message on bucket doesn't exist",
 	"bucket-already-exist-error": "Message on creating a bucket, but the corresponding database table already exists",
 	"bucket-schema-outdated-error": "Message on bucket schema and database table do not match",

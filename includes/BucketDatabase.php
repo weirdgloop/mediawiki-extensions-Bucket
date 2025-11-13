@@ -221,7 +221,7 @@ class BucketDatabase {
 				if ( $typeChange ) {
 					$alterTableFragments[] = "DROP $escapedFieldName";
 					if ( $oldField !== null && $oldField->getRepeated() ) {
-						$repeatedTableName = self::getRepeatedFieldTableName( $bucketSchema->getName(), $fieldName );
+						$repeatedTableName = self::getSubTableName( $bucketSchema->getName(), $fieldName );
 						$tableStatements[] = [
 							'statement' => "DROP TABLE IF EXISTS $repeatedTableName;"
 						];
@@ -257,7 +257,7 @@ class BucketDatabase {
 			$escapedDeletedColumn = $dbw->addIdentifierQuotes( $deletedColumn );
 			$alterTableFragments[] = "DROP $escapedDeletedColumn";
 			if ( $val->getRepeated() === true ) {
-				$repeatedTableName = self::getRepeatedFieldTableName( $bucketSchema->getName(), $val->getFieldName() );
+				$repeatedTableName = self::getSubTableName( $bucketSchema->getName(), $val->getFieldName() );
 				$tableStatements[] = [
 					'statement' => "DROP TABLE IF EXISTS $repeatedTableName;"
 				];
@@ -324,7 +324,7 @@ class BucketDatabase {
 
 		// Create a key to match the main table primary key
 		$createTableFragments[] = 'INDEX idx_page_index (_page_id, _index)';
-		$dbTableName = self::getRepeatedFieldTableName( $newSchema->getName(), $originalField->getFieldName() );
+		$dbTableName = self::getSubTableName( $newSchema->getName(), $originalField->getFieldName() );
 		return [
 			'permissionName' => $dbTableName,
 			'statement' =>
@@ -357,7 +357,7 @@ class BucketDatabase {
 				$res->bucket_name,
 				json_decode( $res->schema_json, true )
 			);
-			$deleteTableNames = self::getSubTableNames( $bucketName, $schema );
+			$deleteTableNames = self::getBucketSubTableNames( $bucketName, $schema );
 			$deleteTableNames[] = self::getBucketTableName( $bucketName );
 			foreach ( $deleteTableNames as $name ) {
 				$dbw->dropTable( $name );
@@ -385,15 +385,15 @@ class BucketDatabase {
 		return 'bucket__' . $bucketName;
 	}
 
-	public static function getRepeatedFieldTableName( string $bucketName, string $fieldName ): string {
+	public static function getSubTableName( string $bucketName, string $fieldName ): string {
 		return 'bucket__' . $bucketName . '__' . $fieldName;
 	}
 
-	public static function getSubTableNames( string $bucketName, BucketSchema $schema ): array {
+	public static function getBucketSubTableNames( string $bucketName, BucketSchema $schema ): array {
 		$names = [];
 		foreach ( $schema->getFields() as $field ) {
 			if ( $field->getRepeated() ) {
-				$names[] = self::getRepeatedFieldTableName( $bucketName, $field->getFieldName() );
+				$names[] = self::getSubTableName( $bucketName, $field->getFieldName() );
 			}
 		}
 		return $names;
