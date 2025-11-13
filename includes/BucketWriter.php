@@ -247,8 +247,9 @@ class BucketWriter {
 				->caller( __METHOD__ )
 				->execute();
 			foreach ( $tablesToDelete as $baseName ) {
-				$relatedTables = BucketDatabase::getRelatedTableNames( $baseName, $schemas[$baseName] );
-				foreach ( $relatedTables as $name ) {
+				$tables = BucketDatabase::getSubTableNames( $baseName, $schemas[$baseName] );
+				$tables[] = BucketDatabase::getBucketTableName( $baseName );
+				foreach ( $tables as $name ) {
 					$dbw->newDeleteQueryBuilder()
 						->deleteFrom( $name )
 						->where( [ '_page_id' => $pageId ] )

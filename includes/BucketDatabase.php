@@ -360,7 +360,8 @@ class BucketDatabase {
 				$res->bucket_name,
 				json_decode( $res->schema_json, true )
 			);
-			$deleteTableNames = self::getRelatedTableNames( $bucketName, $schema );
+			$deleteTableNames = self::getSubTableNames( $bucketName, $schema );
+			$deleteTableNames[] = self::getBucketTableName( $bucketName );
 			foreach ( $deleteTableNames as $name ) {
 				$dbw->dropTable( $name );
 			}
@@ -391,8 +392,8 @@ class BucketDatabase {
 		return 'bucket__' . $bucketName . '__' . $fieldName;
 	}
 
-	public static function getRelatedTableNames( string $bucketName, BucketSchema $schema ): array {
-		$names = [ self::getBucketTableName( $bucketName ) ];
+	public static function getSubTableNames( string $bucketName, BucketSchema $schema ): array {
+		$names = [];
 		foreach ( $schema->getFields() as $field ) {
 			if ( $field->getRepeated() ) {
 				$names[] = self::getRepeatedFieldTableName( $bucketName, $field->getFieldName() );
