@@ -209,7 +209,7 @@ class BucketDatabase {
 			// Check if the type has changed either for the regular or repeated column
 			$typeChange =
 				$oldField !== null &&
-				( ( $field->getDatabaseValueType( true ) !== $oldField->getDatabaseValueType( true ) )
+				( ( $field->getSubDatabaseValueType() !== $oldField->getSubDatabaseValueType() )
 				|| ( $field->getDatabaseValueType() !== $oldField->getDatabaseValueType() ) );
 
 			if ( $newColumn === false ) {
@@ -318,7 +318,7 @@ class BucketDatabase {
 		];
 
 		foreach ( $repeatedSchema as $field ) {
-			$dbType = $field->getDatabaseValueType( true )->value;
+			$dbType = $field->getSubDatabaseValueType()->value;
 			$fragment = "{$dbw->addIdentifierQuotes($field->getFieldName())} $dbType";
 			$createTableFragments[] = $fragment;
 			if ( $field->getIndexed() ) {
@@ -328,7 +328,7 @@ class BucketDatabase {
 
 		// Create a key to match the main table primary key
 		$createTableFragments[] = 'INDEX idx_page_index (_page_id, _index)';
-		$dbTableName = $dbw->tableName( $newSchema->getTableName() . '__' . $originalField->getFieldName() );
+		$dbTableName = self::getRepeatedFieldTableName( $newSchema->getName(), $originalField->getFieldName() );
 		return [
 			$dbTableName,
 			"CREATE TABLE $dbTableName (" . implode( ', ', $createTableFragments ) . ') DEFAULT CHARSET=utf8mb4;'
@@ -374,7 +374,7 @@ class BucketDatabase {
 
 	private static function getIndexStatement( BucketSchemaField $field, IDatabase $dbw ): string {
 		$fieldName = $dbw->addIdentifierQuotes( $field->getFieldName() );
-		switch ( $field->getDatabaseValueType( true ) ) {
+		switch ( $field->getSubDatabaseValueType() ) {
 			case DatabaseValueType::Text:
 				// More than 40 characters can cause a MySQL error 1713: Undo log record is too big.
 				return "INDEX $fieldName($fieldName(40))";

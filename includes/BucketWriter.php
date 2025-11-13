@@ -143,16 +143,10 @@ class BucketWriter {
 				$singlePut = [];
 				foreach ( $fields as $key => $_ ) {
 					$value = $singleData[$key] ?? null;
+					$originalValue = $value;
 					try {
 						$field = $bucketSchema->getFields()[$key];
 						if ( $field->getRepeated() === true ) {
-							// Non-repeated copy of field
-							$singleField = new BucketSchemaField(
-								$field->getFieldName(),
-								$field->getType(),
-								true,
-								false
-							);
 							if ( !is_array( $value ) ) {
 								// Wrap single values in an array for compatability
 								$value = [ $value ];
@@ -166,13 +160,13 @@ class BucketWriter {
 								$repeatedPut[$dbw->addIdentifierQuotes( '_page_id' )] = $pageId;
 								$repeatedPut[$dbw->addIdentifierQuotes( '_index' )] = $idx;
 								$repeatedPut[$dbw->addIdentifierQuotes( $key )] =
-									$singleField->castValueForDatabase( $single );
+									$field->castSubValueForDatabase( $single );
 								$tablePuts[
 									BucketDatabase::getRepeatedFieldTableName( $bucketName, $key )
 								][] = $repeatedPut;
 							}
 						}
-						$singlePut[$dbw->addIdentifierQuotes( $key )] = $field->castValueForDatabase( $value );
+						$singlePut[$dbw->addIdentifierQuotes( $key )] = $field->castValueForDatabase( $originalValue );
 					} catch ( BucketException $e ) {
 						$singlePut[$dbw->addIdentifierQuotes( $key )] = null;
 						self::logIssue(

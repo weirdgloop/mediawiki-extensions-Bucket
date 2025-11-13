@@ -36,7 +36,7 @@ class Bucket {
 		if ( $fieldName !== null
 			&& self::isValidName( $fieldName )
 		) {
-			$cleanName = trim( $fieldName );
+			$cleanName = strtolower( trim( $fieldName ) );
 			$dbw = BucketDatabase::getDB();
 			$fullName = $dbw->tableName( BucketDatabase::getRepeatedFieldTableName( $bucketName, $cleanName ), 'raw' );
 			// MySQL has a maximum of 64 characters for a table name
@@ -236,14 +236,14 @@ class BucketSchemaField implements JsonSerializable {
 			$fieldName, BucketValueType::from( $jsonRow['type'] ), $jsonRow['index'], $jsonRow['repeated'] );
 	}
 
-	/**
-	 * The ValueType that this field is stored as in the database.
-	 * @param bool $ignoreRepeated - if true will return the type of the repeated query table
-	 */
-	public function getDatabaseValueType( bool $ignoreRepeated = false ): DatabaseValueType {
-		if ( $this->getRepeated() && !$ignoreRepeated ) {
+	public function getDatabaseValueType(): DatabaseValueType {
+		if ( $this->getRepeated() ) {
 			return DatabaseValueType::Json;
 		}
+		return $this->getSubDatabaseValueType();
+	}
+
+	public function getSubDatabaseValueType(): DatabaseValueType {
 		switch ( $this->getType() ) {
 			case BucketValueType::Text:
 			case BucketValueType::Page:
@@ -260,13 +260,42 @@ class BucketSchemaField implements JsonSerializable {
 	}
 
 	public function castValueForDatabase( mixed $value ): mixed {
+		if ( $this->getRepeated() ) {
+			if ( !is_array( $value ) ) {
+				// Wrap single values in an array for compatability
+				$value = [ $value ];
+			}
+			$value = array_values( $value );
+			$outputValues = [];
+			foreach ( $value as $single ) {
+				if ( $single === null ) {
+					continue;
+				}
+				$outputValues[] = $this->castSubValueForDatabase( $single );
+			}
+			if ( count( $outputValues ) === 0 ) {
+				return null;
+			}
+			$jsonValue = json_encode( $outputValues );
+			if ( strlen( $jsonValue ) > Bucket::TEXT_BYTE_LIMIT ) {
+				throw new BucketException( wfMessage( 'bucket-put-repeated-total-too-long' )
+					->numParams( strlen( $jsonValue ), Bucket::TEXT_BYTE_LIMIT ) );
+			}
+			return json_encode( $outputValues );
+		}
+		return $this->castSubValueForDatabase( $value );
+	}
+
+	public function castSubValueForDatabase( mixed $value ): mixed {
 		if ( $value === null ) {
 			return null;
 		}
-		switch ( $this->getDatabaseValueType() ) {
+		switch ( $this->getSubDatabaseValueType() ) {
 			case DatabaseValueType::Text:
 				if ( is_array( $value ) ) {
 					$value = json_encode( $value );
+				} else {
+					$value = strval( $value );
 				}
 				if ( strlen( $value ) > Bucket::TEXT_BYTE_LIMIT ) {
 					throw new BucketException( wfMessage( 'bucket-put-text-too-long' )
@@ -280,23 +309,6 @@ class BucketSchemaField implements JsonSerializable {
 			case DatabaseValueType::Boolean:
 				// MySQL uses 1 for true, 0 for false
 				return (int)filter_var( $value, FILTER_VALIDATE_BOOL );
-			case DatabaseValueType::Json:
-				if ( !is_array( $value ) ) {
-					// Wrap single values in an array for compatability
-					$value = [ $value ];
-				}
-				$value = array_values( $value );
-				$outputValues = [];
-				foreach ( $value as $single ) {
-					if ( $single === null ) {
-						continue;
-					}
-					$outputValues[] = $single;
-				}
-				if ( count( $outputValues ) === 0 ) {
-					return null;
-				}
-				return json_encode( $outputValues );
 			default:
 				return null;
 		}

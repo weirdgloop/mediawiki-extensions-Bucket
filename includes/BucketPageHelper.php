@@ -112,7 +112,7 @@ class BucketPageHelper {
 
 		if ( $dataType == 'PAGE' && strlen( $value ) > 0 ) {
 			$renderer = MediaWikiServices::getInstance()->getLinkRenderer();
-			$link = TitleValue::tryNew( 0, strval( $value ) );
+			$link = TitleValue::tryNew( 0, $value );
 			if ( $link != null ) {
 				return Html::rawElement(
 					'div', [ 'class' => $class ], $renderer->makePreloadedLink( $link ) );
