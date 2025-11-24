@@ -9,7 +9,9 @@ use MediaWiki\MediaWikiServices;
 use MediaWiki\Title\Title;
 use Wikimedia\Rdbms\IDatabase;
 use Wikimedia\Rdbms\IExpression;
+use Wikimedia\Rdbms\RawSQLExpression;
 use Wikimedia\Rdbms\SelectQueryBuilder;
+use Wikimedia\Rdbms\Subquery;
 
 /**
  * @property BucketSchema[] $schemas - The schema objects, populated from self::$schemaCache
@@ -252,11 +254,7 @@ class BucketQuery {
 		}
 
 		foreach ( $this->joins as $join ) {
-			if ( $join instanceof CategoryJoin ) {
-				$builder->leftJoin( $dbw->tableName( 'categorylinks' ), $join->getAlias(), $join->getSQL( $dbw ) );
-			} else {
-				$builder->leftJoin( $join->getAlias(), $join->getAlias(), $join->getSQL( $dbw ) );
-			}
+			$builder->leftJoin( $join->getJoinTable( $dbw ), $join->getAlias(), $join->getSQL( $dbw ) );
 		}
 
 		$builder->where( $this->getWhereSQL( $dbw ) );
@@ -281,8 +279,42 @@ class BucketQuery {
 	private function parseWhere( array|string $condition ): QueryNode {
 		if ( self::isOrAnd( $condition ) ) {
 			$children = [];
+			$subqueryChildren = [];
+			$subquerySelectors = [];
 			foreach ( $condition['operands'] as $operand ) {
-				$children[] = $this->parseWhere( $operand );
+				$child = $this->parseWhere( $operand );
+				// Temporary repeated field migration step
+				if ( Bucket::isForceOldRepeated() ) {
+					$children[] = $child;
+					continue;
+				}
+				// End temporary repeated field migration step
+				if ( $child instanceof ComparisonConditionNode ) {
+					$selector = $child->getSelector();
+					if (
+						$selector instanceof FieldSelector
+						&& $child->getValue() !== null
+						&& $selector->getFieldSchema()->getRepeated() === true
+					) {
+						$fieldName = $selector->getFieldSchema()->getFieldName();
+						if ( !isset( $subqueryChildren[$fieldName] ) ) {
+							$subqueryChildren[$fieldName] = [];
+							$subquerySelectors[$fieldName] = $selector;
+						}
+						$subqueryChildren[$fieldName][] = $child;
+						$child->getSelector()->setSubquery( true );
+						continue;
+					}
+				}
+				$children[] = $child;
+			}
+			foreach ( $subqueryChildren as $fieldName => $group ) {
+				if ( $condition['op'] === 'OR' ) {
+					$newNode = new OrNode( $group );
+				} else {
+					$newNode = new AndNode( $group );
+				}
+				$children[] = new SubqueryNode( $subquerySelectors[$fieldName], $newNode );
 			}
 			if ( $condition['op'] === 'OR' ) {
 				return new OrNode( $children );
@@ -322,6 +354,8 @@ class BucketQuery {
 abstract class Join {
 	abstract public function getSQL( IDatabase $dbw ): array;
 
+	abstract public function getJoinTable( IDatabase $dbw ): string|SelectQueryBuilder;
+
 	abstract public function getAlias(): string;
 }
 
@@ -331,6 +365,8 @@ class BucketJoin extends Join {
 	private FieldSelector $selector2;
 
 	public function __construct( BucketSchema $joinedTable, string $field1, string $field2, BucketQuery $query ) {
+		// TODO What does joining between 2 repeated fields look like?
+		// TODO Is performance now better for the joining on one repeated field case?
 		$this->joinedTable = $joinedTable;
 		$selector1 = new FieldSelector( $field1, $query );
 		$selector2 = new FieldSelector( $field2, $query );
@@ -356,6 +392,10 @@ class BucketJoin extends Join {
 		$this->selector2 = $selector2;
 	}
 
+	public function getJoinTable( IDatabase $dbw ): string {
+		return $this->joinedTable->getTableName();
+	}
+
 	public function getAlias(): string {
 		return $this->joinedTable->getTableName();
 	}
@@ -365,13 +405,7 @@ class BucketJoin extends Join {
 		$selector1Safe = $selector1->getSafe( $dbw );
 		$selector2 = $this->selector2;
 		$selector2Safe = $selector2->getSafe( $dbw );
-		if ( $selector1->getFieldSchema()->getRepeated() ) {
-			return [ "$selector2Safe MEMBER OF($selector1Safe)" ];
-		} elseif ( $selector2->getFieldSchema()->getRepeated() ) {
-			return [ "$selector1Safe MEMBER OF($selector2Safe)" ];
-		} else {
-			return [ "$selector1Safe = $selector2Safe" ];
-		}
+		return [ "$selector1Safe = $selector2Safe" ];
 	}
 }
 
@@ -387,6 +421,10 @@ class CategoryJoin extends Join {
 		$this->categorySelector = new CategorySelector( $categoryName, $query );
 		$this->categoryName = $categoryName;
 		$this->query = $query;
+	}
+
+	public function getJoinTable( IDatabase $dbw ): string {
+		return $dbw->tableName( 'categorylinks' );
 	}
 
 	public function getAlias(): string {
@@ -408,8 +446,6 @@ class CategoryJoin extends Join {
  * @property QueryNode[] $children
  */
 abstract class QueryNode {
-	protected array $children;
-
 	abstract public function getWhereSQL( IDatabase $dbw ): IExpression;
 }
 
@@ -425,14 +461,15 @@ class NotNode extends QueryNode {
 	}
 }
 
-class OrNode extends QueryNode {
-	/**
-	 * @param QueryNode[] $children
-	 */
+abstract class GroupNode extends QueryNode {
+	protected array $children;
+
 	public function __construct( array $children ) {
 		$this->children = $children;
 	}
+}
 
+class OrNode extends GroupNode {
 	public function getWhereSQL( IDatabase $dbw ): IExpression {
 		$childSQLs = array_map( static function ( QueryNode $child ) use ( $dbw ) {
 			return $child->getWhereSQL( $dbw );
@@ -441,19 +478,38 @@ class OrNode extends QueryNode {
 	}
 }
 
-class AndNode extends QueryNode {
-	/**
-	 * @param QueryNode[] $children
-	 */
-	public function __construct( array $children ) {
-		$this->children = $children;
-	}
-
+class AndNode extends GroupNode {
 	public function getWhereSQL( IDatabase $dbw ): IExpression {
 		$childSQLs = array_map( static function ( QueryNode $child ) use ( $dbw ) {
 			return $child->getWhereSQL( $dbw );
 		}, $this->children );
 		return $dbw->andExpr( $childSQLs );
+	}
+}
+
+class SubqueryNode extends QueryNode {
+	private FieldSelector $selector;
+	private QueryNode $child;
+
+	public function __construct( FieldSelector $selector, QueryNode $child ) {
+		$this->selector = $selector;
+		$this->child = $child;
+	}
+
+	public function getWhereSQL( IDatabase $dbw ): IExpression {
+		$selector = $this->selector;
+		$repeatedFieldTable = BucketDatabase::getSubTableName(
+			$selector->getBucketSchema()->getName(),
+			$selector->getFieldSchema()->getFieldName() );
+		$subquery = $dbw->newSelectQueryBuilder()
+			->from( $repeatedFieldTable )
+			->select( [ '_page_id', '_index' ] )
+			->where( $this->child->getWhereSQL( $dbw ) )
+			->caller( __METHOD__ );
+		$subquery = $subquery->getSQL();
+		$tableNameSafe = $dbw->tableName( $selector->getBucketSchema()->getTableName() );
+		$in = "($tableNameSafe._page_id, $tableNameSafe._index) IN ";
+		return new RawSQLExpression( $in . new Subquery( $subquery ) );
 	}
 }
 
@@ -469,40 +525,46 @@ class ComparisonConditionNode extends QueryNode {
 	}
 
 	public function getWhereSQL( IDatabase $dbw ): IExpression {
-		$dbw = BucketDatabase::getDB();
 		$selector = $this->selector;
-		$fieldName = $selector->getUnsafe();
 		$op = $this->operator->getOperator();
 		$value = $this->value->getValue();
 
-		if (
-			$selector instanceof FieldSelector
-			// Null check is the same for repeated and non repeated fields
+		// Temporary repeated field migration
+		if ( Bucket::isForceOldRepeated()
+			&& $selector instanceof FieldSelector
 			&& $value !== null
 			&& $selector->getFieldSchema()->getRepeated() === true
 		) {
 			if ( $op === '=' || $op === '!=' ) {
-				/**
-				 * >, <, >=, <= operators are disallowed on repeated fields, so the type
-				 * does not matter, as long as the type matches what is being indexed.
-				 * The simplest way to accomplish this is ensure every repeated value is stored
-				 * and queried as a string.
-				 */
-				return new MemberOfExpression( $fieldName, $op, strval( $value ) );
+				return new MemberOfExpression( $selector->getUnsafe(), $op, strval( $value ) );
 			}
-			throw new QueryException( wfMessage( 'bucket-query-where-repeated-unsupported', $op, $fieldName ) );
-		} else {
-			return $dbw->expr( $selector->getUnsafe(), $op, $value );
 		}
+		// End temporary repeated field migration
+
+		return $dbw->expr( $selector->getUnsafe(), $op, $value );
+	}
+
+	public function getSelector(): Selector {
+		return $this->selector;
+	}
+
+	public function getValue(): Value {
+		return $this->value;
 	}
 }
 
 abstract class Selector {
+	protected bool $subquery = false;
+
 	abstract public function getSafe( IDatabase $dbw ): string;
 
 	abstract public function getUnsafe(): string;
 
 	abstract public function getSelectSQL( IDatabase $dbw ): string;
+
+	public function setSubquery( bool $subquery ): void {
+		$this->subquery = $subquery;
+	}
 }
 
 class FieldSelector extends Selector {
@@ -540,8 +602,16 @@ class FieldSelector extends Selector {
 	}
 
 	public function getUnsafe(): string {
-		return BucketDatabase::getBucketTableName( $this->schema->getName() )
-			. '.' . $this->schemaField->getFieldName();
+		if ( $this->subquery ) {
+			$repeatedFieldTable = BucketDatabase::getSubTableName(
+				$this->getBucketSchema()->getName(),
+				$this->getFieldSchema()->getFieldName()
+			);
+			return $repeatedFieldTable . '.' . $this->getFieldSchema()->getFieldName();
+		} else {
+			return BucketDatabase::getBucketTableName( $this->schema->getName() )
+				. '.' . $this->schemaField->getFieldName();
+		}
 	}
 
 	public function getSelectSQL( IDatabase $dbw ): string {

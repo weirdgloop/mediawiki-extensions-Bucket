@@ -52,7 +52,7 @@ class BucketWriter {
 
 		$schemas = [];
 
-		if ( count( $puts ) > 0 ) {
+		if ( count( $puts ) > 0 || count( $bucket_hash ) > 0 ) {
 			// Combine existing written bucket list and new written bucket list.
 			$relevantBuckets = array_merge( array_keys( $puts ), array_keys( $bucket_hash ) );
 			$res = $dbw->newSelectQueryBuilder()
@@ -78,7 +78,7 @@ class BucketWriter {
 			}
 
 			try {
-				$bucketNameTmp = Bucket::getValidFieldName( $bucketName );
+				$bucketNameTmp = Bucket::getValidBucketName( $bucketName );
 			} catch ( SchemaException ) {
 				self::logIssue(
 					$bucketName, '', 'bucket-general-warning', wfMessage(
@@ -143,9 +143,30 @@ class BucketWriter {
 				$singlePut = [];
 				foreach ( $fields as $key => $_ ) {
 					$value = $singleData[$key] ?? null;
+					$originalValue = $value;
 					try {
-						$singlePut[$dbw->addIdentifierQuotes( $key )] =
-							$bucketSchema->getField( $key )->castValueForDatabase( $value );
+						$field = $bucketSchema->getFields()[$key];
+						if ( $field->getRepeated() === true ) {
+							if ( !is_array( $value ) ) {
+								// Wrap single values in an array for compatability
+								$value = [ $value ];
+							}
+							$value = array_values( $value );
+							foreach ( $value as $single ) {
+								if ( $single === null ) {
+									continue;
+								}
+								$repeatedPut = [];
+								$repeatedPut[$dbw->addIdentifierQuotes( '_page_id' )] = $pageId;
+								$repeatedPut[$dbw->addIdentifierQuotes( '_index' )] = $idx;
+								$repeatedPut[$dbw->addIdentifierQuotes( $key )] =
+									$field->castSubValueForDatabase( $single );
+								$tablePuts[
+									BucketDatabase::getSubTableName( $bucketName, $key )
+								][] = $repeatedPut;
+							}
+						}
+						$singlePut[$dbw->addIdentifierQuotes( $key )] = $field->castValueForDatabase( $originalValue );
 					} catch ( BucketException $e ) {
 						$singlePut[$dbw->addIdentifierQuotes( $key )] = null;
 						self::logIssue(
@@ -159,7 +180,7 @@ class BucketWriter {
 				if ( isset( $sub ) && strlen( $sub ) > 0 ) {
 					$singlePut[$dbw->addIdentifierQuotes( 'page_name_sub' )] = $titleText . '#' . $sub;
 				}
-				$tablePuts[$idx] = $singlePut;
+				$tablePuts[$dbTableName][$idx] = $singlePut;
 			}
 
 			# Check these puts against the hash of the last time we did puts.
@@ -176,17 +197,19 @@ class BucketWriter {
 			if ( $putLength <= $maxiumPutLength || $writingLogs ) {
 				$newPutHashes[$bucketName] =
 					[ '_page_id' => $pageId, 'bucket_name' => $bucketName, 'put_hash' => $newHash ];
-
-				$dbw->newDeleteQueryBuilder()
-					->deleteFrom( $dbTableName )
-					->where( [ '_page_id' => $pageId ] )
-					->caller( __METHOD__ )
-					->execute();
-				$dbw->newInsertQueryBuilder()
-					->insert( $dbTableName )
-					->rows( $tablePuts )
-					->caller( __METHOD__ )
-					->execute();
+				// $tablePuts contains a list of DB names and the data that should be written to them
+				foreach ( $tablePuts as $singleTableName => $singleTablePuts ) {
+					$dbw->newDeleteQueryBuilder()
+						->deleteFrom( $singleTableName )
+						->where( [ '_page_id' => $pageId ] )
+						->caller( __METHOD__ )
+						->execute();
+					$dbw->newInsertQueryBuilder()
+						->insert( $singleTableName )
+						->rows( $singleTablePuts )
+						->caller( __METHOD__ )
+						->execute();
+				}
 			}
 		}
 
@@ -223,12 +246,16 @@ class BucketWriter {
 				->where( [ '_page_id' => $pageId, 'bucket_name' => $tablesToDelete ] )
 				->caller( __METHOD__ )
 				->execute();
-			foreach ( $tablesToDelete as $name ) {
-				$dbw->newDeleteQueryBuilder()
-					->deleteFrom( BucketDatabase::getBucketTableName( $name ) )
-					->where( [ '_page_id' => $pageId ] )
-					->caller( __METHOD__ )
-					->execute();
+			foreach ( $tablesToDelete as $baseName ) {
+				$tables = BucketDatabase::getBucketSubTableNames( $baseName, $schemas[$baseName] );
+				$tables[] = BucketDatabase::getBucketTableName( $baseName );
+				foreach ( $tables as $name ) {
+					$dbw->newDeleteQueryBuilder()
+						->deleteFrom( $name )
+						->where( [ '_page_id' => $pageId ] )
+						->caller( __METHOD__ )
+						->execute();
+				}
 			}
 		}
 	}
