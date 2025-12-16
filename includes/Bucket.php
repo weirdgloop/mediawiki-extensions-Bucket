@@ -4,6 +4,7 @@ namespace MediaWiki\Extension\Bucket;
 
 use JsonSerializable;
 use LogicException;
+use MediaWiki\Logger\LoggerFactory;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Message\Message;
 use Wikimedia\Rdbms\IDatabase;
@@ -90,6 +91,7 @@ class Bucket {
 		$query = new BucketQuery( $userInput );
 		$fieldNames = $query->getFields();
 		$selectQueryBuilder = $query->getSelectQueryBuilder();
+		LoggerFactory::getInstance( 'bucket' )->debug( 'bucket sql', [ 'sql' => $selectQueryBuilder->getSQL() ] );
 
 		$sql_string = '';
 
@@ -115,6 +117,7 @@ class Bucket {
 			}
 			$result[] = $resultRow;
 		}
+		LoggerFactory::getInstance( 'bucket' )->debug( 'bucket result count', [ 'count' => count( $result ) ] );
 		return [ $result, $sql_string ];
 	}
 }
