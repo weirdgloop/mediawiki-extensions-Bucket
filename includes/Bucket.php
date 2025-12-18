@@ -4,6 +4,8 @@ namespace MediaWiki\Extension\Bucket;
 
 use JsonSerializable;
 use LogicException;
+use MediaWiki\Logger\LoggerFactory;
+use MediaWiki\MediaWikiServices;
 use MediaWiki\Message\Message;
 use Wikimedia\Rdbms\IDatabase;
 
@@ -11,20 +13,44 @@ class Bucket {
 	public const EXTENSION_DATA_KEY = 'bucket:puts';
 	public const EXTENSION_BUCKET_NAMES_KEY = 'bucket:puts_bucket_names';
 	public const ISSUES_BUCKET = 'bucket_issues';
-	public const REPEATED_CHARACTER_LIMIT = 512;
-	public const REPEATED_CHARACTER_TOTAL_LIMIT = 5254;
 	public const TEXT_BYTE_LIMIT = 65535;
 
-	public static function getValidFieldName( ?string $fieldName ): string {
+	public static function isForceOldRepeated(): bool {
+		$config = MediaWikiServices::getInstance()->getMainConfig();
+		return $config->get( 'BucketForceOldRepeatedQuery' );
+	}
+
+	private static function isValidName( string $name ): bool {
+		if (
+			// Disallow numeric names as the MW RDBMS treats numeric tables names as ints in some circumstances.
+			is_numeric( $name ) === false
+			&& !str_starts_with( $name, '_' )
+			&& strpos( $name, '__' ) === false
+			&& preg_match( '/^[a-zA-Z0-9_]+$/D', $name )
+		) {
+			return true;
+		}
+		return false;
+	}
+
+	public static function getValidFieldName( string $bucketName, ?string $fieldName ): string {
 		if ( $fieldName !== null
-			// Disallow numeric field names as the MW RDBMS treats numeric tables names as ints in some circumstances.
-			&& is_numeric( $fieldName ) === false
-			&& !str_starts_with( $fieldName, '_' )
-			&& preg_match( '/^[a-zA-Z0-9_]+$/D', $fieldName ) ) {
+			&& self::isValidName( $fieldName )
+		) {
 			$cleanName = strtolower( trim( $fieldName ) );
-			// MySQL has a maximum of 64, lets limit it to 60 in case we need to append to fields for some reason later
-			if ( strlen( $cleanName ) <= 60 ) {
+			$dbw = BucketDatabase::getDB();
+			$fullName = $dbw->tableName( BucketDatabase::getSubTableName( $bucketName, $cleanName ), 'raw' );
+			// MySQL has a maximum of 64 characters for a table name
+			if ( strlen( $fullName ) <= 64 ) {
 				return $cleanName;
+			} else {
+				throw new SchemaException(
+					wfMessage( 'bucket-long-field-name-error' )
+						->params( $fieldName )
+						->numParams( [
+							strlen( $cleanName ),
+							64 - strlen( $dbw->tableName( BucketDatabase::getSubTableName( $bucketName, '' ), 'raw' ) )
+						] ) );
 			}
 		}
 		throw new SchemaException( wfMessage( 'bucket-schema-invalid-field-name', $fieldName ) );
@@ -34,17 +60,23 @@ class Bucket {
 		if ( ucfirst( $bucketName ) !== ucfirst( strtolower( $bucketName ) ) ) {
 			throw new SchemaException( wfMessage( 'bucket-capital-name-error' ) );
 		}
-		$cleanName = strtolower( trim( $bucketName ) );
-		// Add MW prefix to name to check total length
-		$fullTableName = BucketDatabase::getDB()->tableName( BucketDatabase::getBucketTableName( $cleanName ), 'raw' );
-		if ( strlen( $fullTableName ) > 60 ) {
-			throw new SchemaException( wfMessage( 'bucket-invalid-name-warning', $bucketName ) );
+		if ( self::isValidName( $bucketName ) ) {
+			$cleanName = strtolower( trim( $bucketName ) );
+			$dbw = BucketDatabase::getDB();
+			$fullName = $dbw->tableName( BucketDatabase::getSubTableName( $bucketName, '' ), 'raw' );
+			if ( strlen( $fullName ) <= 55 ) {
+				return $cleanName;
+			} else {
+				throw new SchemaException(
+					wfMessage( 'bucket-long-bucket-name-error' )
+						->params( $bucketName )
+						->numParams( [
+							strlen( $cleanName ),
+							55 - strlen( $dbw->tableName( BucketDatabase::getBucketTableName( '' ), 'raw' ) )
+						] ) );
+			}
 		}
-		try {
-			return self::getValidFieldName( $cleanName );
-		} catch ( SchemaException ) {
-			throw new SchemaException( wfMessage( 'bucket-invalid-name-warning', $bucketName ) );
-		}
+		throw new SchemaException( wfMessage( 'bucket-invalid-name-warning', $bucketName ) );
 	}
 
 	public static function writePuts( int $pageId, string $titleText, array $puts ) {
@@ -59,6 +91,7 @@ class Bucket {
 		$query = new BucketQuery( $userInput );
 		$fieldNames = $query->getFields();
 		$selectQueryBuilder = $query->getSelectQueryBuilder();
+		LoggerFactory::getInstance( 'bucket' )->debug( 'bucket sql', [ 'sql' => $selectQueryBuilder->getSQL() ] );
 
 		$sql_string = '';
 
@@ -84,6 +117,7 @@ class Bucket {
 			}
 			$result[] = $resultRow;
 		}
+		LoggerFactory::getInstance( 'bucket' )->debug( 'bucket result count', [ 'count' => count( $result ) ] );
 		return [ $result, $sql_string ];
 	}
 }
@@ -221,37 +255,66 @@ class BucketSchemaField implements JsonSerializable {
 			$fieldName, BucketValueType::from( $jsonRow['type'] ), $jsonRow['index'], $jsonRow['repeated'] );
 	}
 
-	/**
-	 * The ValueType that this field is stored as in the database.
-	 */
 	public function getDatabaseValueType(): DatabaseValueType {
 		if ( $this->getRepeated() ) {
 			return DatabaseValueType::Json;
-		} else {
-			switch ( $this->getType() ) {
-				case BucketValueType::Text:
-				case BucketValueType::Page:
-					return DatabaseValueType::Text;
-				case BucketValueType::Boolean:
-					return DatabaseValueType::Boolean;
-				case BucketValueType::Double:
-					return DatabaseValueType::Double;
-				case BucketValueType::Integer:
-					return DatabaseValueType::Integer;
-				default:
-					return DatabaseValueType::Text;
-			}
+		}
+		return $this->getSubDatabaseValueType();
+	}
+
+	public function getSubDatabaseValueType(): DatabaseValueType {
+		switch ( $this->getType() ) {
+			case BucketValueType::Text:
+			case BucketValueType::Page:
+				return DatabaseValueType::Text;
+			case BucketValueType::Boolean:
+				return DatabaseValueType::Boolean;
+			case BucketValueType::Double:
+				return DatabaseValueType::Double;
+			case BucketValueType::Integer:
+				return DatabaseValueType::Integer;
+			default:
+				return DatabaseValueType::Text;
 		}
 	}
 
 	public function castValueForDatabase( mixed $value ): mixed {
+		if ( $this->getRepeated() ) {
+			if ( !is_array( $value ) ) {
+				// Wrap single values in an array for compatability
+				$value = [ $value ];
+			}
+			$value = array_values( $value );
+			$outputValues = [];
+			foreach ( $value as $single ) {
+				if ( $single === null ) {
+					continue;
+				}
+				$outputValues[] = $this->castSubValueForDatabase( $single );
+			}
+			if ( count( $outputValues ) === 0 ) {
+				return null;
+			}
+			$jsonValue = json_encode( $outputValues );
+			if ( strlen( $jsonValue ) > Bucket::TEXT_BYTE_LIMIT ) {
+				throw new BucketException( wfMessage( 'bucket-put-repeated-total-too-long' )
+					->numParams( strlen( $jsonValue ), Bucket::TEXT_BYTE_LIMIT ) );
+			}
+			return json_encode( $outputValues );
+		}
+		return $this->castSubValueForDatabase( $value );
+	}
+
+	public function castSubValueForDatabase( mixed $value ): mixed {
 		if ( $value === null ) {
 			return null;
 		}
-		switch ( $this->getDatabaseValueType() ) {
+		switch ( $this->getSubDatabaseValueType() ) {
 			case DatabaseValueType::Text:
 				if ( is_array( $value ) ) {
 					$value = json_encode( $value );
+				} else {
+					$value = strval( $value );
 				}
 				if ( strlen( $value ) > Bucket::TEXT_BYTE_LIMIT ) {
 					throw new BucketException( wfMessage( 'bucket-put-text-too-long' )
@@ -265,41 +328,6 @@ class BucketSchemaField implements JsonSerializable {
 			case DatabaseValueType::Boolean:
 				// MySQL uses 1 for true, 0 for false
 				return (int)filter_var( $value, FILTER_VALIDATE_BOOL );
-			case DatabaseValueType::Json:
-				if ( !is_array( $value ) ) {
-					// Wrap single values in an array for compatability
-					$value = [ $value ];
-				}
-				$value = array_values( $value );
-				$castValues = [];
-				$totalLength = 0;
-				foreach ( $value as $single ) {
-					if ( $single === null ) {
-						continue;
-					}
-					/**
-					 * >, <, >=, <= operators are disallowed on repeated fields, so the type
-					 * does not matter, as long as the type matches what is being queried.
-					 * The simplest way to accomplish this is ensure every repeated value is stored
-					 * and queried as a string.
-					 */
-					$castValue = strval( $single );
-					$castValues[] = $castValue;
-					// Repeated fields can only store up to 512 characters in an individual value
-					if ( strlen( $castValue ) > Bucket::REPEATED_CHARACTER_LIMIT ) {
-						throw new BucketException( wfMessage( 'bucket-put-repeated-too-long' )
-							->numParams( Bucket::REPEATED_CHARACTER_LIMIT ) );
-					}
-					$totalLength = $totalLength + strlen( $castValue );
-				}
-				if ( $totalLength > Bucket::REPEATED_CHARACTER_TOTAL_LIMIT ) {
-					throw new BucketException( wfMessage( 'bucket-put-repeated-total-too-long' )
-						->numParams( $totalLength, Bucket::REPEATED_CHARACTER_TOTAL_LIMIT ) );
-				}
-				if ( count( $castValues ) === 0 ) {
-					return null;
-				}
-				return json_encode( $castValues );
 			default:
 				return null;
 		}
@@ -327,14 +355,17 @@ class BucketSchemaField implements JsonSerializable {
 				$ret[] = $nonRepeatedData->castValueForLua( $subVal );
 			}
 			return $ret;
-		} elseif ( $type === BucketValueType::Text || $type === BucketValueType::Page ) {
-			return $value;
-		} elseif ( $type === BucketValueType::Double ) {
-			return floatval( $value );
-		} elseif ( $type === BucketValueType::Integer ) {
-			return intval( $value );
-		} elseif ( $type === BucketValueType::Boolean ) {
-			return boolval( $value );
+		}
+		switch ( $type ) {
+			case BucketValueType::Text:
+			case BucketValueType::Page:
+				return $value;
+			case BucketValueType::Double:
+				return floatval( $value );
+			case BucketValueType::Integer:
+				return intval( $value );
+			case BucketValueType::Boolean:
+				return boolval( $value );
 		}
 	}
 }
