@@ -62,8 +62,8 @@ class CreateRepeatedTables extends Maintenance {
 			foreach ( $bucketSchema->getFields() as $field ) {
 				if ( $field->getRepeated() ) {
 					$statement = BucketDatabase::getCreateRepeatedTableStatement( $bucketSchema, $field, $dbw );
-					$tableNames[] = $statement[0];
-					$query[] = $statement[1];
+					$tableNames[] = $statement['permissionName'];
+					$query[] = $statement['statement'];
 				}
 			}
 
