@@ -7,6 +7,7 @@ use LogicException;
 use MediaWiki\Logger\LoggerFactory;
 use MediaWiki\Message\Message;
 use Wikimedia\Rdbms\IDatabase;
+use Wikimedia\Rdbms\IExpression;
 
 class Bucket {
 	public const EXTENSION_DATA_KEY = 'bucket:puts';
@@ -60,7 +61,6 @@ class Bucket {
 		$query = new BucketQuery( $userInput );
 		$fieldNames = $query->getFields();
 		$selectQueryBuilder = $query->getSelectQueryBuilder();
-		LoggerFactory::getInstance( 'bucket' )->debug( 'bucket sql', [ 'sql' => $selectQueryBuilder->getSQL() ] );
 
 		$sql_string = '';
 
@@ -86,7 +86,19 @@ class Bucket {
 			}
 			$result[] = $resultRow;
 		}
-		LoggerFactory::getInstance( 'bucket' )->debug( 'bucket result count', [ 'count' => count( $result ) ] );
+
+		$conds = $selectQueryBuilder->getQueryInfo()['conds'];
+		if ( is_array( $conds ) && count( $conds ) > 0 && $conds[0] instanceof IExpression ) {
+			$generalized_sql = $conds[0]->toGeneralizedSql();
+		}
+
+		LoggerFactory::getInstance( 'bucket' )->debug( 'bucket query',
+			[
+				'bucket_count' => count( $result ),
+				'bucket_sql' => $selectQueryBuilder->getSQL(),
+				'bucket_generalized_sql' => $generalized_sql
+			] );
+
 		return [ $result, $sql_string ];
 	}
 }
