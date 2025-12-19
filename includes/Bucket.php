@@ -96,7 +96,8 @@ class Bucket {
 			[
 				'bucket_count' => count( $result ),
 				'bucket_sql' => $selectQueryBuilder->getSQL(),
-				'bucket_generalized_sql' => $generalized_sql
+				'bucket_generalized_sql' => $generalized_sql,
+				'bucket_page' => MediaWikiServices::getInstance()->getParser()->getPage()->__toString()
 			] );
 
 		return [ $result, $sql_string ];
