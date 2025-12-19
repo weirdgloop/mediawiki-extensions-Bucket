@@ -7,13 +7,13 @@
 
 $specialPageAliases = [];
 
-/** German (Deutsch) */
+/** English (English) */
 $specialPageAliases['en'] = [
 	'Bucket' => [ 'Bucket' ],
 ];
 
-/** English (English) */
-$specialPageAliases['en'] = [
+/** German (Deutsch) */
+$specialPageAliases['de'] = [
 	'Bucket' => [ 'Bucket' ],
 ];
 
