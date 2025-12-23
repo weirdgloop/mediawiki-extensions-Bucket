@@ -123,12 +123,14 @@ class Bucket {
 			$generalized_sql = $conds[0]->toGeneralizedSql();
 		}
 
+		$page = MediaWikiServices::getInstance()->getParser()->getPage();
+
 		LoggerFactory::getInstance( 'bucket' )->debug( 'bucket query',
 			[
 				'bucket_count' => count( $result ),
 				'bucket_sql' => $selectQueryBuilder->getSQL(),
 				'bucket_generalized_sql' => $generalized_sql,
-				'bucket_page' => MediaWikiServices::getInstance()->getParser()->getPage()->__toString()
+				'bucket_page' => $page ? $page->__toString() : null
 			] );
 
 		return [ $result, $sql_string ];
