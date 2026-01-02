@@ -263,8 +263,12 @@ class BucketSchemaField implements JsonSerializable {
 			case DatabaseValueType::Integer:
 				return intval( $value );
 			case DatabaseValueType::Boolean:
+				// FILTER_VALIDATE_BOOL converts "" to false which is undesired in this case
+				if ($value === "") {
+					return null;
+				}
 				// MySQL uses 1 for true, 0 for false
-				return (int)filter_var( $value, FILTER_VALIDATE_BOOL );
+				return (int)filter_var( $value, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE );
 			case DatabaseValueType::Json:
 				if ( !is_array( $value ) ) {
 					// Wrap single values in an array for compatability
