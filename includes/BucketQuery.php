@@ -393,7 +393,7 @@ class BucketJoin extends Join {
 	}
 
 	public function getJoinTable( IDatabase $dbw ): string {
-		return $dbw->tableName($this->joinedTable->getTableName());
+		return $dbw->tableName( $this->joinedTable->getTableName() );
 	}
 
 	public function getAlias(): string {
