@@ -221,7 +221,7 @@ class BucketDatabase {
 				if ( $typeChange ) {
 					$alterTableFragments[] = "DROP $escapedFieldName";
 					if ( $oldField !== null && $oldField->getRepeated() ) {
-						$repeatedTableName = self::getSubTableName( $bucketSchema->getName(), $fieldName );
+						$repeatedTableName = $dbw->tableName(self::getSubTableName( $bucketSchema->getName(), $fieldName ));
 						$tableStatements[] = [
 							'statement' => "DROP TABLE IF EXISTS $repeatedTableName;"
 						];
@@ -257,7 +257,7 @@ class BucketDatabase {
 			$escapedDeletedColumn = $dbw->addIdentifierQuotes( $deletedColumn );
 			$alterTableFragments[] = "DROP $escapedDeletedColumn";
 			if ( $val->getRepeated() === true ) {
-				$repeatedTableName = self::getSubTableName( $bucketSchema->getName(), $val->getFieldName() );
+				$repeatedTableName = $dbw->tableName(self::getSubTableName( $bucketSchema->getName(), $val->getFieldName() ));
 				$tableStatements[] = [
 					'statement' => "DROP TABLE IF EXISTS $repeatedTableName;"
 				];

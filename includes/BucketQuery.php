@@ -393,7 +393,7 @@ class BucketJoin extends Join {
 	}
 
 	public function getJoinTable( IDatabase $dbw ): string {
-		return $this->joinedTable->getTableName();
+		return $dbw->tableName($this->joinedTable->getTableName());
 	}
 
 	public function getAlias(): string {
@@ -507,7 +507,8 @@ class SubqueryNode extends QueryNode {
 			->where( $this->child->getWhereSQL( $dbw ) )
 			->caller( __METHOD__ );
 		$subquery = $subquery->getSQL();
-		$tableNameSafe = $dbw->tableName( $selector->getBucketSchema()->getTableName() );
+		// Should not be $dbw->tableName because the un-prefixed table name is an alias in the subquery
+		$tableNameSafe = $dbw->addIdentifierQuotes( $selector->getBucketSchema()->getTableName() );
 		$in = "($tableNameSafe._page_id, $tableNameSafe._index) IN ";
 		return new RawSQLExpression( $in . new Subquery( $subquery ) );
 	}
