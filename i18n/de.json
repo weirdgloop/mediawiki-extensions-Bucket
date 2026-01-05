@@ -46,6 +46,7 @@
 	"bucket-schema-outdated-error": "Das Bucket-Schema und die Tabelle stimmen nicht überein. Bitte bearbeite die Bucket-Seite, um die Tabelle neu zu synchronisieren",
 	"bucket-cannot-create-system-page": "Seitenerstellung für System-Buckets fehlgeschlagen",
 	"bucket-put-syntax-error": "bucket.put() Argument muss eine Tabelle sein",
+	"bucket-put-repeated-too-long": "Wiederholter Wert zu lang, einzelne Werte dürfen nicht länger als $1 Zeichen sein",
 	"bucket-put-total-too-long": "Zu viele Bucket-Daten auf der Seite geschrieben ($1 Zeichen). Das Limit beträgt $2 Zeichen",
 	"bucket-put-function-value": "Wert von bucket.put() darf keine Funktion sein",
 	"bucket-put-system-field": "Nicht in reserviertes Feld eingefügbar: $1",

@@ -52,6 +52,7 @@
 	"bucket-schema-outdated-error": "The bucket schema and table do not match. Please edit the bucket page to resynchronize the table",
 	"bucket-cannot-create-system-page": "Cannot create pages for system buckets",
 	"bucket-put-syntax-error": "bucket.put() argument must be a table",
+	"bucket-put-repeated-too-long": "Repeated value too long, individual values can be no more than $1 characters",
 	"bucket-put-repeated-total-too-long": "The repeated field is too large. Found $1 bytes, maximum allowed is $2 bytes",
 	"bucket-put-text-too-long": "Too much data in one text field. Found $1 bytes, maximum allowed is $2 bytes",
 	"bucket-put-total-too-long": "Too much bucket data written on page. Attempting to write $1 characters. Limit is $2 characters",

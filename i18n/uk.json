@@ -47,6 +47,7 @@
 	"bucket-schema-outdated-error": "Схема і таблиця Bucket не співпадають. Будь ласка, відредагуйте сторінку Bucket, щоб пересинхронізувати таблицю",
 	"bucket-cannot-create-system-page": "Не можна сторювати сторінки для системних Buckets",
 	"bucket-put-syntax-error": "Аргумент bucket.put() повинен бути таблицею",
+	"bucket-put-repeated-too-long": "Повторюване значення занадто довге, окремі значення не можуть містити більше $1 символів",
 	"bucket-put-total-too-long": "Забагато даних Bucket написано на сторінці. Спроба записати $1 символів. Обмеження — $2 символів",
 	"bucket-put-function-value": "Значення bucket.put() не може бути функцією",
 	"bucket-put-system-field": "Не можна помістити в зарезервоване поле: $1",

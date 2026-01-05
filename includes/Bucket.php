@@ -14,6 +14,8 @@ class Bucket {
 	public const EXTENSION_DATA_KEY = 'bucket:puts';
 	public const EXTENSION_BUCKET_NAMES_KEY = 'bucket:puts_bucket_names';
 	public const ISSUES_BUCKET = 'bucket_issues';
+	public const REPEATED_CHARACTER_LIMIT = 512;
+	public const REPEATED_CHARACTER_TOTAL_LIMIT = 5254;
 	public const TEXT_BYTE_LIMIT = 65535;
 
 	public static function isForceOldRepeated(): bool {
@@ -118,6 +120,7 @@ class Bucket {
 			$result[] = $resultRow;
 		}
 
+		$generalized_sql = null;
 		$conds = $selectQueryBuilder->getQueryInfo()['conds'];
 		if ( is_array( $conds ) && count( $conds ) > 0 && $conds[0] instanceof IExpression ) {
 			$generalized_sql = $conds[0]->toGeneralizedSql();
@@ -301,11 +304,22 @@ class BucketSchemaField implements JsonSerializable {
 			}
 			$value = array_values( $value );
 			$outputValues = [];
+			$totalLength = 0;
 			foreach ( $value as $single ) {
 				if ( $single === null ) {
 					continue;
 				}
-				$outputValues[] = $this->castSubValueForDatabase( $single );
+				$single = strval( $single );
+				$outputValues[] = $single;
+				if ( strlen( $single ) > Bucket::REPEATED_CHARACTER_LIMIT ) {
+					throw new BucketException( wfMessage( 'bucket-put-repeated-too-long' )
+							->numParams( Bucket::REPEATED_CHARACTER_LIMIT ) );
+				}
+				$totalLength = $totalLength + strlen( $single );
+			}
+			if ( $totalLength > Bucket::REPEATED_CHARACTER_TOTAL_LIMIT ) {
+				throw new BucketException( wfMessage( 'bucket-put-repeated-total-too-long' )
+					->numParams( $totalLength, Bucket::REPEATED_CHARACTER_TOTAL_LIMIT ) );
 			}
 			if ( count( $outputValues ) === 0 ) {
 				return null;
@@ -315,7 +329,7 @@ class BucketSchemaField implements JsonSerializable {
 				throw new BucketException( wfMessage( 'bucket-put-repeated-total-too-long' )
 					->numParams( strlen( $jsonValue ), Bucket::TEXT_BYTE_LIMIT ) );
 			}
-			return json_encode( $outputValues );
+			return $jsonValue;
 		}
 		return $this->castSubValueForDatabase( $value );
 	}

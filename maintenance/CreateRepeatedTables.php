@@ -20,7 +20,6 @@ require_once "$IP/extensions/Bucket/includes/Bucket.php";
  * 1) Run this script
  * 2) Reparse all bucket writing pages
  * 3) $wgBucketForceOldRepeatedQuery = false
- * 4) remove the index from JSON type columns (to avoid issues with size limits)
  */
 class CreateRepeatedTables extends Maintenance {
 	public function __construct() {

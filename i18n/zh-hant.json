@@ -42,6 +42,7 @@
 	"bucket-schema-outdated-error": "貯體綱要與資料表不符。請編輯貯體頁面以重新同步資料表",
 	"bucket-cannot-create-system-page": "無法為系統貯體建立頁面",
 	"bucket-put-syntax-error": "bucket.put() 的參數必須為表",
+	"bucket-put-repeated-too-long": "重複值過長，單一值不可超過 $1 字元",
 	"bucket-put-total-too-long": "頁面向貯體寫入過多資料。嘗試寫入 $1 字元，上限為 $2 字元",
 	"bucket-put-function-value": "bucket.put() 的值不能是函數",
 	"bucket-put-system-field": "無法寫入保留欄位：$1",
