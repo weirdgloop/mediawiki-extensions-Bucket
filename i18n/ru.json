@@ -7,7 +7,7 @@
 	"bucket-desc": "Реализует легковесный интерфейс для хранения структурированных данных и обращения к ним",
 	"bucket": "Обзор бакета",
 	"right-editbucket": "Редактировать страницы, определяющие схемы бакетов",
-	"bucket-sidebar-action": "Просмотреть бакет",
+	"bucket-sidebar-action": "Просмотреть бакеты",
 	"bucket-view-bucket-name": "Бакет",
 	"bucket-view-help-bucket-name": "Название текущего бакета",
 	"bucket-view-select": "Выборка",
