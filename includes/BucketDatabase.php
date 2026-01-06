@@ -36,10 +36,6 @@ class BucketDatabase {
 
 		self::$db = MediaWikiServices::getInstance()->getDatabaseFactory()->create( $mainDB->getType(), $params );
 
-		// MySQL 8.0.17 or higher is required for the implementation of repeated fields.
-		if ( self::$db->getType() !== 'mysql' || version_compare( self::$db->getServerVersion(), '8.0.17', '<' ) ) {
-			throw new ConfigException( 'Bucket requires MySQL 8.0.17 or higher' );
-		}
 		return self::$db;
 	}
 
@@ -109,7 +105,7 @@ class BucketDatabase {
 				throw new SchemaException( wfMessage( 'bucket-schema-must-be-strings', $fieldName ) );
 			}
 
-			$lcFieldName = Bucket::getValidFieldName( $fieldName );
+			$lcFieldName = Bucket::getValidFieldName( $bucketName, $fieldName );
 
 			if ( isset( $newSchema[$lcFieldName] ) ) {
 				throw new SchemaException( wfMessage( 'bucket-schema-duplicated-field-name', $fieldName ) );
@@ -148,18 +144,22 @@ class BucketDatabase {
 		$dbw->onTransactionCommitOrIdle( function () use ( $dbw, $bucketSchema ) {
 			if ( !$dbw->tableExists( $bucketSchema->getTableName() ) ) {
 				// We are a new bucket json
-				$statement = self::getCreateTableStatement( $bucketSchema, $dbw );
-				$bucketDBuser = self::getBucketDBUser();
-				$escapedTableName = $dbw->tableName( $bucketSchema->getTableName( $dbw ) );
-				// Note: The main database connection is only used to grant access to the new table.
-				MediaWikiServices::getInstance()->getDBLoadBalancer()
-					->getConnection( DB_PRIMARY )->query( "GRANT ALL ON $escapedTableName TO $bucketDBuser;" );
+				$statements = self::getCreateTableStatement( $bucketSchema, $dbw );
 			} else {
 				// We are an existing bucket json
 				$oldSchema = self::buildSchemaFromComments( $bucketSchema->getName(), $dbw );
-				$statement = self::getAlterTableStatement( $bucketSchema, $oldSchema, $dbw );
+				$statements = self::getAlterTableStatement( $bucketSchema, $oldSchema, $dbw );
 			}
-			$dbw->query( $statement );
+			foreach ( $statements as $table ) {
+				if ( isset( $table['permissionName'] ) ) {
+					$bucketDBuser = self::getBucketDBUser();
+					$escapedTableName = $dbw->tableName( $table['permissionName'] );
+					// Note: The main database connection is only used to grant access to the new table.
+					MediaWikiServices::getInstance()->getDBLoadBalancer()
+						->getConnection( DB_PRIMARY )->query( "GRANT ALL ON $escapedTableName TO $bucketDBuser;" );
+				}
+				$dbw->query( $table['statement'] );
+			}
 
 			// At this point is is possible that another transaction has changed the table so we start a transaction,
 			// read the column comments (which are the schema), and write that to bucket_schemas
@@ -189,8 +189,9 @@ class BucketDatabase {
 
 	private static function getAlterTableStatement(
 		BucketSchema $bucketSchema, BucketSchema $oldSchema, IDatabase $dbw
-	): string {
+	): array {
 		$alterTableFragments = [];
+		$tableStatements = [];
 
 		$oldFields = $oldSchema->getFields();
 		foreach ( $bucketSchema->getFields() as $fieldName => $field ) {
@@ -198,15 +199,20 @@ class BucketDatabase {
 			$fieldJson = $dbw->addQuotes( json_encode( $field ) );
 			$newDbType = $field->getDatabaseValueType()->value;
 			$newColumn = true;
+			$oldField = null;
 			if ( isset( $oldFields[$fieldName] ) ) {
-				$oldDbType = $oldFields[$fieldName]->getDatabaseValueType()->value;
+				$oldField = $oldFields[$fieldName];
 				$newColumn = false;
 			}
-			$typeChange = ( $oldDbType !== $newDbType );
+			// Check if the type has changed either for the regular or repeated column
+			$typeChange =
+				$oldField !== null &&
+				( ( $field->getSubDatabaseValueType() !== $oldField->getSubDatabaseValueType() )
+				|| ( $field->getDatabaseValueType() !== $oldField->getDatabaseValueType() ) );
 
 			if ( $newColumn === false ) {
 				# If the old schema has an index, check if it needs to be dropped
-				if ( $oldFields[$fieldName]->getIndexed() ) {
+				if ( $oldField !== null && $oldField->getIndexed() ) {
 					if ( $typeChange || $field->getIndexed() === false ) {
 						$alterTableFragments[] = "DROP INDEX $escapedFieldName";
 					}
@@ -214,11 +220,21 @@ class BucketDatabase {
 				# Always drop and then re-add the column for field type changes.
 				if ( $typeChange ) {
 					$alterTableFragments[] = "DROP $escapedFieldName";
+					if ( $oldField !== null && $oldField->getRepeated() ) {
+						$repeatedTableName = $dbw->tableName(
+							self::getSubTableName( $bucketSchema->getName(), $fieldName ) );
+						$tableStatements[] = [
+							'statement' => "DROP TABLE IF EXISTS $repeatedTableName;"
+						];
+					}
 				}
 			}
 
 			if ( $newColumn || $typeChange ) {
-				$alterTableFragments[] = "ADD $escapedFieldName " . $newDbType . " COMMENT $fieldJson";
+				$alterTableFragments[] = "ADD $escapedFieldName $newDbType COMMENT $fieldJson";
+				if ( $field->getRepeated() ) {
+					$tableStatements[] = self::getCreateRepeatedTableStatement( $bucketSchema, $field, $dbw );
+				}
 			} else {
 				// If an existing column has the same DB type, check for a change between TEXT/PAGE,
 				// or a change to the index.
@@ -227,7 +243,7 @@ class BucketDatabase {
 					|| ( $field->getIndexed() !== $oldFields[$fieldName]->getIndexed() )
 				) {
 					# Acts as a no-op except to update the comment
-					$alterTableFragments[] = "MODIFY $escapedFieldName " . $newDbType . " COMMENT $fieldJson";
+					$alterTableFragments[] = "MODIFY $escapedFieldName $newDbType COMMENT $fieldJson";
 				}
 			}
 			if ( $field->getIndexed() ) {
@@ -240,23 +256,36 @@ class BucketDatabase {
 		// Drop unused columns
 		foreach ( $oldFields as $deletedColumn => $val ) {
 			$escapedDeletedColumn = $dbw->addIdentifierQuotes( $deletedColumn );
+			$alterTableFragments[] = "DROP $escapedDeletedColumn";
 			if ( $val->getRepeated() === true ) {
 				// We must explicitly drop indexes for repeated fields
 				$alterTableFragments[] = "DROP INDEX $escapedDeletedColumn";
+				$repeatedTableName = $dbw->tableName(
+					self::getSubTableName( $bucketSchema->getName(), $val->getFieldName() ) );
+				$tableStatements[] = [
+					'statement' => "DROP TABLE IF EXISTS $repeatedTableName;"
+				];
 			}
-			$alterTableFragments[] = "DROP $escapedDeletedColumn";
 		}
 
 		$dbTableName = $dbw->tableName( $bucketSchema->getTableName() );
-		return "ALTER TABLE $dbTableName " . implode( ', ', $alterTableFragments ) . ';';
+		$tableStatements[] = [
+			'statement' => "ALTER TABLE $dbTableName " . implode( ', ', $alterTableFragments ) . ';'
+		];
+
+		return $tableStatements;
 	}
 
-	private static function getCreateTableStatement( BucketSchema $newSchema, IDatabase $dbw ): string {
+	private static function getCreateTableStatement( BucketSchema $newSchema, IDatabase $dbw ): array {
 		$createTableFragments = [];
+		$tableStatements = [];
 
 		foreach ( $newSchema->getFields() as $field ) {
 			$dbType = $field->getDatabaseValueType()->value;
 			$fieldJson = $dbw->addQuotes( json_encode( $field ) );
+			if ( $field->getRepeated() === true ) {
+				$tableStatements[] = self::getCreateRepeatedTableStatement( $newSchema, $field, $dbw );
+			}
 			$createTableFragments[] =
 				"{$dbw->addIdentifierQuotes($field->getFieldName())} $dbType COMMENT $fieldJson";
 			if ( $field->getIndexed() ) {
@@ -265,9 +294,46 @@ class BucketDatabase {
 		}
 		$createTableFragments[] =
 			"PRIMARY KEY ({$dbw->addIdentifierQuotes('_page_id')}, {$dbw->addIdentifierQuotes('_index')})";
-
 		$dbTableName = $dbw->tableName( $newSchema->getTableName() );
-		return "CREATE TABLE $dbTableName (" . implode( ', ', $createTableFragments ) . ') DEFAULT CHARSET=utf8mb4;';
+
+		$tableStatements[] = [
+			'permissionName' => $dbTableName,
+			'statement' =>
+				"CREATE TABLE $dbTableName (" . implode( ', ', $createTableFragments ) . ') DEFAULT CHARSET=utf8mb4;'
+		];
+
+		return $tableStatements;
+	}
+
+	/**
+	 * Temporarily public for migration
+	 */
+	public static function getCreateRepeatedTableStatement(
+		BucketSchema $newSchema, BucketSchemaField $originalField, IDatabase $dbw ): array {
+		$createTableFragments = [];
+		$repeatedSchema = [
+			new BucketSchemaField( '_page_id', BucketValueType::Integer, true, false ),
+			new BucketSchemaField( '_index', BucketValueType::Integer, true, false ),
+			new BucketSchemaField( $originalField->getFieldName(), $originalField->getType(), true, false )
+		];
+
+		foreach ( $repeatedSchema as $field ) {
+			$dbType = $field->getSubDatabaseValueType()->value;
+			$fragment = "{$dbw->addIdentifierQuotes($field->getFieldName())} $dbType";
+			$createTableFragments[] = $fragment;
+			if ( $field->getIndexed() ) {
+				$createTableFragments[] = self::getIndexStatement( $field, $dbw );
+			}
+		}
+
+		// Create a key to match the main table primary key
+		$createTableFragments[] = 'INDEX idx_page_index (_page_id, _index)';
+		$dbTableName = self::getSubTableName( $newSchema->getName(), $originalField->getFieldName() );
+		return [
+			'permissionName' => $dbTableName,
+			'statement' =>
+				"CREATE TABLE $dbTableName (" . implode( ', ', $createTableFragments ) . ') DEFAULT CHARSET=utf8mb4;'
+		];
 	}
 
 	public static function countPagesUsingBucket( string $bucketName ): int {
@@ -283,22 +349,37 @@ class BucketDatabase {
 	public static function deleteTable( string $bucketName ): void {
 		$dbw = self::getDB();
 		$bucketName = Bucket::getValidBucketName( $bucketName );
-		$tableName = $dbw->tableName( self::getBucketTableName( $bucketName ) );
-
+		$res = $dbw->newSelectQueryBuilder()
+			->from( 'bucket_schemas' )
+			->select( [ 'bucket_name', 'schema_json' ] )
+			->lockInShareMode()
+			->where( [ 'bucket_name' => $bucketName ] )
+			->caller( __METHOD__ )
+			->fetchRow();
+		if ( $res !== false ) {
+			$schema = new BucketSchema(
+				$res->bucket_name,
+				json_decode( $res->schema_json, true )
+			);
+			$deleteTableNames = self::getBucketSubTableNames( $bucketName, $schema );
+			$deleteTableNames[] = self::getBucketTableName( $bucketName );
+			foreach ( $deleteTableNames as $name ) {
+				$dbw->dropTable( $name );
+			}
+		}
 		$dbw->newDeleteQueryBuilder()
 			->table( 'bucket_schemas' )
 			->where( [ 'bucket_name' => $bucketName ] )
 			->caller( __METHOD__ )
 			->execute();
-		$dbw->query( "DROP TABLE IF EXISTS $tableName" );
 	}
 
 	private static function getIndexStatement( BucketSchemaField $field, IDatabase $dbw ): string {
 		$fieldName = $dbw->addIdentifierQuotes( $field->getFieldName() );
-		switch ( $field->getDatabaseValueType() ) {
-			case DatabaseValueType::Json:
-				// Typecasting for repeated fields doesn't give us any advantage
-				return "INDEX $fieldName((CAST($fieldName AS CHAR(512) ARRAY)))";
+		if ( $field->getDatabaseValueType() == DatabaseValueType::Json ) {
+			return "INDEX $fieldName((CAST($fieldName AS CHAR(512) ARRAY)))";
+		}
+		switch ( $field->getSubDatabaseValueType() ) {
 			case DatabaseValueType::Text:
 				// More than 40 characters can cause a MySQL error 1713: Undo log record is too big.
 				return "INDEX $fieldName($fieldName(40))";
@@ -307,12 +388,21 @@ class BucketDatabase {
 		}
 	}
 
-	/**
-	 * @param string $bucketName
-	 * @return string
-	 */
-	public static function getBucketTableName( $bucketName ): string {
+	public static function getBucketTableName( string $bucketName ): string {
 		return 'bucket__' . $bucketName;
 	}
 
+	public static function getSubTableName( string $bucketName, string $fieldName ): string {
+		return 'bucket__' . $bucketName . '__' . $fieldName;
+	}
+
+	public static function getBucketSubTableNames( string $bucketName, BucketSchema $schema ): array {
+		$names = [];
+		foreach ( $schema->getFields() as $field ) {
+			if ( $field->getRepeated() ) {
+				$names[] = self::getSubTableName( $bucketName, $field->getFieldName() );
+			}
+		}
+		return $names;
+	}
 }

@@ -44,7 +44,7 @@ class BucketPage extends Article {
 		$linkRenderer = MediaWikiServices::getInstance()->getLinkRenderer();
 
 		try {
-			$bucketName = Bucket::getValidFieldName( $this->getTitle()->getDBkey() );
+			$bucketName = Bucket::getValidBucketName( $this->getTitle()->getDBkey() );
 		} catch ( SchemaException $e ) {
 			$out->addWikiTextAsContent( BucketPageHelper::printError( $e->getMessage() ) );
 			return;
