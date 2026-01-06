@@ -63,7 +63,6 @@
 	"bucket-query-bucket-not-found": "查詢中找不到貯體 $1",
 	"bucket-query-where-invalid-op": "bucket.where() 操作無效：$1",
 	"bucket-query-where-confused": "無法理解 WHERE 條件：$1",
-	"bucket-query-where-repeated-unsupported": "重複欄位「$2」不支援條件 $1",
 	"bucket-query-select-empty": "您必需至少選取一個欄位",
 	"bucket-query-duplicate-join": "貯體 $1 已於 bucket.join() 中使用，不可再加入一次",
 	"bucket-query-invalid-join": "bucket.join() 條件無效：$1",

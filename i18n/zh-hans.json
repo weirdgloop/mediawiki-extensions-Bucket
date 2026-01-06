@@ -63,7 +63,6 @@
 	"bucket-query-bucket-not-found": "查询中未找到存储桶$1",
 	"bucket-query-where-invalid-op": "bucket.where()的操作数无效：$1",
 	"bucket-query-where-confused": "无法理解WHERE条件：$1",
-	"bucket-query-where-repeated-unsupported": "重复字段“$2”不支持条件$1",
 	"bucket-query-select-empty": "您必须至少选取一个字段",
 	"bucket-query-duplicate-join": "存储桶$1已在bucket.join()中使用，无法被再次join",
 	"bucket-query-invalid-join": "无效的bucket.join()条件：$1",

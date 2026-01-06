@@ -68,7 +68,6 @@
 	"bucket-query-bucket-not-found": "Bucket $1 не знайдено в запиті",
 	"bucket-query-where-invalid-op": "Недійсний операнд для bucket.where(): $1",
 	"bucket-query-where-confused": "Незрозуміла умова WHERE: $1",
-	"bucket-query-where-repeated-unsupported": "Умова $1 не підтримується для повторюваного поля «$2»",
 	"bucket-query-select-empty": "Ви повинні вибрані принаймні одне поле",
 	"bucket-query-duplicate-join": "Bucket $1 уже використовується в bucket.join() і не може бути знову приєднано",
 	"bucket-query-invalid-join": "Недійсна умова bucket.join(): $1",
