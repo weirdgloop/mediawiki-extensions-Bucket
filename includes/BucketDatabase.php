@@ -212,7 +212,7 @@ class BucketDatabase {
 
 			if ( $newColumn === false ) {
 				# If the old schema has an index, check if it needs to be dropped
-				if ( $oldField !== null && $oldField->getIndexed() ) {
+				if ( $oldField !== null && $oldField->getIndexed() && !$oldField->getRepeated() ) {
 					if ( $typeChange || $field->getIndexed() === false ) {
 						$alterTableFragments[] = "DROP INDEX $escapedFieldName";
 					}
@@ -246,7 +246,7 @@ class BucketDatabase {
 					$alterTableFragments[] = "MODIFY $escapedFieldName $newDbType COMMENT $fieldJson";
 				}
 			}
-			if ( $field->getIndexed() ) {
+			if ( $field->getIndexed() && !$field->getRepeated() ) {
 				if ( $newColumn || $typeChange || $oldFields[$fieldName]->getIndexed() === false ) {
 					$alterTableFragments[] = 'ADD ' . self::getIndexStatement( $field, $dbw );
 				}
@@ -258,8 +258,6 @@ class BucketDatabase {
 			$escapedDeletedColumn = $dbw->addIdentifierQuotes( $deletedColumn );
 			$alterTableFragments[] = "DROP $escapedDeletedColumn";
 			if ( $val->getRepeated() === true ) {
-				// We must explicitly drop indexes for repeated fields
-				$alterTableFragments[] = "DROP INDEX $escapedDeletedColumn";
 				$repeatedTableName = $dbw->tableName(
 					self::getSubTableName( $bucketSchema->getName(), $val->getFieldName() ) );
 				$tableStatements[] = [
@@ -288,7 +286,7 @@ class BucketDatabase {
 			}
 			$createTableFragments[] =
 				"{$dbw->addIdentifierQuotes($field->getFieldName())} $dbType COMMENT $fieldJson";
-			if ( $field->getIndexed() ) {
+			if ( $field->getIndexed() && !$field->getRepeated() ) {
 				$createTableFragments[] = self::getIndexStatement( $field, $dbw );
 			}
 		}
@@ -376,9 +374,6 @@ class BucketDatabase {
 
 	private static function getIndexStatement( BucketSchemaField $field, IDatabase $dbw ): string {
 		$fieldName = $dbw->addIdentifierQuotes( $field->getFieldName() );
-		if ( $field->getDatabaseValueType() == DatabaseValueType::Json ) {
-			return "INDEX $fieldName((CAST($fieldName AS CHAR(512) ARRAY)))";
-		}
 		switch ( $field->getSubDatabaseValueType() ) {
 			case DatabaseValueType::Text:
 				// More than 40 characters can cause a MySQL error 1713: Undo log record is too big.

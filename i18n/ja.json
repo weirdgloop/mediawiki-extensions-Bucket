@@ -42,7 +42,6 @@
 	"bucket-schema-outdated-error": "Bucketの構造定義がデータベーステーブルと一致しません。Bucketページを編集してテーブルを同期し直してください",
 	"bucket-cannot-create-system-page": "システム用Bucketに対してページを作成することはできません",
 	"bucket-put-syntax-error": "bucket.put()への引数はテーブルである必要があります",
-	"bucket-put-repeated-too-long": "繰り返し型の値が長すぎます。1つの値の長さが$1文字を超えることはできません",
 	"bucket-put-total-too-long": "ページから書き込まれるBucketデータが長すぎます。上限$2文字に対し、$1文字が書き込まれようとしています",
 	"bucket-put-function-value": "bucket.put()の値は関数であってはなりません",
 	"bucket-put-system-field": "予約済みのフィールドに書き込むことはできません：$1",

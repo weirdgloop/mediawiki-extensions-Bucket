@@ -42,7 +42,6 @@
 	"bucket-schema-outdated-error": "存储桶架构与表不匹配。请编辑存储桶页面以重新同步表",
 	"bucket-cannot-create-system-page": "无法为系统存储桶创建页面",
 	"bucket-put-syntax-error": "bucket.put()的参数必须是一个表",
-	"bucket-put-repeated-too-long": "重复值太长，单个值不能超过$1个字符",
 	"bucket-put-total-too-long": "页面上写入的存储桶数据过多。尝试写入$1个字符。限制为$2个字符",
 	"bucket-put-function-value": "bucket.put()的值不能是一个函数",
 	"bucket-put-system-field": "无法写入保留字段：$1",

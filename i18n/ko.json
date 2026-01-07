@@ -46,7 +46,6 @@
 	"bucket-schema-outdated-error": "버킷 스키마와 표가 일치하지 않습니다. 동기화하려면 버킷 페이지를 편집해 주세요",
 	"bucket-cannot-create-system-page": "시스템 버킷의 페이지를 만들 수 없습니다",
 	"bucket-put-syntax-error": "bucket.put() 인자는 표여야 합니다",
-	"bucket-put-repeated-too-long": "반복문 값이 너무 깁니다. 각 값은 $1자를 초과할 수 없습니다",
 	"bucket-put-repeated-total-too-long": "반복문 필드가 너무 큽니다. $1바이트로 확인되었으나, 최대 허용 수치는 $2바이트입니다",
 	"bucket-put-text-too-long": "하나의 문자 필드에 데이터가 너무 많습니다. $1바이트로 확인되었으나, 최대 허용 수치는 $2바이트입니다",
 	"bucket-put-total-too-long": "너무 많은 버킷 데이터가 작성되었습니다. $1자로 작성하려 했습니다. 최대 $2자입니다",

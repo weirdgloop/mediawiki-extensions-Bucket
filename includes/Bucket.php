@@ -14,8 +14,6 @@ class Bucket {
 	public const EXTENSION_DATA_KEY = 'bucket:puts';
 	public const EXTENSION_BUCKET_NAMES_KEY = 'bucket:puts_bucket_names';
 	public const ISSUES_BUCKET = 'bucket_issues';
-	public const REPEATED_CHARACTER_LIMIT = 512;
-	public const REPEATED_CHARACTER_TOTAL_LIMIT = 5254;
 	public const TEXT_BYTE_LIMIT = 65535;
 
 	private static function isValidName( string $name ): bool {
@@ -299,22 +297,11 @@ class BucketSchemaField implements JsonSerializable {
 			}
 			$value = array_values( $value );
 			$outputValues = [];
-			$totalLength = 0;
 			foreach ( $value as $single ) {
 				if ( $single === null ) {
 					continue;
 				}
-				$single = strval( $single );
-				$outputValues[] = $single;
-				if ( strlen( $single ) > Bucket::REPEATED_CHARACTER_LIMIT ) {
-					throw new BucketException( wfMessage( 'bucket-put-repeated-too-long' )
-							->numParams( Bucket::REPEATED_CHARACTER_LIMIT ) );
-				}
-				$totalLength = $totalLength + strlen( $single );
-			}
-			if ( $totalLength > Bucket::REPEATED_CHARACTER_TOTAL_LIMIT ) {
-				throw new BucketException( wfMessage( 'bucket-put-repeated-total-too-long' )
-					->numParams( $totalLength, Bucket::REPEATED_CHARACTER_TOTAL_LIMIT ) );
+				$outputValues[] = $this->castSubValueForDatabase( $single );
 			}
 			if ( count( $outputValues ) === 0 ) {
 				return null;
@@ -350,8 +337,12 @@ class BucketSchemaField implements JsonSerializable {
 			case DatabaseValueType::Integer:
 				return intval( $value );
 			case DatabaseValueType::Boolean:
+				$bool_value = filter_var( $value, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE );
+				if ( $bool_value === null ) {
+					return null;
+				}
 				// MySQL uses 1 for true, 0 for false
-				return (int)filter_var( $value, FILTER_VALIDATE_BOOL );
+				return (int)$bool_value;
 			default:
 				return null;
 		}
