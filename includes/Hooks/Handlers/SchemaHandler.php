@@ -16,12 +16,6 @@ class SchemaHandler implements LoadExtensionSchemaUpdatesHook {
 	public function onLoadExtensionSchemaUpdates( $updater ) {
 		$dir = dirname( __DIR__, 3 ) . '/sql';
 
-		$dbType = $updater->getDB()->getType();
-		if ( $dbType !== 'mysql' ) {
-			$updater->output( "Bucket only supports MySQL. Skipping schema updates for $dbType.\n" );
-			return;
-		}
-
 		$updater->addExtensionTable( 'bucket_pages', "$dir/tables-generated.sql" );
 		$updater->addExtensionTable( 'bucket__bucket_issues', "$dir/issues-table.sql" );
 		$updater->addExtensionUpdate( [ [ $this, 'createInitialSchemaForBucketIssues' ] ] );

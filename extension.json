@@ -125,9 +125,6 @@
 		},
 		"BucketMaxDataPerPage": {
 			"value": 1000000
-		},
-		"BucketForceOldRepeatedQuery": {
-			"value": false
 		}
 	},
 	"GroupPermissions": {

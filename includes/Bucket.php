@@ -18,11 +18,6 @@ class Bucket {
 	public const REPEATED_CHARACTER_TOTAL_LIMIT = 5254;
 	public const TEXT_BYTE_LIMIT = 65535;
 
-	public static function isForceOldRepeated(): bool {
-		$config = MediaWikiServices::getInstance()->getMainConfig();
-		return $config->get( 'BucketForceOldRepeatedQuery' );
-	}
-
 	private static function isValidName( string $name ): bool {
 		if (
 			// Disallow numeric names as the MW RDBMS treats numeric tables names as ints in some circumstances.

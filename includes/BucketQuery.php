@@ -3,7 +3,6 @@
 namespace MediaWiki\Extension\Bucket;
 
 use InvalidArgumentException;
-use MediaWiki\Extension\Bucket\Expression\MemberOfExpression;
 use MediaWiki\Extension\Bucket\Expression\NotExpression;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Title\Title;
@@ -283,12 +282,6 @@ class BucketQuery {
 			$subquerySelectors = [];
 			foreach ( $condition['operands'] as $operand ) {
 				$child = $this->parseWhere( $operand );
-				// Temporary repeated field migration step
-				if ( Bucket::isForceOldRepeated() ) {
-					$children[] = $child;
-					continue;
-				}
-				// End temporary repeated field migration step
 				if ( $child instanceof ComparisonConditionNode ) {
 					$selector = $child->getSelector();
 					if (
@@ -529,19 +522,6 @@ class ComparisonConditionNode extends QueryNode {
 		$selector = $this->selector;
 		$op = $this->operator->getOperator();
 		$value = $this->value->getValue();
-
-		// Temporary repeated field migration
-		if ( Bucket::isForceOldRepeated()
-			&& $selector instanceof FieldSelector
-			&& $value !== null
-			&& $selector->getFieldSchema()->getRepeated() === true
-		) {
-			if ( $op === '=' || $op === '!=' ) {
-				return new MemberOfExpression( $selector->getUnsafe(), $op, strval( $value ) );
-			}
-		}
-		// End temporary repeated field migration
-
 		return $dbw->expr( $selector->getUnsafe(), $op, $value );
 	}
 

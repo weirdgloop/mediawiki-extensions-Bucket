@@ -7,8 +7,7 @@ Bucket aims to be simpler in nature, by providing a very straight forward interf
 
 ## Requirements
 * MediaWiki 1.43+
-* MySQL 8.0.17+.
-  * MariaDB, PostgreSQL and SQLite are currently not supported.
+* MySQL has been fully tested. MariaDB, PostgreSQL and SQLite may work but have not been tested.
 * [Scribunto](https://github.com/wikimedia/mediawiki-extensions-Scribunto)
 
 ## Installing
