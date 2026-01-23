@@ -41,9 +41,11 @@ class SetupDBPermission extends Maintenance {
 
 		$query = [];
 
-		// We only need to be able to select from the categorylinks table.
-		$categoryLinksTable = $dbw->tableName( 'categorylinks' );
-		$query[] = "GRANT SELECT ON `$dbName`.$categoryLinksTable TO $fullUserName;";
+		// We only need to be able to select from the categorylinks and linktarget tables.
+		$selectTables = [ $dbw->tableName( 'categorylinks' ), $dbw->tableName( 'linktarget' ) ];
+		foreach ( $selectTables as $table ) {
+			$query[] = "GRANT SELECT ON `$dbName`.$table TO $fullUserName;";
+		}
 
 		// These tables we want to select, insert, and delete rows.
 		$specialTables = [ $dbw->tableName( 'bucket_pages' ), $dbw->tableName( 'bucket_schemas' ) ];

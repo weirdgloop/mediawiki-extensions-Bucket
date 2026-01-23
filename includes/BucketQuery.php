@@ -4,6 +4,7 @@ namespace MediaWiki\Extension\Bucket;
 
 use InvalidArgumentException;
 use MediaWiki\Extension\Bucket\Expression\NotExpression;
+use MediaWiki\Linker\LinksMigration;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Title\Title;
 use Wikimedia\Rdbms\IDatabase;
@@ -39,6 +40,7 @@ class BucketQuery {
 	private ?Selector $userOrderByField = null;
 	private string $orderByDirection = 'ASC';
 	private int $categoryCount = 0;
+	public bool $useLinkTarget = false;
 
 	/**
 	 * @param mixed $condition
@@ -83,6 +85,14 @@ class BucketQuery {
 	 * @param array $data
 	 */
 	public function __construct( array $data ) {
+		// Support for the categorylinks migration.
+		if ( array_key_exists( 'categorylinks', LinksMigration::$mapping ) ) {
+			$linksMigration = MediaWikiServices::getInstance()->getLinksMigration();
+			$queryInfo = $linksMigration->getQueryInfo( 'categorylinks' );
+			$this->useLinkTarget = in_array( 'linktarget', $queryInfo['tables'], true );
+		} else {
+			$this->useLinkTarget = false;
+		}
 		// Ensure schema cache is populated with all used buckets
 		$neededSchemas = [];
 		if ( !isset( self::$schemaCache[$data['bucketName']] ) ) {
@@ -202,11 +212,18 @@ class BucketQuery {
 			$categoryAlias = 'category' . $this->categoryCount++;
 			$this->categories[$category] = $categoryAlias;
 			$this->joins[] = new CategoryJoin( $category, $this );
+			if ( $this->useLinkTarget ) {
+				$this->joins[] = new LinkTargetJoin( $category, $this );
+			}
 		}
 	}
 
 	public function getCategoryAlias( string $category ): string {
 		return $this->categories[$category];
+	}
+
+	public function getLinkTargetAlias( string $category ): string {
+		return $this->categories[$category] . '_lt';
 	}
 
 	public function getPrimaryBucket(): BucketSchema {
@@ -427,10 +444,46 @@ class CategoryJoin extends Join {
 	public function getSQL( IDatabase $dbw ): array {
 		$bucketTableName = $this->query->getPrimaryBucket()->getSafe( $dbw );
 		$categoryNameNoPrefix = Title::newFromText( $this->categoryName, NS_CATEGORY )->getDBkey();
-		return [
+		$conds = [
 			// Must be all in one string to avoid the table name being treated as a string value.
 			"{$dbw->addIdentifierQuotes( $this->getAlias() )}.cl_from = $bucketTableName._page_id",
-			"{$this->categorySelector->getSafe($dbw)}" => $categoryNameNoPrefix
+		];
+		if ( !$this->query->useLinkTarget ) {
+			$conds["{$this->categorySelector->getSafe($dbw)}"] = $categoryNameNoPrefix;
+		}
+		return $conds;
+	}
+}
+
+class LinkTargetJoin extends Join {
+	private string $categoryName;
+	private BucketQuery $query;
+
+	public function __construct( string $categoryName, BucketQuery $query ) {
+		if ( !BucketQuery::isCategory( $categoryName ) ) {
+			throw new QueryException( wfMessage( 'bucket-query-expected-category', $categoryName ) );
+		}
+		$this->categoryName = $categoryName;
+		$this->query = $query;
+	}
+
+	public function getJoinTable( IDatabase $dbw ): string {
+		return $dbw->tableName( 'linktarget' );
+	}
+
+	public function getAlias(): string {
+		return $this->query->getLinkTargetAlias( $this->categoryName );
+	}
+
+	public function getSQL( IDatabase $dbw ): array {
+		$categoryNameNoPrefix = Title::newFromText( $this->categoryName, NS_CATEGORY )->getDBkey();
+		$safeAlias = $dbw->addIdentifierQuotes( $this->getAlias() );
+		$safeCategoryAlias = $dbw->addIdentifierQuotes( $this->query->getCategoryAlias( $this->categoryName ) );
+		return [
+			// Must be all in one string to avoid the table name being treated as a string value.
+			"$safeAlias.lt_id = $safeCategoryAlias.cl_target_id",
+			"$safeAlias.lt_namespace" => NS_CATEGORY,
+			"$safeAlias.lt_title" => $categoryNameNoPrefix,
 		];
 	}
 }
@@ -621,11 +674,19 @@ class CategorySelector extends Selector {
 	}
 
 	public function getSafe( IDatabase $dbw ): string {
-		return $dbw->addIdentifierQuotes( $this->query->getCategoryAlias( $this->categoryName ) ) . '.cl_to';
+		if ( $this->query->useLinkTarget ) {
+			return $dbw->addIdentifierQuotes( $this->query->getLinkTargetAlias( $this->categoryName ) ) . '.lt_title';
+		} else {
+			return $dbw->addIdentifierQuotes( $this->query->getCategoryAlias( $this->categoryName ) ) . '.cl_to';
+		}
 	}
 
 	public function getUnsafe(): string {
-		return $this->query->getCategoryAlias( $this->categoryName ) . '.cl_to';
+		if ( $this->query->useLinkTarget ) {
+			return $this->query->getLinkTargetAlias( $this->categoryName ) . '.lt_title';
+		} else {
+			return $this->query->getCategoryAlias( $this->categoryName ) . '.cl_to';
+		}
 	}
 
 	public function getSelectSQL( IDatabase $dbw ): string {
