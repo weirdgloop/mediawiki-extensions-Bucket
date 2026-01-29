@@ -15,34 +15,3 @@ CREATE TABLE /*_*/bucket_schemas (
   schema_json LONGTEXT NOT NULL,
   PRIMARY KEY(bucket_name)
 ) /*$wgDBTableOptions*/;
-
-
-CREATE TABLE /*_*/bucket__bucket_issues (
-  _page_id INT UNSIGNED NOT NULL,
-  _index INT UNSIGNED NOT NULL,
-  page_name LONGTEXT DEFAULT NULL,
-  page_name_sub LONGTEXT DEFAULT NULL,
-  bucket LONGTEXT DEFAULT NULL,
-  property LONGTEXT DEFAULT NULL,
-  type LONGTEXT DEFAULT NULL,
-  message LONGTEXT DEFAULT NULL,
-  INDEX page_name (
-    page_name(255)
-  ),
-  INDEX page_name_sub (
-    page_name_sub(255)
-  ),
-  INDEX bucket (
-    bucket(255)
-  ),
-  INDEX property (
-    property(255)
-  ),
-  INDEX type (
-    type(255)
-  ),
-  INDEX message (
-    message(255)
-  ),
-  PRIMARY KEY(_page_id, _index)
-) DEFAULT CHARSET = utf8mb4;
