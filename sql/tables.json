@@ -22,7 +22,9 @@
 				"options": { "notnull": true, "length": 255 }
 			}
 		],
-		"indexes": [],
+		"indexes": [
+			{ "name": "bucket_name", "columns": [ "bucket_name" ], "unique": false }
+		],
 		"pk": [
 			"_page_id",
 			"bucket_name"
@@ -34,13 +36,13 @@
 		"columns": [
 			{
 				"name": "bucket_name",
-				"comment": "The hash of the PUT",
+				"comment": "The name of the bucket",
 				"type": "string",
 				"options": { "notnull": true, "length": 255 }
 			},
 			{
 				"name": "schema_json",
-				"comment": "The hash of the PUT",
+				"comment": "The bucket schema",
 				"type": "text",
 				"options": { "notnull": true }
 			}

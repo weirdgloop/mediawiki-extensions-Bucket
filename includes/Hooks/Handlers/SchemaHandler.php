@@ -19,6 +19,8 @@ class SchemaHandler implements LoadExtensionSchemaUpdatesHook {
 		$updater->addExtensionTable( 'bucket_pages', "$dir/tables-generated.sql" );
 		$updater->addExtensionTable( 'bucket__bucket_issues', "$dir/issues-table.sql" );
 		$updater->addExtensionUpdate( [ [ $this, 'createInitialSchemaForBucketIssues' ] ] );
+		$updater->modifyExtensionField( 'bucket_pages', 'bucket_name',
+			"$dir/patch-bucket_pages_bucket_name_index.sql" );
 	}
 
 	/**

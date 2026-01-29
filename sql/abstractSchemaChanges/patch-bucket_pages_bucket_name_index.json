@@ -1,0 +1,62 @@
+{
+    "before":{
+        "name": "bucket_pages",
+        "comment": "A map of page IDs and bucket names.",
+        "columns": [
+            {
+                "name": "_page_id",
+                "comment": "Key to page.page_id",
+                "type": "integer",
+                "options": { "notnull": true }
+            },
+            {
+                "name": "bucket_name",
+                "comment": "The name of the bucket",
+                "type": "string",
+                "options": { "notnull": true, "length": 255 }
+            },
+            {
+                "name": "put_hash",
+                "comment": "The hash of the PUT",
+                "type": "string",
+                "options": { "notnull": true, "length": 255 }
+            }
+        ],
+        "indexes": [],
+        "pk": [
+            "_page_id",
+            "bucket_name"
+        ]
+    },
+    "after": {
+        "name": "bucket_pages",
+        "comment": "A map of page IDs and bucket names.",
+        "columns": [
+            {
+                "name": "_page_id",
+                "comment": "Key to page.page_id",
+                "type": "integer",
+                "options": { "notnull": true }
+            },
+            {   
+                "name": "bucket_name",
+                "comment": "The name of the bucket",
+                "type": "string",
+                "options": { "notnull": true, "length": 255 }
+            },
+            {
+                "name": "put_hash",
+                "comment": "The hash of the PUT",
+                "type": "string",
+                "options": { "notnull": true, "length": 255 }
+            }
+        ],
+        "indexes": [
+            { "name": "bucket_name", "columns": [ "bucket_name" ], "unique": false }
+        ],
+        "pk": [
+            "_page_id",
+            "bucket_name"
+        ]
+    }
+}
