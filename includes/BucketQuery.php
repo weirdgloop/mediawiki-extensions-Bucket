@@ -211,10 +211,10 @@ class BucketQuery {
 		if ( !isset( $this->categories[$category] ) ) {
 			$categoryAlias = 'category' . $this->categoryCount++;
 			$this->categories[$category] = $categoryAlias;
-			$this->joins[] = new CategoryJoin( $category, $this );
 			if ( $this->useLinkTarget ) {
 				$this->joins[] = new LinkTargetJoin( $category, $this );
 			}
+			$this->joins[] = new CategoryJoin( $category, $this );
 		}
 	}
 
@@ -444,9 +444,12 @@ class CategoryJoin extends Join {
 	public function getSQL( IDatabase $dbw ): array {
 		$bucketTableName = $this->query->getPrimaryBucket()->getSafe( $dbw );
 		$categoryNameNoPrefix = Title::newFromText( $this->categoryName, NS_CATEGORY )->getDBkey();
+		$safeAlias = $dbw->addIdentifierQuotes( $this->getAlias() );
+		$safeLinkTargetAlias = $dbw->addIdentifierQuotes( $this->query->getLinkTargetAlias( $this->categoryName ) );
 		$conds = [
 			// Must be all in one string to avoid the table name being treated as a string value.
-			"{$dbw->addIdentifierQuotes( $this->getAlias() )}.cl_from = $bucketTableName._page_id",
+			"$safeAlias.cl_from = $bucketTableName._page_id",
+			"$safeLinkTargetAlias.lt_id = $safeAlias.cl_target_id",
 		];
 		if ( !$this->query->useLinkTarget ) {
 			$conds["{$this->categorySelector->getSafe($dbw)}"] = $categoryNameNoPrefix;
@@ -478,10 +481,7 @@ class LinkTargetJoin extends Join {
 	public function getSQL( IDatabase $dbw ): array {
 		$categoryNameNoPrefix = Title::newFromText( $this->categoryName, NS_CATEGORY )->getDBkey();
 		$safeAlias = $dbw->addIdentifierQuotes( $this->getAlias() );
-		$safeCategoryAlias = $dbw->addIdentifierQuotes( $this->query->getCategoryAlias( $this->categoryName ) );
 		return [
-			// Must be all in one string to avoid the table name being treated as a string value.
-			"$safeAlias.lt_id = $safeCategoryAlias.cl_target_id",
 			"$safeAlias.lt_namespace" => NS_CATEGORY,
 			"$safeAlias.lt_title" => $categoryNameNoPrefix,
 		];
@@ -675,7 +675,7 @@ class CategorySelector extends Selector {
 
 	public function getSafe( IDatabase $dbw ): string {
 		if ( $this->query->useLinkTarget ) {
-			return $dbw->addIdentifierQuotes( $this->query->getLinkTargetAlias( $this->categoryName ) ) . '.lt_title';
+			return $dbw->addIdentifierQuotes( $this->query->getCategoryAlias( $this->categoryName ) ) . '.cl_target_id';
 		} else {
 			return $dbw->addIdentifierQuotes( $this->query->getCategoryAlias( $this->categoryName ) ) . '.cl_to';
 		}
@@ -683,7 +683,7 @@ class CategorySelector extends Selector {
 
 	public function getUnsafe(): string {
 		if ( $this->query->useLinkTarget ) {
-			return $this->query->getLinkTargetAlias( $this->categoryName ) . '.lt_title';
+			return $this->query->getCategoryAlias( $this->categoryName ) . '.cl_target_id';
 		} else {
 			return $this->query->getCategoryAlias( $this->categoryName ) . '.cl_to';
 		}
