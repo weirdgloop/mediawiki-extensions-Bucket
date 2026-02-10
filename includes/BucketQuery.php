@@ -265,8 +265,10 @@ class BucketQuery {
 			->from( BucketDatabase::getBucketTableName( $this->getPrimaryBucket()->getName() ) )
 			->caller( __METHOD__ );
 
+		$field_count = 0;
 		foreach ( $this->selects as $selector ) {
-			$builder->field( $selector->getSelectSQL( $dbw ) );
+			$uniqueAlias = str_replace( '.', '_', $selector->getUnsafe() ) . $field_count++;
+			$builder->field( $selector->getSelectSQL( $dbw ), $uniqueAlias );
 		}
 
 		foreach ( $this->joins as $join ) {
