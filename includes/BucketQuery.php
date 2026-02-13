@@ -580,7 +580,8 @@ class ComparisonConditionNode extends QueryNode {
 		// If we are comparing a value with a text field, convert the value to a string
 		// this prevents MySQL from trying to convert every row of the field to a different type
 		if ( $selector instanceof FieldSelector
-			&& $selector->getFieldSchema()->getSubDatabaseValueType() == DatabaseValueType::Text ) {
+			&& $selector->getFieldSchema()->getSubDatabaseValueType() == DatabaseValueType::Text
+			&& $value !== null ) {
 			$value = strval( $value );
 		}
 		return $dbw->expr( $selector->getUnsafe(), $op, $value );
