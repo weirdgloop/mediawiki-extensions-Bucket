@@ -87,7 +87,7 @@ class BucketPageHelper {
 	}
 
 	/**
-	 * @return string - wikitext
+	 * @return string - html
 	 */
 	private static function formatValue( mixed $value, string $dataType, bool $repeated ): string {
 		if ( $repeated ) {
@@ -117,7 +117,7 @@ class BucketPageHelper {
 				return Html::rawElement(
 					'div', [ 'class' => $class ], $renderer->makePreloadedLink( $link ) );
 			} else {
-				return Html::rawElement(
+				return Html::element(
 					'div', [ 'class' => $class ], $value );
 			}
 		} elseif ( $dataType == 'BOOLEAN' ) {
