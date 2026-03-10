@@ -7,6 +7,7 @@ use LogicException;
 use MediaWiki\Logger\LoggerFactory;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Message\Message;
+use MediaWiki\Title\Title;
 use Wikimedia\Rdbms\IDatabase;
 use Wikimedia\Rdbms\IExpression;
 
@@ -83,7 +84,7 @@ class Bucket {
 	 * @param array $userInput
 	 * @return array
 	 */
-	public static function runSelect( array $userInput ): array {
+	public static function runSelect( array $userInput, ?Title $title ): array {
 		$query = new BucketQuery( $userInput );
 		$fieldNames = $query->getFields();
 		$selectQueryBuilder = $query->getSelectQueryBuilder();
@@ -119,14 +120,12 @@ class Bucket {
 			$generalized_sql = $conds[0]->toGeneralizedSql();
 		}
 
-		$page = MediaWikiServices::getInstance()->getParser()->getPage();
-
 		LoggerFactory::getInstance( 'bucket' )->debug( 'bucket query',
 			[
 				'bucket_count' => count( $result ),
 				'bucket_sql' => $selectQueryBuilder->getSQL(),
 				'bucket_generalized_sql' => $generalized_sql,
-				'bucket_page' => $page ? $page->__toString() : null
+				'bucket_page' => $title ? $title->__toString() : null,
 			] );
 
 		return [ $result, $sql_string ];
