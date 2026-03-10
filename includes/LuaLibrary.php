@@ -78,7 +78,7 @@ class LuaLibrary extends LibraryBase {
 				$this->linkToBucket( $join['bucketName'] );
 			}
 			$data = self::convertFromLuaTable( $data );
-			$rows = Bucket::runSelect( $data );
+			$rows = Bucket::runSelect( $data, $this->getTitle() );
 			return [ self::convertToLuaTable( $rows ) ];
 		} catch ( BucketException $e ) {
 			return [ 'error' => $e->getMessage() ];
