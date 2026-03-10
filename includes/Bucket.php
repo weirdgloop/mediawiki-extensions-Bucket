@@ -5,7 +5,6 @@ namespace MediaWiki\Extension\Bucket;
 use JsonSerializable;
 use LogicException;
 use MediaWiki\Logger\LoggerFactory;
-use MediaWiki\MediaWikiServices;
 use MediaWiki\Message\Message;
 use MediaWiki\Title\Title;
 use Wikimedia\Rdbms\IDatabase;
