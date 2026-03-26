@@ -209,6 +209,11 @@ class BucketQuery {
 
 	private function addCategoryJoin( string $category ) {
 		if ( !isset( $this->categories[$category] ) ) {
+			$categoryTitle = Title::newFromText( $category, NS_CATEGORY );
+			if ( !$categoryTitle ) {
+				throw new QueryException( wfMessage( 'bucket-query-invalid-category-name', $category ) );
+			}
+
 			$categoryAlias = 'category' . $this->categoryCount++;
 			$this->categories[$category] = $categoryAlias;
 			if ( $this->useLinkTarget ) {
