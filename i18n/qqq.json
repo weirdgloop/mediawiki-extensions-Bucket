@@ -87,6 +87,7 @@
 	"bucket-query-must-be-type-type-nil": "{{Optional|The name of nil type}}",
 	"bucket-query-null-invalid-operator": "Message on unsupported comparsions for bucket.Null(). $1 for the specified comparsion",
 	"bucket-query-expected-category": "Message on category expected but not. $1 for the specified name",
+	"bucket-query-invalid-category-name": "Message when an invalid category page name was given for a query",
 	"bucket-query-total-time-expired": "Message on page has exceeded total time allocated for running bucket queries",
 	"bucket-limitreport-run-time": "Title of bucket time usages",
 	"bucket-limitreport-run-time-value": "Time usages. $1 for used time, $2 for allocated time",
