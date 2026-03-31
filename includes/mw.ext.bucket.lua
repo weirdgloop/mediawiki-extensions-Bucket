@@ -23,7 +23,7 @@ end
 
 -- Return a lua error using a mediawiki message
 local function printError(msg, depth, ...)
-    error(mw.message.new(msg, ...):plain(), depth)
+    error(mw.message.new(msg, ...):inLanguage(mw.language.getContentLanguage()):plain(), depth)
 end
 
 -- Validation functions
