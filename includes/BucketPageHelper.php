@@ -25,9 +25,6 @@ class BucketPageHelper {
 	public static function runQuery(
 		WebRequest $existing_request, string $bucket, string $select, string $where, int $limit, int $offset
 	): array {
-		if ( $bucket === null ) {
-			return [ 'error' => wfMessage( 'bucket-empty-bucket-name' ) ];
-		}
 		try {
 			$bucket = Bucket::getValidBucketName( $bucket );
 		} catch ( SchemaException $e ) {
