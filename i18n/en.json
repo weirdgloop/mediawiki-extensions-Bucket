@@ -90,6 +90,7 @@
 	"bucket-query-must-be-type-type-nil": "nil",
 	"bucket-query-null-invalid-operator": "Only '=' and '!=' are valid comparisons for bucket.Null(). Found $1",
 	"bucket-query-expected-category": "Expected category, found $1",
+	"bucket-query-invalid-category-name": "Invalid category name: $1",
 	"bucket-query-total-time-expired": "Page has exceeded total time allocated for running bucket queries",
 	"bucket-limitreport-run-time": "Bucket time usage",
 	"bucket-limitreport-run-time-value": "$1/$2 seconds",
