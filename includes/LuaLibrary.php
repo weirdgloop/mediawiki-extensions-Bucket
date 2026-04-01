@@ -70,7 +70,7 @@ class LuaLibrary extends LibraryBase {
 		$startTime = hrtime( true );
 		$maxTime = MediaWikiServices::getInstance()->getMainConfig()->get( 'BucketMaxPageExecutionTime' );
 		if ( self::$pageElapsedTime > $maxTime ) {
-			return [ 'error' => wfMessage( 'bucket-query-total-time-expired' )->text() ];
+			return [ 'error' => wfMessage( 'bucket-query-total-time-expired' )->inContentLanguage()->text() ];
 		}
 		try {
 			$this->linkToBucket( $data['bucketName'] );
@@ -83,9 +83,9 @@ class LuaLibrary extends LibraryBase {
 		} catch ( BucketException $e ) {
 			return [ 'error' => $e->getMessage() ];
 		} catch ( DBQueryTimeoutError ) {
-			return [ 'error' => wfMessage( 'bucket-query-long-execution-time' )->text() ];
+			return [ 'error' => wfMessage( 'bucket-query-long-execution-time' )->inContentLanguage()->text() ];
 		} catch ( TypeError $e ) {
-			return [ 'error' => wfMessage( 'bucket-php-type-error', $e->getMessage() )->text() ];
+			return [ 'error' => wfMessage( 'bucket-php-type-error', $e->getMessage() )->inContentLanguage()->text() ];
 		} finally {
 			// Convert nanoseconds to milliseconds
 			self::$pageElapsedTime += (int)( ( hrtime( true ) - $startTime ) / 1000000 );
