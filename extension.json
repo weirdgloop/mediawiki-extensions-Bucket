@@ -17,6 +17,9 @@
 			"Scribunto": "*"
 		}
 	},
+	"AutoloadClasses": {
+		"MediaWiki\\Extension\\Bucket\\CreateInitialSchemaForBucketIssues": "maintenance/CreateInitialSchemaForBucketIssues.php"
+	},
 	"AutoloadNamespaces": {
 		"MediaWiki\\Extension\\Bucket\\": "includes/",
 		"MediaWiki\\Extension\\Bucket\\Hooks\\Handlers": "includes/Hooks/Handlers"
