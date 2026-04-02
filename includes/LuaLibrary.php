@@ -119,10 +119,8 @@ class LuaLibrary extends LibraryBase {
 		if ( is_array( $arr ) ) {
 			$luaTable = [];
 			foreach ( $arr as $key => $value ) {
-				if ( is_int( $key ) || is_string( $key ) ) {
-					$new_key = is_int( $key ) ? $key + 1 : $key;
-					$luaTable[$new_key] = self::convertToLuaTable( $value );
-				}
+				$new_key = is_int( $key ) ? $key + 1 : $key;
+				$luaTable[$new_key] = is_array( $value ) ? self::convertToLuaTable( $value ) : $value;
 			}
 			return $luaTable;
 		}
@@ -138,10 +136,8 @@ class LuaLibrary extends LibraryBase {
 		if ( is_array( $arr ) ) {
 			$luaTable = [];
 			foreach ( $arr as $key => $value ) {
-				if ( is_int( $key ) || is_string( $key ) ) {
-					$new_key = is_int( $key ) ? $key - 1 : $key;
-					$luaTable[$new_key] = self::convertFromLuaTable( $value );
-				}
+				$new_key = is_int( $key ) ? $key - 1 : $key;
+				$luaTable[$new_key] = is_array( $value ) ? self::convertFromLuaTable( $value ) : $value;
 			}
 			return $luaTable;
 		}
