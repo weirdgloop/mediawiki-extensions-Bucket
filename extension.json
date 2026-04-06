@@ -127,6 +127,9 @@
 			"value": 1000000
 		}
 	},
+	"AvailableRights": [
+		"editbucket"
+	],
 	"GroupPermissions": {
 		"sysop": {
 			"editbucket": true
