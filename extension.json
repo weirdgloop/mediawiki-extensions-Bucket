@@ -53,7 +53,8 @@
 		"TitleIsAlwaysKnown": "main",
 		"AfterImportPage": "main",
 		"ParserClearState": "main",
-		"ParserLimitReportPrepare": "main"
+		"ParserLimitReportPrepare": "main",
+		"PageMoveComplete": "main"
 	},
 	"HookHandlers": {
 		"main": {

@@ -22,6 +22,7 @@ use MediaWiki\Hook\ParserClearStateHook;
 use MediaWiki\Hook\ParserLimitReportPrepareHook;
 use MediaWiki\Hook\SidebarBeforeOutputHook;
 use MediaWiki\Hook\TitleIsAlwaysKnownHook;
+use MediaWiki\Linker\LinkTarget;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Page\Hook\ArticleFromTitleHook;
 use MediaWiki\Page\Hook\BeforeDisplayNoArticleTextHook;
@@ -277,6 +278,18 @@ class GeneralHandler implements
 			} catch ( BucketException ) {
 
 			}
+		}
+	}
+
+	/**
+	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/PageMoveComplete
+	 */
+	public function onPageMoveComplete( LinkTarget $old, LinkTarget $new, UserIdentity $userIdentity, int $pageID,
+	  int $redirID, string $reason, RevisionRecord $revision ) {
+		$enabledNamespaces = $this->enabledNamespaces();
+		if ( in_array( $old->getNamespace(), $enabledNamespaces, true )
+			&& !in_array( $new->getNamespace(), $enabledNamespaces, true ) ) {
+			Bucket::writePuts( $pageID, '', [] );
 		}
 	}
 
