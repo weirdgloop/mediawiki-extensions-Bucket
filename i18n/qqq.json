@@ -76,6 +76,7 @@
 	"bucket-query-invalid-join": "Message on buckets used bucket.join(), but with invalid condition. $1 for the condition",
 	"bucket-query-invalid-join-repeated": "Message on attepmting use bucket.join() on a repeated field. $1 for the affected field name",
 	"bucket-query-join-syntax": "Message on syntax error in bucket.join()",
+	"bucket-query-join-limit": "Message on too many total joins. $1 is number of joined tables, $2 is number of joined tables allowed.",
 	"bucket-query-non-scalar": "Message on specifying WHERE statement but with non-scalar",
 	"bucket-query-order-by-must-select": "Message on select() that doesn't have a orderBy(). $1 for orderBy field name",
 	"bucket-query-order-by-direction": "Message on invalid orderBy(). $1 for the specified orderBy()",

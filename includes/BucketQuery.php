@@ -276,6 +276,11 @@ class BucketQuery {
 			$builder->field( $selector->getSelectSQL( $dbw ), $uniqueAlias );
 		}
 
+		// MySQL can only use 61 tables in a join (initial table + 60 joins)
+		if ( count( $this->joins ) > 60 ) {
+			throw new QueryException( wfMessage( 'bucket-query-join-limit', count( $this->joins ), 60 ) );
+		}
+
 		foreach ( $this->joins as $join ) {
 			$builder->leftJoin( $join->getJoinTable( $dbw ), $join->getAlias(), $join->getSQL( $dbw ) );
 		}
