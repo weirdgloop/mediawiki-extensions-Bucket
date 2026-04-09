@@ -23,6 +23,7 @@ use MediaWiki\Hook\ParserClearStateHook;
 use MediaWiki\Hook\ParserLimitReportPrepareHook;
 use MediaWiki\Hook\SidebarBeforeOutputHook;
 use MediaWiki\Hook\TitleIsAlwaysKnownHook;
+use MediaWiki\Linker\LinkTarget;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Page\Hook\ArticleFromTitleHook;
 use MediaWiki\Page\Hook\BeforeDisplayNoArticleTextHook;
@@ -283,6 +284,13 @@ class GeneralHandler implements
 	}
 
 	/**
+	 * @param LinkTarget $old
+	 * @param LinkTarget $new
+	 * @param UserIdentity $user
+	 * @param int $pageid
+	 * @param int $redirid
+	 * @param string $reason
+	 * @param RevisionRecord $revision
 	 * @return void
 	 */
 	public function onPageMoveComplete( $old, $new, $user, $pageid, $redirid, $reason, $revision ) {
