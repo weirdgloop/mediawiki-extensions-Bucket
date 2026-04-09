@@ -18,11 +18,11 @@ use MediaWiki\Extension\Bucket\LuaLibrary;
 use MediaWiki\Extension\Scribunto\Hooks\ScribuntoExternalLibrariesHook;
 use MediaWiki\Hook\AfterImportPageHook;
 use MediaWiki\Hook\LinksUpdateCompleteHook;
+use MediaWiki\Hook\PageMoveCompleteHook;
 use MediaWiki\Hook\ParserClearStateHook;
 use MediaWiki\Hook\ParserLimitReportPrepareHook;
 use MediaWiki\Hook\SidebarBeforeOutputHook;
 use MediaWiki\Hook\TitleIsAlwaysKnownHook;
-use MediaWiki\Linker\LinkTarget;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Page\Hook\ArticleFromTitleHook;
 use MediaWiki\Page\Hook\BeforeDisplayNoArticleTextHook;
@@ -57,7 +57,8 @@ class GeneralHandler implements
 	TitleIsAlwaysKnownHook,
 	AfterImportPageHook,
 	ParserClearStateHook,
-	ParserLimitReportPrepareHook
+	ParserLimitReportPrepareHook,
+	PageMoveCompleteHook
 {
 	private function enabledNamespaces() {
 		$config = MediaWikiServices::getInstance()->getMainConfig();
@@ -282,14 +283,13 @@ class GeneralHandler implements
 	}
 
 	/**
-	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/PageMoveComplete
+	 * @return void
 	 */
-	public function onPageMoveComplete( LinkTarget $old, LinkTarget $new, UserIdentity $userIdentity, int $pageID,
-	  int $redirID, string $reason, RevisionRecord $revision ) {
+	public function onPageMoveComplete( $old, $new, $user, $pageid, $redirid, $reason, $revision ) {
 		$enabledNamespaces = $this->enabledNamespaces();
 		if ( in_array( $old->getNamespace(), $enabledNamespaces, true )
 			&& !in_array( $new->getNamespace(), $enabledNamespaces, true ) ) {
-			Bucket::writePuts( $pageID, '', [] );
+			Bucket::writePuts( $pageid, '', [] );
 		}
 	}
 
