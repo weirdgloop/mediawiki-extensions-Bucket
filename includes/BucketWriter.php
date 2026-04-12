@@ -72,7 +72,7 @@ class BucketWriter {
 		$newPutHashes = [];
 		foreach ( $puts as $bucketName => $bucketData ) {
 			if ( $bucketName === '' ) {
-				self::logIssue(
+				$this->logIssue(
 					$bucketName, '', 'bucket-general-error', wfMessage( 'bucket-no-bucket-defined-warning' ) );
 				continue;
 			}
@@ -80,27 +80,27 @@ class BucketWriter {
 			try {
 				$bucketNameTmp = Bucket::getValidBucketName( $bucketName );
 			} catch ( SchemaException ) {
-				self::logIssue(
+				$this->logIssue(
 					$bucketName, '', 'bucket-general-warning', wfMessage(
 						'bucket-invalid-name-warning', $bucketName ) );
 				continue;
 			}
 
 			if ( $bucketNameTmp !== $bucketName ) {
-				self::logIssue(
+				$this->logIssue(
 					$bucketName, '', 'bucket-general-warning', wfMessage( 'bucket-capital-name-warning' ) );
 			}
 			$bucketName = $bucketNameTmp;
 
 			if ( $bucketName === Bucket::ISSUES_BUCKET && $writingLogs === false ) {
-				self::logIssue(
+				$this->logIssue(
 					$bucketName, Bucket::ISSUES_BUCKET, 'bucket-general-error', wfMessage(
 						'bucket-cannot-write-to-system-bucket' ) );
 				continue;
 			}
 
 			if ( !array_key_exists( $bucketName, $schemas ) ) {
-				self::logIssue( $bucketName, '', 'bucket-general-error', wfMessage( 'bucket-no-exist-error' ) );
+				$this->logIssue( $bucketName, '', 'bucket-general-error', wfMessage( 'bucket-no-exist-error' ) );
 				continue;
 			}
 			$bucketSchema = $schemas[$bucketName];
@@ -120,7 +120,7 @@ class BucketWriter {
 			foreach ( $fieldNames as $fieldName ) {
 				// If the table has a field that isn't present in the schema, the schema must be out of date.
 				if ( !isset( $bucketSchema->getFields()[$fieldName] ) ) {
-					self::logIssue(
+					$this->logIssue(
 						$bucketName, $fieldName, 'bucket-general-error', wfMessage( 'bucket-schema-outdated-error' ) );
 				} else {
 					$fields[$fieldName] = true;
@@ -130,12 +130,12 @@ class BucketWriter {
 				$sub = $singleData['sub'];
 				$singleData = $singleData['data'];
 				if ( !is_array( $singleData ) ) {
-					self::logIssue( $bucketName, '', 'bucket-general-error', wfMessage( 'bucket-put-syntax-error' ) );
+					$this->logIssue( $bucketName, '', 'bucket-general-error', wfMessage( 'bucket-put-syntax-error' ) );
 					continue;
 				}
 				foreach ( $singleData as $key => $value ) {
 					if ( !isset( $fields[$key] ) || !$fields[$key] ) {
-						self::logIssue(
+						$this->logIssue(
 							$bucketName, $key, 'bucket-general-warning', wfMessage(
 								'bucket-put-key-missing-warning', $key, $bucketName ) );
 					}
@@ -169,7 +169,7 @@ class BucketWriter {
 						$singlePut[$dbw->addIdentifierQuotes( $key )] = $field->castValueForDatabase( $originalValue );
 					} catch ( BucketException $e ) {
 						$singlePut[$dbw->addIdentifierQuotes( $key )] = null;
-						self::logIssue(
+						$this->logIssue(
 							$bucketName, $key, 'bucket-general-error', $e->getMessage() );
 					}
 				}
@@ -228,13 +228,13 @@ class BucketWriter {
 		}
 
 		if ( $putLength > $maxiumPutLength ) {
-			self::logIssue( $bucketName, '', 'bucket-general-error',
+			$this->logIssue( $bucketName, '', 'bucket-general-error',
 				wfMessage( 'bucket-put-total-too-long' )->numParams( $putLength, $maxiumPutLength )
 			);
 		}
 
 		if ( count( $this->logs ) > 0 ) {
-			self::writePuts( $pageId, $titleText, [ Bucket::ISSUES_BUCKET => array_values( $this->logs ) ], true );
+			$this->writePuts( $pageId, $titleText, [ Bucket::ISSUES_BUCKET => array_values( $this->logs ) ], true );
 			unset( $bucket_hash[Bucket::ISSUES_BUCKET] );
 		}
 
