@@ -2,13 +2,10 @@
 
 namespace MediaWiki\Extension\Bucket\Hooks\Handlers;
 
-use Article;
 use ManualLogEntry;
-use MediaWiki\CommentStore\CommentStoreComment;
+use MediaWiki\Config\Config;
 use MediaWiki\Content\Hook\ContentModelCanBeUsedOnHook;
 use MediaWiki\Content\JsonContent;
-use MediaWiki\Context\IContextSource;
-use MediaWiki\Deferred\LinksUpdate\LinksUpdate;
 use MediaWiki\Extension\Bucket\Bucket;
 use MediaWiki\Extension\Bucket\BucketDatabase;
 use MediaWiki\Extension\Bucket\BucketException;
@@ -23,8 +20,6 @@ use MediaWiki\Hook\ParserClearStateHook;
 use MediaWiki\Hook\ParserLimitReportPrepareHook;
 use MediaWiki\Hook\SidebarBeforeOutputHook;
 use MediaWiki\Hook\TitleIsAlwaysKnownHook;
-use MediaWiki\Linker\LinkTarget;
-use MediaWiki\MediaWikiServices;
 use MediaWiki\Page\Hook\ArticleFromTitleHook;
 use MediaWiki\Page\Hook\BeforeDisplayNoArticleTextHook;
 use MediaWiki\Page\Hook\PageDeleteCompleteHook;
@@ -33,14 +28,10 @@ use MediaWiki\Page\Hook\PageUndeleteCompleteHook;
 use MediaWiki\Page\Hook\PageUndeleteHook;
 use MediaWiki\Page\ProperPageIdentity;
 use MediaWiki\Permissions\Authority;
-use MediaWiki\Revision\RenderedRevision;
+use MediaWiki\Revision\RevisionLookup;
 use MediaWiki\Revision\RevisionRecord;
 use MediaWiki\Revision\SlotRecord;
-use MediaWiki\Status\Status;
 use MediaWiki\Storage\Hook\MultiContentSaveHook;
-use MediaWiki\Title\Title;
-use MediaWiki\User\UserIdentity;
-use Skin;
 use StatusValue;
 
 class GeneralHandler implements
@@ -61,20 +52,20 @@ class GeneralHandler implements
 	ParserLimitReportPrepareHook,
 	PageMoveCompleteHook
 {
-	private function enabledNamespaces() {
-		$config = MediaWikiServices::getInstance()->getMainConfig();
-		return array_keys( $config->get( 'BucketWriteEnabledNamespaces' ), true );
+
+	public function __construct(
+		private readonly Config $config,
+		private readonly RevisionLookup $revisionLookup,
+	) {
 	}
 
-	/**
-	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/LinksUpdateComplete
-	 *
-	 * @param LinksUpdate $linksUpdate
-	 * @param mixed $ticket
-	 * @return void
-	 */
-	public function onLinksUpdateComplete( $linksUpdate, $ticket ) {
-		if ( $linksUpdate->getTitle()->inNamespaces( $this->enabledNamespaces() ) ) {
+	private function getEnabledNamespaces(): array {
+		return array_keys( $this->config->get( 'BucketWriteEnabledNamespaces' ), true );
+	}
+
+	/** @inheritDoc */
+	public function onLinksUpdateComplete( $linksUpdate, $ticket ): void {
+		if ( $linksUpdate->getTitle()->inNamespaces( $this->getEnabledNamespaces() ) ) {
 			$bucketPutsKeys = $linksUpdate->getParserOutput()->getExtensionData( Bucket::EXTENSION_DATA_KEY ) ?? [];
 			$pageId = $linksUpdate->getTitle()->getArticleID();
 			$titleText = $linksUpdate->getTitle()->getPrefixedText();
@@ -92,14 +83,11 @@ class GeneralHandler implements
 		}
 	}
 
-	/**
-	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/PageUndelete
-	 * @return bool
-	 */
+	/** @inheritDoc */
 	public function onPageUndelete(
 		ProperPageIdentity $page, Authority $performer, string $reason, bool $unsuppress, array $timestamps,
 		array $fileVersions, StatusValue $status
-	) {
+	): bool {
 		if ( $page->getNamespace() !== NS_BUCKET ) {
 			return true;
 		}
@@ -117,9 +105,7 @@ class GeneralHandler implements
 		}
 	}
 
-	/**
-	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/PageUndeleteComplete
-	 */
+	/** @inheritDoc */
 	public function onPageUndeleteComplete(
 		ProperPageIdentity $page, Authority $restorer, string $reason, RevisionRecord $restoredRev,
 		ManualLogEntry $logEntry, int $restoredRevisionCount, bool $created, array $restoredPageIds
@@ -139,26 +125,17 @@ class GeneralHandler implements
 		BucketDatabase::createOrModifyTable( $title, $jsonSchema, $isExistingPage );
 	}
 
-	/**
-	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/MultiContentSave
-	 *
-	 * @param RenderedRevision $renderedRevision
-	 * @param UserIdentity $user
-	 * @param CommentStoreComment $summary
-	 * @param int $flags
-	 * @param Status $status
-	 * @return bool|void
-	 */
-	public function onMultiContentSave( $renderedRevision, $user, $summary, $flags, $status ) {
+	/** @inheritDoc */
+	public function onMultiContentSave( $renderedRevision, $user, $summary, $flags, $status ): bool {
 		$revRecord = $renderedRevision->getRevision();
 		$page = $revRecord->getPage();
 		if ( $page->getNamespace() !== NS_BUCKET ) {
-			return;
+			return true;
 		}
 		$content = $revRecord->getContent( SlotRecord::MAIN );
 		if ( !$content instanceof JsonContent || !$content->isValid() ) {
 			// This will fail anyway before saving.
-			return;
+			return true;
 		}
 		$jsonSchema = $content->getData()->value;
 		$title = $page->getDBkey();
@@ -171,21 +148,12 @@ class GeneralHandler implements
 		}
 	}
 
-	/**
-	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/AfterImportPage
-	 *
-	 * @param Title $title
-	 * @param Title $foreignTitle
-	 * @param int $revCount
-	 * @param int $sRevCount
-	 * @param array $pageInfo
-	 */
-	public function onAfterImportPage( $title, $foreignTitle, $revCount, $sRevCount, $pageInfo ) {
+	/** @inheritDoc */
+	public function onAfterImportPage( $title, $foreignTitle, $revCount, $sRevCount, $pageInfo ): void {
 		if ( $title->getNamespace() !== NS_BUCKET ) {
 			return;
 		}
-		$content = MediaWikiServices::getInstance()->getRevisionLookup()->getRevisionByTitle( $title )
-			->getContent( SlotRecord::MAIN );
+		$content = $this->revisionLookup->getRevisionByTitle( $title )->getContent( SlotRecord::MAIN );
 		if ( !$content instanceof JsonContent || !$content->isValid() ) {
 			// This will fail anyway before saving.
 			return;
@@ -196,26 +164,16 @@ class GeneralHandler implements
 		BucketDatabase::createOrModifyTable( $title, $jsonSchema, $isExistingPage );
 	}
 
-	/**
-	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/ScribuntoExternalLibraries
-	 *
-	 * @param string $engine
-	 * @param array &$extraLibraries
-	 * @return void
-	 */
-	public function onScribuntoExternalLibraries( $engine, &$extraLibraries ) {
+	/** @inheritDoc */
+	public function onScribuntoExternalLibraries( $engine, &$extraLibraries ): void {
 		if ( $engine === 'lua' ) {
 			$extraLibraries['mw.ext.bucket'] = LuaLibrary::class;
 		}
 	}
 
-	/**
-	 * @param Skin $skin
-	 * @param array &$sidebar
-	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/SidebarBeforeOutput
-	 */
+	/** @inheritDoc */
 	public function onSidebarBeforeOutput( $skin, &$sidebar ): void {
-		if ( $skin->getTitle()->inNamespaces( $this->enabledNamespaces() ) ) {
+		if ( $skin->getTitle()->inNamespaces( $this->getEnabledNamespaces() ) ) {
 			$sidebar['TOOLBOX'][] = [
 				'text' => $skin->msg( 'bucket-sidebar-action' )->text(),
 				'href' => $skin->getTitle()->getLocalURL( 'action=bucket' ),
@@ -225,27 +183,18 @@ class GeneralHandler implements
 		}
 	}
 
-	/**
-	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/ArticleFromTitle
-	 *
-	 * @param Title $title
-	 * @param Article|null &$article
-	 * @param IContextSource $context
-	 */
-	public function onArticleFromTitle( $title, &$article, $context ) {
+	/** @inheritDoc */
+	public function onArticleFromTitle( $title, &$article, $context ): void {
 		if ( $title->getNamespace() !== NS_BUCKET ) {
 			return;
 		}
 		$article = new BucketPage( $title );
 	}
 
-	/**
-	 * $see https://www.mediawiki.org/wiki/Manual:Hooks/PageDelete
-	 * @return bool
-	 */
+	/** @inheritDoc */
 	public function onPageDelete(
 		ProperPageIdentity $page, Authority $deleter, string $reason, StatusValue $status, bool $suppress
-	) {
+	): bool {
 		if ( $page->getNamespace() !== NS_BUCKET ) {
 			return true;
 		}
@@ -265,12 +214,10 @@ class GeneralHandler implements
 		}
 	}
 
-	/**
-	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/PageDeleteComplete
-	 */
+	/** @inheritDoc */
 	public function onPageDeleteComplete( ProperPageIdentity $page, Authority $deleter, string $reason, int $pageID,
 	  RevisionRecord $deletedRev, ManualLogEntry $logEntry, int $archivedRevisionCount
-	) {
+	): void {
 		if ( $page->getNamespace() !== NS_BUCKET ) {
 			Bucket::writePuts( $page->getId(), '', [] );
 		} else {
@@ -283,32 +230,17 @@ class GeneralHandler implements
 		}
 	}
 
-	/**
-	 * @param LinkTarget $old
-	 * @param LinkTarget $new
-	 * @param UserIdentity $user
-	 * @param int $pageid
-	 * @param int $redirid
-	 * @param string $reason
-	 * @param RevisionRecord $revision
-	 * @return void
-	 */
-	public function onPageMoveComplete( $old, $new, $user, $pageid, $redirid, $reason, $revision ) {
-		$enabledNamespaces = $this->enabledNamespaces();
+	/** @inheritDoc */
+	public function onPageMoveComplete( $old, $new, $user, $pageid, $redirid, $reason, $revision ): void {
+		$enabledNamespaces = $this->getEnabledNamespaces();
 		if ( in_array( $old->getNamespace(), $enabledNamespaces, true )
 			&& !in_array( $new->getNamespace(), $enabledNamespaces, true ) ) {
 			Bucket::writePuts( $pageid, '', [] );
 		}
 	}
 
-	/**
-	 * @param string $contentModel
-	 * @param Title $title
-	 * @param bool &$ok
-	 * @return bool
-	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/ContentModelCanBeUsedOn
-	 */
-	public function onContentModelCanBeUsedOn( $contentModel, $title, &$ok ) {
+	/** @inheritDoc */
+	public function onContentModelCanBeUsedOn( $contentModel, $title, &$ok ): bool {
 		if ( $title->getNamespace() === NS_BUCKET && $contentModel !== 'json' ) {
 			$ok = false;
 			return false;
@@ -316,12 +248,8 @@ class GeneralHandler implements
 		return true;
 	}
 
-	/**
-	 * @param Article $article
-	 * @return bool
-	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/BeforeDisplayNoArticleText
-	 */
-	public function onBeforeDisplayNoArticleText( $article ) {
+	/** @inheritDoc */
+	public function onBeforeDisplayNoArticleText( $article ): bool {
 		if ( $article->getTitle()->getNamespace() !== NS_BUCKET ) {
 			return true;
 		}
@@ -333,12 +261,8 @@ class GeneralHandler implements
 		return true;
 	}
 
-	/**
-	 * @param Title $title
-	 * @param bool &$isKnown
-	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/TitleIsAlwaysKnown
-	 */
-	public function onTitleIsAlwaysKnown( $title, &$isKnown ) {
+	/** @inheritDoc */
+	public function onTitleIsAlwaysKnown( $title, &$isKnown ): void {
 		if ( $title->getNamespace() !== NS_BUCKET ) {
 			return;
 		}
@@ -348,22 +272,15 @@ class GeneralHandler implements
 		}
 	}
 
-	/**
-	 * @param Parser $parser
-	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/ParserClearState
-	 */
-	public function onParserClearState( $parser ) {
+	/** @inheritDoc */
+	public function onParserClearState( $parser ): void {
 		LuaLibrary::clearCache();
 		BucketQuery::clearCache();
 	}
 
-	/**
-	 * @param Parser $parser
-	 * @param Output $output
-	 * @see https://www.mediawiki.org/wiki/Manual:Hooks/ParserLimitReportPrepare
-	 */
-	public function onParserLimitReportPrepare( $parser, $output ) {
-		$maxTime = MediaWikiServices::getInstance()->getMainConfig()->get( 'BucketMaxPageExecutionTime' );
+	/** @inheritDoc */
+	public function onParserLimitReportPrepare( $parser, $output ): void {
+		$maxTime = $this->config->get( 'BucketMaxPageExecutionTime' );
 		$output->setLimitReportData( 'bucket-limitreport-run-time', [
 				// Milliseconds to seconds
 				sprintf( '%.3f', LuaLibrary::getPageElapsedTime() / 1000 ),

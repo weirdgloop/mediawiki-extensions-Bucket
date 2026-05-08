@@ -61,7 +61,11 @@
 	},
 	"HookHandlers": {
 		"main": {
-			"class": "MediaWiki\\Extension\\Bucket\\Hooks\\Handlers\\GeneralHandler"
+			"class": "MediaWiki\\Extension\\Bucket\\Hooks\\Handlers\\GeneralHandler",
+			"services": [
+				"MainConfig",
+				"RevisionLookup"
+			]
 		},
 		"schema": {
 			"class": "MediaWiki\\Extension\\Bucket\\Hooks\\Handlers\\SchemaHandler"
