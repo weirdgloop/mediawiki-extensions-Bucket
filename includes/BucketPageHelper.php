@@ -130,7 +130,7 @@ class BucketPageHelper {
 	 * @param TemplateParser $templateParser
 	 * @param array $schema
 	 * @param array|null $fields
-	 * @param array $result
+	 * @param array|null $result
 	 * @return string - html
 	 */
 	public static function getResultTable(

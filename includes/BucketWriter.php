@@ -3,6 +3,7 @@
 namespace MediaWiki\Extension\Bucket;
 
 use MediaWiki\MediaWikiServices;
+use MediaWiki\Message\Message;
 
 class BucketWriter {
 	/**
@@ -10,12 +11,17 @@ class BucketWriter {
 	 */
 	private array $logs = [];
 
-	public function logIssue( string $bucket, string $property, string $type, string $message ): void {
+	public function logIssue( string $bucket, string $property, string $type, Message|string $message ): void {
 		if ( count( $this->logs ) > 100 ) {
 			return;
 		}
 		if ( $bucket !== '' ) {
 			$bucket = 'Bucket:' . $bucket;
+		}
+		if ( $message instanceof Message ) {
+			// TODO The old code implicitly parsed the message by casting it to a string
+			// - do we actually want/need to do this?
+			$message = $message->parse();
 		}
 		$data = [
 			'bucket' => $bucket,

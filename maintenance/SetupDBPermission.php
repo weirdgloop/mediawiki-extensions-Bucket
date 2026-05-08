@@ -70,7 +70,7 @@ class SetupDBPermission extends Maintenance {
 			if ( !$this->getOption( 'dry-run' ) ) {
 				try {
 					$this->output( $singleQuery . "\n" );
-					$dbw->query( $singleQuery );
+					$dbw->query( $singleQuery, __METHOD__ );
 				} catch ( DBQueryError $e ) {
 					if ( str_contains( $e->getMessage(), 'denied to user' ) ) {
 						$this->output(

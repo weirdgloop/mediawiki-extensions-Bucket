@@ -8,6 +8,7 @@ use MediaWiki\Extension\Scribunto\ScribuntoException;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Parser\Parser;
 use MediaWiki\Parser\ParserOptions;
+use stdClass;
 use Wikimedia\ParamValidator\ParamValidator;
 
 class BucketApi extends ApiBase {
@@ -54,8 +55,8 @@ class BucketApi extends ApiBase {
 		$res = json_decode( $result['return'] );
 		if ( gettype( $res ) == 'array' ) {
 			foreach ( $res as $key => $value ) {
-				if ( is_array( $value ) && empty( $value ) ) {
-					$res[$key] = new \stdClass();
+				if ( $value === [] ) {
+					$res[$key] = new stdClass();
 				}
 			}
 		}
