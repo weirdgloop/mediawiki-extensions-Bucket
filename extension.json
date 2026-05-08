@@ -71,7 +71,13 @@
 		"bucket": "MediaWiki\\Extension\\Bucket\\BucketAction"
 	},
 	"APIModules": {
-		"bucket": "MediaWiki\\Extension\\Bucket\\BucketApi"
+		"bucket": {
+			"class": "MediaWiki\\Extension\\Bucket\\BucketApi",
+			"services": [
+				"Scribunto.EngineFactory",
+				"ParserFactory"
+			]
+		}
 	},
 	"MessagesDirs": {
 		"Bucket": [
