@@ -20,8 +20,14 @@ jobs:
         with:
           php_version: 8.2
 
-      - name: Run tests
+      - name: Run phpcs
         uses: php-actions/composer@v6
         with:
           php_version: 8.2
           command: test
+
+      - name: Run phan
+        uses: php-actions/composer@v6
+        with:
+          php_version: 8.2
+          command: phan
