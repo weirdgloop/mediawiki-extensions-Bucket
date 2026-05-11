@@ -341,6 +341,8 @@ class BucketDatabase {
 			->table( 'bucket_pages' )
 			->lockInShareMode()
 			->where( [ 'bucket_name' => $bucketName ] )
+			// Increase max execution time, necessary for large wikis (> 300k bucket_pages rows)
+			->setMaxExecutionTime( 10000 )
 			->fetchRowCount();
 	}
 
