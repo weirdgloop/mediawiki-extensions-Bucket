@@ -11,6 +11,8 @@ cd mediawiki
 
 composer install
 
+git clone https://github.com/wikimedia/mediawiki-extensions-Scribunto.git extensions/Scribunto
+
 # Temporarily commented out since we don't run any unit tests right now
 : <<'COMMENT'
 php maintenance/install.php --dbtype sqlite --dbuser root --dbname mw --dbpath $(pwd) --pass AdminPassword WikiName AdminUser

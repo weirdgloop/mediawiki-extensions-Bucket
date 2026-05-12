@@ -98,7 +98,7 @@ class BucketWriter {
 			}
 			$bucketName = $bucketNameTmp;
 
-			if ( $bucketName === Bucket::ISSUES_BUCKET && $writingLogs === false ) {
+			if ( $bucketName === Bucket::ISSUES_BUCKET && !$writingLogs ) {
 				$this->logIssue(
 					$bucketName, Bucket::ISSUES_BUCKET, 'bucket-general-error', wfMessage(
 						'bucket-cannot-write-to-system-bucket' ) );
@@ -152,7 +152,7 @@ class BucketWriter {
 					$originalValue = $value;
 					try {
 						$field = $bucketSchema->getFields()[$key];
-						if ( $field->getRepeated() === true ) {
+						if ( $field->getRepeated() ) {
 							if ( !is_array( $value ) ) {
 								// Wrap single values in an array for compatability
 								$value = [ $value ];
@@ -183,7 +183,7 @@ class BucketWriter {
 				$singlePut[$dbw->addIdentifierQuotes( '_index' )] = $idx;
 				$singlePut[$dbw->addIdentifierQuotes( 'page_name' )] = $titleText;
 				$singlePut[$dbw->addIdentifierQuotes( 'page_name_sub' )] = $titleText;
-				if ( isset( $sub ) && strlen( $sub ) > 0 ) {
+				if ( $sub !== null && strlen( $sub ) > 0 ) {
 					$singlePut[$dbw->addIdentifierQuotes( 'page_name_sub' )] = $titleText . '#' . $sub;
 				}
 				$tablePuts[$dbTableName][$idx] = $singlePut;
@@ -234,7 +234,7 @@ class BucketWriter {
 		}
 
 		if ( $putLength > $maxiumPutLength ) {
-			$this->logIssue( $bucketName, '', 'bucket-general-error',
+			$this->logIssue( $bucketName ?? '', '', 'bucket-general-error',
 				wfMessage( 'bucket-put-total-too-long' )->numParams( $putLength, $maxiumPutLength )
 			);
 		}

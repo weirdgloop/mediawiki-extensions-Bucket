@@ -33,7 +33,7 @@ class BucketQuery {
 	private BucketSchema $primarySchema;
 	private array $joins = [];
 	private array $selects = [];
-	private QueryNode $where;
+	private ?QueryNode $where = null;
 	private int $limit = self::DEFAULT_LIMIT;
 	private int $offset = 0;
 	private array $orderByFields = [];
@@ -250,7 +250,7 @@ class BucketQuery {
 	}
 
 	private function getWhereSQL( IDatabase $dbw ): IExpression|array {
-		if ( isset( $this->where ) ) {
+		if ( $this->where !== null ) {
 			try {
 				return $this->where->getWhereSQL( $dbw );
 			} catch ( InvalidArgumentException $e ) {
@@ -316,7 +316,7 @@ class BucketQuery {
 					if (
 						$selector instanceof FieldSelector
 						&& $child->getValue() !== null
-						&& $selector->getFieldSchema()->getRepeated() === true
+						&& $selector->getFieldSchema()->getRepeated()
 					) {
 						$fieldName = $selector->getFieldSchema()->getFieldName();
 						if ( !isset( $subqueryChildren[$fieldName] ) ) {
