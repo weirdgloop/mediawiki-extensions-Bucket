@@ -143,7 +143,7 @@ class SpecialBucket extends SpecialPage {
 			$bucketName = Bucket::getValidBucketName( $bucket );
 		} catch ( SchemaException ) {
 			$out->addWikiTextAsContent( BucketPageHelper::printError(
-				$this->msg( 'bucket-query-bucket-invalid', $bucket )->parse() ) );
+				$this->msg( 'bucket-query-bucket-invalid', $bucket )->text() ) );
 			return;
 		}
 
