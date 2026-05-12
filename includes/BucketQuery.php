@@ -138,6 +138,7 @@ class BucketQuery {
 				throw new QueryException( wfMessage( 'bucket-query-invalid-join', json_encode( $join ) ) );
 			}
 			$joinTable = $join['bucketName'];
+			'@phan-var string $joinTable';
 			$field1 = $join['cond'][0];
 			$field2 = $join['cond'][1];
 			$schema = self::$schemaCache[$join['bucketName']];

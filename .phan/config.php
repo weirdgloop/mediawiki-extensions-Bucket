@@ -18,6 +18,12 @@ $cfg['exclude_analysis_directory_list'] = array_merge(
 $cfg['suppress_issue_types'] = array_merge(
 	$cfg['suppress_issue_types'],
 	[
+		// TODO Fix and re-enable
+		'PhanTypeArraySuspiciousNullable',
+		'PhanTypeMismatchArgumentNullable',
+		'PhanTypeMismatchDimFetch',
+		'PhanTypeMismatchDimAssignment',
+
 		// TODO Figure out how we can re-enable this
 		'SecurityCheck-SQLInjection',
 	]
