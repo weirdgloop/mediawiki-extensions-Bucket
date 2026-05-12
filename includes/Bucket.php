@@ -19,9 +19,9 @@ class Bucket {
 	private static function isValidName( string $name ): bool {
 		if (
 			// Disallow numeric names as the MW RDBMS treats numeric tables names as ints in some circumstances.
-			is_numeric( $name ) === false
+			!is_numeric( $name )
 			&& !str_starts_with( $name, '_' )
-			&& strpos( $name, '__' ) === false
+			&& !str_contains( $name, '__' )
 			&& preg_match( '/^[a-zA-Z0-9_]+$/D', $name )
 		) {
 			return true;
@@ -29,10 +29,8 @@ class Bucket {
 		return false;
 	}
 
-	public static function getValidFieldName( string $bucketName, ?string $fieldName ): string {
-		if ( $fieldName !== null
-			&& self::isValidName( $fieldName )
-		) {
+	public static function getValidFieldName( string $bucketName, string $fieldName ): string {
+		if ( self::isValidName( $fieldName ) ) {
 			$cleanName = strtolower( trim( $fieldName ) );
 			$dbw = BucketDatabase::getDB();
 			$fullName = $dbw->tableName( BucketDatabase::getSubTableName( $bucketName, $cleanName ), 'raw' );
@@ -100,7 +98,7 @@ class Bucket {
 		while ( $dataRow = $res->fetchRow() ) {
 			$resultRow = [];
 			foreach ( $dataRow as $key => $value ) {
-				if ( is_numeric( $key ) === false ) {
+				if ( !is_numeric( $key ) ) {
 					continue;
 				}
 				$field = $fieldNames[$key];

@@ -6,22 +6,69 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    name: "CI: MW ${{ matrix.mw }}, PHP ${{ matrix.php }}"
+    continue-on-error: ${{ matrix.experimental }}
+
+    strategy:
+      matrix:
+        include:
+          - mw: 'REL1_45'
+            php: 8.2
+            experimental: false
+
     steps:
-      - uses: actions/checkout@v3
-
-      - name: Cache Composer dependencies
-        uses: actions/cache@v3
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
         with:
-          path: /tmp/composer-cache
-          key: ${{ runner.os }}-${{ hashFiles('**/composer.lock') }}
+          php-version: ${{ matrix.php }}
+          extensions: mbstring, intl, ast
+          tools: composer
 
-      - name: Install Composer dependencies
-        uses: php-actions/composer@v6
+      - name: Cache MediaWiki
+        id: cache-mediawiki
+        uses: actions/cache@v5
         with:
-          php_version: 8.2
+          path: |
+            mediawiki
+            !mediawiki/extensions/
+            !mediawiki/vendor/
+          key: mw_${{ matrix.mw }}-php${{ matrix.php }}-v1
 
-      - name: Run tests
-        uses: php-actions/composer@v6
+      - name: Cache Composer cache
+        uses: actions/cache@v5
         with:
-          php_version: 8.2
-          command: test
+          path: ~/.composer/cache
+          key: composer-php${{ matrix.php }}
+
+      - uses: actions/checkout@v6
+        with:
+          path: EarlyCopy
+
+      - name: Install MediaWiki
+        if: steps.cache-mediawiki.outputs.cache-hit != 'true'
+        run: bash EarlyCopy/.github/workflows/installWiki.sh ${{ matrix.mw }}
+
+      - uses: actions/checkout@v6
+        with:
+          path: mediawiki/extensions/Bucket
+
+      - name: Composer update (core)
+        run: composer update
+        working-directory: mediawiki
+
+      # TODO Uncomment once we have unit tests
+      #- name: Run PHPUnit
+      #  run: composer run phpunit extensions/Bucket/tests
+      #  working-directory: mediawiki
+
+      - name: Composer update (extension)
+        run: composer update
+        working-directory: mediawiki/extensions/Bucket
+
+      - name: Run phpcs
+        working-directory: mediawiki/extensions/Bucket
+        run: composer run test
+
+      - name: Run phan
+        working-directory: mediawiki/extensions/Bucket
+        run: composer run phan

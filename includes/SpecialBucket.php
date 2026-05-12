@@ -21,7 +21,6 @@ class SpecialBucket extends SpecialPage {
 	 * @param int $limit
 	 * @param int $offset
 	 * @return string
-	 * @throws OOUI\Exception
 	 */
 	private function getQueryBuilder( $bucket, $select, $where, $limit, $offset ) {
 		$inputs = [];
@@ -34,8 +33,8 @@ class SpecialBucket extends SpecialPage {
 			),
 			[
 				'align' => 'right',
-				'label' => $this->msg( 'bucket-view-bucket-name' ),
-				'help' => $this->msg( 'bucket-view-help-bucket-name' )
+				'label' => $this->msg( 'bucket-view-bucket-name' )->text(),
+				'help' => $this->msg( 'bucket-view-help-bucket-name' )->text()
 			]
 		);
 		$inputs[] = new OOUI\FieldLayout(
@@ -47,8 +46,8 @@ class SpecialBucket extends SpecialPage {
 			),
 			[
 				'align' => 'right',
-				'label' => $this->msg( 'bucket-view-select' ),
-				'help' => $this->msg( 'bucket-view-help-select' )
+				'label' => $this->msg( 'bucket-view-select' )->text(),
+				'help' => $this->msg( 'bucket-view-help-select' )->text()
 			]
 		);
 		$inputs[] = new OOUI\FieldLayout(
@@ -60,8 +59,8 @@ class SpecialBucket extends SpecialPage {
 			),
 			[
 				'align' => 'right',
-				'label' => $this->msg( 'bucket-view-where' ),
-				'help' => $this->msg( 'bucket-view-help-where' )
+				'label' => $this->msg( 'bucket-view-where' )->text(),
+				'help' => $this->msg( 'bucket-view-help-where' )->text()
 			]
 		);
 		$inputs[] = new OOUI\FieldLayout(
@@ -75,8 +74,8 @@ class SpecialBucket extends SpecialPage {
 			),
 			[
 				'align' => 'right',
-				'label' => $this->msg( 'bucket-view-limit' ),
-				'help' => $this->msg( 'bucket-view-help-limit' )
+				'label' => $this->msg( 'bucket-view-limit' )->text(),
+				'help' => $this->msg( 'bucket-view-help-limit' )->text()
 			]
 		);
 		$inputs[] = new OOUI\FieldLayout(
@@ -89,15 +88,15 @@ class SpecialBucket extends SpecialPage {
 			),
 			[
 				'align' => 'right',
-				'label' => $this->msg( 'bucket-view-offset' ),
-				'help' => $this->msg( 'bucket-view-help-offset' )
+				'label' => $this->msg( 'bucket-view-offset' )->text(),
+				'help' => $this->msg( 'bucket-view-help-offset' )->text(),
 			]
 		);
 		$inputs[] = new OOUI\FieldLayout(
 			new OOUI\ButtonInputWidget(
 				[
 					'type' => 'submit',
-					'label' => $this->msg( 'bucket-view-submit' ),
+					'label' => $this->msg( 'bucket-view-submit' )->text(),
 					'align' => 'center'
 
 				] ),
@@ -118,7 +117,6 @@ class SpecialBucket extends SpecialPage {
 	/**
 	 * @param string|null $subPage
 	 * @return void
-	 * @throws OOUI\Exception
 	 */
 	public function execute( $subPage ) {
 		$request = $this->getRequest();
@@ -145,7 +143,7 @@ class SpecialBucket extends SpecialPage {
 			$bucketName = Bucket::getValidBucketName( $bucket );
 		} catch ( SchemaException ) {
 			$out->addWikiTextAsContent( BucketPageHelper::printError(
-				$this->msg( 'bucket-query-bucket-invalid', $bucket )->parse() ) );
+				$this->msg( 'bucket-query-bucket-invalid', $bucket )->text() ) );
 			return;
 		}
 
