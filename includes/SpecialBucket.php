@@ -21,7 +21,6 @@ class SpecialBucket extends SpecialPage {
 	 * @param int $limit
 	 * @param int $offset
 	 * @return string
-	 * @throws OOUI\Exception
 	 */
 	private function getQueryBuilder( $bucket, $select, $where, $limit, $offset ) {
 		$inputs = [];
@@ -118,7 +117,6 @@ class SpecialBucket extends SpecialPage {
 	/**
 	 * @param string|null $subPage
 	 * @return void
-	 * @throws OOUI\Exception
 	 */
 	public function execute( $subPage ) {
 		$request = $this->getRequest();

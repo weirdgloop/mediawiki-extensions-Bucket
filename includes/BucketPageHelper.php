@@ -135,7 +135,7 @@ class BucketPageHelper {
 	 */
 	public static function getResultTable(
 		TemplateParser $templateParser, array $schema, ?array $fields, ?array $result ): string {
-		if ( isset( $fields ) && count( $fields ) > 0 ) {
+		if ( $fields ) {
 			$keys = [];
 			$rows = [];
 
@@ -145,7 +145,7 @@ class BucketPageHelper {
 				}
 			}
 
-			if ( isset( $result ) ) {
+			if ( $result !== null ) {
 				foreach ( $result as $row ) {
 					$tr = [];
 					foreach ( $keys as $key ) {

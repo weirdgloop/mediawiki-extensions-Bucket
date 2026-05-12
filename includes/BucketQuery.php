@@ -104,7 +104,7 @@ class BucketQuery {
 			}
 		}
 		// Populate the schema cache with missing schemas
-		if ( !empty( $neededSchemas ) ) {
+		if ( $neededSchemas ) {
 			$dbw = BucketDatabase::getDB();
 			$res = $dbw->newSelectQueryBuilder()
 				->from( 'bucket_schemas' )
@@ -293,7 +293,7 @@ class BucketQuery {
 		$builder->setMaxExecutionTime( $config->get( 'BucketMaxQueryExecutionTime' ) );
 
 		$orderByStrings = [];
-		if ( isset( $this->userOrderByField ) ) {
+		if ( $this->userOrderByField !== null ) {
 			$orderByStrings[] = $this->userOrderByField->getSafe( $dbw );
 		}
 		foreach ( $this->orderByFields as $field ) {
@@ -313,11 +313,7 @@ class BucketQuery {
 				$child = $this->parseWhere( $operand );
 				if ( $child instanceof ComparisonConditionNode ) {
 					$selector = $child->getSelector();
-					if (
-						$selector instanceof FieldSelector
-						&& $child->getValue() !== null
-						&& $selector->getFieldSchema()->getRepeated()
-					) {
+					if ( $selector instanceof FieldSelector && $selector->getFieldSchema()->getRepeated() ) {
 						$fieldName = $selector->getFieldSchema()->getFieldName();
 						if ( !isset( $subqueryChildren[$fieldName] ) ) {
 							$subqueryChildren[$fieldName] = [];

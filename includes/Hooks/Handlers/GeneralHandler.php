@@ -73,6 +73,7 @@ class GeneralHandler implements
 			$bucketPuts = [];
 			foreach ( array_keys( $bucketPutsKeys ) as $key ) {
 				$singlePut = $linksUpdate->getParserOutput()->getExtensionData( Bucket::EXTENSION_DATA_KEY . $key );
+				'@phan-var array $singlePut';
 				$bucketName = $singlePut['bucket'];
 				if ( !isset( $bucketPuts[$bucketName] ) ) {
 					$bucketPuts[$bucketName] = [];
