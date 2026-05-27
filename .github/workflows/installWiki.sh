@@ -11,7 +11,7 @@ cd mediawiki
 
 composer install
 
-git clone https://github.com/wikimedia/mediawiki-extensions-Scribunto.git extensions/Scribunto
+git clone https://github.com/wikimedia/mediawiki-extensions-Scribunto.git -b $MW_BRANCH extensions/Scribunto
 
 # Temporarily commented out since we don't run any unit tests right now
 : <<'COMMENT'
