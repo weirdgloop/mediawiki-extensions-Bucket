@@ -105,12 +105,10 @@ end
 -- This function takes any accepted condition, and outputs a condition formatted as {field, operator, value}
 -- .where{{"a", ">", 0}, {"b", "=", "5"}})
 -- .where("Category:Foo")
--- .where(a = 1, b = 2)
+-- .where({a = 1, b = 2})
 -- .where("id", 100)
 -- .where("id", ">", 100)
-local function standardizeWhere(...)
-    local val = ...
-
+local function standardizeWhere(val)
     if hasOp(val) then
         if val['operands'] ~= nil then
             local children = {}
