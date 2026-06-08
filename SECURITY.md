@@ -11,6 +11,6 @@ Bug bounty payouts are solely at Weird Gloop's discretion, but will usually rang
 * Cross-site scripting
 * Denial-of-service
 
-Bugs in Bucket code that are not security vulnerabilities won't be eligible for the bug bounty program, but we appreciate reports on [GitHub](https://github.com/weirdgloop/mediawiki-extensions-Bucket/issues). You are welcome to test your vulnerability on our [dev wiki](https://en_rsmetawiki.dev.weirdgloop.org/). Please '''do not''' test exploits on our production wikis (runescape.wiki, minecraft.wiki, etc).
+Bugs in Bucket code that are not security vulnerabilities won't be eligible for the bug bounty program, but we appreciate reports on [GitHub](https://github.com/weirdgloop/mediawiki-extensions-Bucket/issues). You are welcome to test your vulnerability on our [dev wiki](https://en_rsmetawiki.dev.weirdgloop.org/). Please **do not** test exploits on our production wikis (runescape.wiki, minecraft.wiki, etc).
 
 Security vulnerabilities in other code used by Weird Gloop (including MediaWiki core, non-Weird Gloop extensions, and other non-Bucket extensions developed by Weird Gloop) are not currently eligible for bug bounty payouts, but if you discover a vulnerability that affects us, we'd still like to hear from you.
