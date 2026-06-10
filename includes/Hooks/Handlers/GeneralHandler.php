@@ -143,12 +143,11 @@ class GeneralHandler implements
 		$isExistingPage = $revRecord->getParentId() !== null;
 		try {
 			BucketDatabase::createOrModifyTable( $title, $jsonSchema, $isExistingPage );
+			return true;
 		} catch ( BucketException $e ) {
 			$status->fatal( $e->getwfMessage() );
 			return false;
 		}
-
-		return true;
 	}
 
 	/** @inheritDoc */
