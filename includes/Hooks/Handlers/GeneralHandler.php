@@ -147,6 +147,8 @@ class GeneralHandler implements
 			$status->fatal( $e->getwfMessage() );
 			return false;
 		}
+
+		return true;
 	}
 
 	/** @inheritDoc */
