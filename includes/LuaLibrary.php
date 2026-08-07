@@ -20,6 +20,7 @@ class LuaLibrary extends LibraryBase {
 		return self::$pageElapsedTime;
 	}
 
+	/** @inheritDoc */
 	public function register() {
 		$lib = [
 			'put' => [ $this, 'bucketPut' ],
