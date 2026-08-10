@@ -26,6 +26,7 @@ class SetupDBPermission extends Maintenance {
 		$this->addOption( 'dry-run', 'Only print the commands without executing them.', false, false );
 	}
 
+	/** @inheritDoc */
 	public function execute() {
 		$config = MediaWikiServices::getInstance()->getMainConfig();
 		$bucketDBuser = $this->getOption( 'bucket_user', $config->get( 'BucketDBuser' ) );

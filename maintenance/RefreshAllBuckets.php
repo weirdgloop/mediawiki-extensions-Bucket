@@ -22,6 +22,7 @@ class RefreshAllBuckets extends Maintenance {
 		$this->addDescription( 'Queue refresh links for all bucket writers' );
 	}
 
+	/** @inheritDoc */
 	public function execute() {
 		$services = MediaWikiServices::getInstance();
 		$bucketNS = $services->getNamespaceInfo()->getCanonicalIndex( 'bucket' );
