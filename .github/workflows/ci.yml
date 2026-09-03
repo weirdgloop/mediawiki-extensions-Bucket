@@ -1,77 +1,24 @@
-name: CI
+name: Run CI
 
 on: [push]
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    name: "CI: MW ${{ matrix.mw }}, PHP ${{ matrix.php }}"
-    continue-on-error: ${{ matrix.experimental }}
-
+  ci:
     strategy:
       matrix:
         include:
-          - mw: 'REL1_45'
-            php: 8.2
+          - mw-branch: REL1_45
+            php-version: 8.2
             experimental: false
-          - mw: 'REL1_46'
-            php: 8.3
+          - mw_branch: REL1_46
+            php-version: 8.3
             experimental: false
 
-    steps:
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: ${{ matrix.php }}
-          extensions: mbstring, intl, ast
-          tools: composer
-
-      - name: Cache MediaWiki
-        id: cache-mediawiki
-        uses: actions/cache@v5
-        with:
-          path: |
-            mediawiki
-            !mediawiki/extensions/
-            !mediawiki/vendor/
-          key: mw_${{ matrix.mw }}-php${{ matrix.php }}-v1
-
-      - name: Cache Composer cache
-        uses: actions/cache@v5
-        with:
-          path: ~/.composer/cache
-          key: composer-php${{ matrix.php }}
-
-      - uses: actions/checkout@v6
-        with:
-          path: EarlyCopy
-
-      - name: Install MediaWiki
-        if: steps.cache-mediawiki.outputs.cache-hit != 'true'
-        run: bash EarlyCopy/.github/workflows/installWiki.sh ${{ matrix.mw }}
-
-      - uses: actions/checkout@v6
-        with:
-          path: mediawiki/extensions/Bucket
-
-      - name: Composer update (core)
-        run: composer update
-        working-directory: mediawiki
-
-      # TODO Uncomment once we have unit tests
-      #- name: Run PHPUnit
-      #  run: composer run phpunit extensions/Bucket/tests
-      #  working-directory: mediawiki
-
-      - name: Composer update (extension)
-        run: composer update
-        working-directory: mediawiki/extensions/Bucket
-
-      - name: Run phpcs
-        working-directory: mediawiki/extensions/Bucket
-        run: composer run test
-
-      - name: Run phan
-        working-directory: mediawiki/extensions/Bucket
-        run: composer run phan
+    uses: weirdgloop/ci-workflows/.github/workflows/extension-ci.yml@main
+    with:
+      extension-name: Bucket
+      mw-branch: ${{ matrix.mw-branch }}
+      php-version: ${{ matrix.php-version }}
+      experimental: ${{ matrix.experimental }}
+      # We don't have any phpunit tests yet
+      phpunit: false
