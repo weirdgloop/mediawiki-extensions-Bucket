@@ -1,0 +1,11 @@
+name: Lint code
+on:
+  push:
+jobs:
+  lint:
+    uses: weirdgloop/ci-workflows/.github/workflows/extension-lint.yml@main
+    with:
+      php-version: 8.2
+      node-version: 24
+      # TODO: Enable this and lint i18n files + resources
+      lint-js: false
