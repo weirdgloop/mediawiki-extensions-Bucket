@@ -25,21 +25,21 @@
 		"MediaWiki\\Extension\\Bucket\\Hooks\\Handlers": "includes/Hooks/Handlers"
 	},
 	"namespaces": [
-			{
-				"id": 9592,
-				"constant": "NS_BUCKET",
-				"name": "Bucket",
-				"subpages": false,
-				"movable": false,
-				"defaultcontentmodel": "json",
-				"protection": "editbucket"
-			},
-			{
-				"id": 9593,
-				"constant": "NS_BUCKET_TALK",
-				"name": "Bucket_talk",
-				"subpages": true
-			}
+		{
+			"id": 9592,
+			"constant": "NS_BUCKET",
+			"name": "Bucket",
+			"subpages": false,
+			"movable": false,
+			"defaultcontentmodel": "json",
+			"protection": "editbucket"
+		},
+		{
+			"id": 9593,
+			"constant": "NS_BUCKET_TALK",
+			"name": "Bucket_talk",
+			"subpages": true
+		}
 	],
 	"Hooks": {
 		"LinksUpdateComplete": "main",

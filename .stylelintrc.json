@@ -1,0 +1,10 @@
+{
+	"extends": [
+		"stylelint-config-wikimedia/support-basic",
+		"stylelint-config-wikimedia/mediawiki"
+	],
+	"rules": {
+		"selector-class-pattern": "^((ext|mw|oo-ui|cdx|client|skin)-|bucket_|noresize|wikitable)",
+		"selector-max-id": null
+	}
+}
