@@ -321,7 +321,8 @@ class BucketDatabase {
 
 		// Create a key to match the main table primary key
 		$createTableFragments[] = 'INDEX idx_page_index (_page_id, _index)';
-		$dbTableName = self::getSubTableName( $newSchema->getName(), $originalField->getFieldName() );
+		$dbTableName = $dbw->tableName(
+			self::getSubTableName( $newSchema->getName(), $originalField->getFieldName() ) );
 		return [
 			'permissionName' => $dbTableName,
 			'statement' =>
