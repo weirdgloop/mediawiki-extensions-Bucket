@@ -151,7 +151,7 @@
 		}
 	},
 	"GrantPermissions": {
-		"editpage": {
+		"editprotected": {
 			"editbucket": true
 		}
 	},
