@@ -150,6 +150,11 @@
 			"editbucket": true
 		}
 	},
+	"GrantPermissions": {
+		"editpage": {
+			"editbucket": true
+		}
+	},
 	"ConfigRegistry": {
 		"bucket": "GlobalVarConfig::newInstance"
 	},
