@@ -14,7 +14,7 @@ jobs:
             php-version: 8.3
             experimental: false
 
-    uses: weirdgloop/ci-workflows/.github/workflows/extension-ci.yml@srd/structure-tests
+    uses: weirdgloop/ci-workflows/.github/workflows/extension-ci.yml@main
     with:
       extension-name: Bucket
       mw-branch: ${{ matrix.mw-branch }}
