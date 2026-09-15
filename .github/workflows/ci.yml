@@ -22,3 +22,5 @@ jobs:
       experimental: ${{ matrix.experimental }}
       # We don't have any phpunit tests yet
       phpunit: false
+      structure-tests: true
+      db-type: 'mariadb'

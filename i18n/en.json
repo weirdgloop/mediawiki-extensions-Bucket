@@ -10,6 +10,7 @@
 	"bucket-desc": "Implements a lightweight interface for storing and accessing structured data",
 	"bucket": "Browse bucket",
 	"right-editbucket": "Edit pages containing bucket schema",
+	"action-editbucket": "edit pages containing bucket schema",
 	"bucket-sidebar-action": "View buckets",
 	"bucket-view-bucket-name": "Bucket",
 	"bucket-view-help-bucket-name": "The current bucket name",
