@@ -23,7 +23,8 @@ class BucketDatabase {
 		}
 
 		if ( defined( 'MW_PHPUNIT_TEST' ) ) {
-			self::$db = MediaWikiServices::getInstance()->getDBLoadBalancer()->getMaintenanceConnectionRef( DB_PRIMARY );
+			self::$db = MediaWikiServices::getInstance()->getDBLoadBalancer()
+				->getMaintenanceConnectionRef( DB_PRIMARY );
 			return self::$db;
 		}
 
