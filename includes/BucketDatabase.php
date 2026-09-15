@@ -22,6 +22,11 @@ class BucketDatabase {
 			throw new ConfigException( 'BucketDBuser and BucketDBpassword are required config options' );
 		}
 
+		if ( defined( 'MW_PHPUNIT_TEST' ) ) {
+			self::$db = MediaWikiServices::getInstance()->getDBLoadBalancer()->getMaintenanceConnectionRef( DB_PRIMARY );
+			return self::$db;
+		}
+
 		$mainDB = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnection( DB_PRIMARY );
 		$params = [
 			'host' => $mainDB->getServer(),
