@@ -1,6 +1,7 @@
 name: Lint code
 on:
   push:
+  pull_request:
 jobs:
   lint:
     uses: weirdgloop/ci-workflows/.github/workflows/extension-lint.yml@main
