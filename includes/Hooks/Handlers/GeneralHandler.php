@@ -221,7 +221,7 @@ class GeneralHandler implements
 	  RevisionRecord $deletedRev, ManualLogEntry $logEntry, int $archivedRevisionCount
 	): void {
 		if ( $page->getNamespace() !== NS_BUCKET ) {
-			Bucket::writePuts( $page->getId(), '', [] );
+			Bucket::writePuts( $pageID, '', [] );
 		} else {
 			try {
 				BucketDatabase::deleteTable( $page->getDBkey() );
