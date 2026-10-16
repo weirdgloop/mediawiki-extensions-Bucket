@@ -107,7 +107,10 @@ class BucketPage extends Article {
 					$this->templateParser, $schemas[$bucketName], $fullResult['fields'], $queryResult ),
 				'diveText' => $linkRenderer->makePreloadedLink(
 					SpecialPage::getTitleValueFor( 'Bucket' ),
-					$out->msg( 'bucket-page-dive-text' )->parse(), '', [], [ 'bucket' => $bucketName ]
+					$out->msg( 'bucket-page-dive-text' )->text(),
+					'',
+					[],
+					[ 'bucket' => $bucketName ]
 				)
 			]
 		);

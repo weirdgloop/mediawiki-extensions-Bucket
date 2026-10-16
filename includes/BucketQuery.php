@@ -33,7 +33,7 @@ class BucketQuery {
 	private BucketSchema $primarySchema;
 	private array $joins = [];
 	private array $selects = [];
-	private QueryNode $where;
+	private ?QueryNode $where = null;
 	private int $limit = self::DEFAULT_LIMIT;
 	private int $offset = 0;
 	private array $orderByFields = [];
@@ -104,7 +104,7 @@ class BucketQuery {
 			}
 		}
 		// Populate the schema cache with missing schemas
-		if ( !empty( $neededSchemas ) ) {
+		if ( $neededSchemas ) {
 			$dbw = BucketDatabase::getDB();
 			$res = $dbw->newSelectQueryBuilder()
 				->from( 'bucket_schemas' )
@@ -138,6 +138,7 @@ class BucketQuery {
 				throw new QueryException( wfMessage( 'bucket-query-invalid-join', json_encode( $join ) ) );
 			}
 			$joinTable = $join['bucketName'];
+			'@phan-var string $joinTable';
 			$field1 = $join['cond'][0];
 			$field2 = $join['cond'][1];
 			$schema = self::$schemaCache[$join['bucketName']];
@@ -250,7 +251,7 @@ class BucketQuery {
 	}
 
 	private function getWhereSQL( IDatabase $dbw ): IExpression|array {
-		if ( isset( $this->where ) ) {
+		if ( $this->where !== null ) {
 			try {
 				return $this->where->getWhereSQL( $dbw );
 			} catch ( InvalidArgumentException $e ) {
@@ -293,7 +294,7 @@ class BucketQuery {
 		$builder->setMaxExecutionTime( $config->get( 'BucketMaxQueryExecutionTime' ) );
 
 		$orderByStrings = [];
-		if ( isset( $this->userOrderByField ) ) {
+		if ( $this->userOrderByField !== null ) {
 			$orderByStrings[] = $this->userOrderByField->getSafe( $dbw );
 		}
 		foreach ( $this->orderByFields as $field ) {
@@ -313,11 +314,7 @@ class BucketQuery {
 				$child = $this->parseWhere( $operand );
 				if ( $child instanceof ComparisonConditionNode ) {
 					$selector = $child->getSelector();
-					if (
-						$selector instanceof FieldSelector
-						&& $child->getValue() !== null
-						&& $selector->getFieldSchema()->getRepeated() === true
-					) {
+					if ( $selector instanceof FieldSelector && $selector->getFieldSchema()->getRepeated() ) {
 						$fieldName = $selector->getFieldSchema()->getFieldName();
 						if ( !isset( $subqueryChildren[$fieldName] ) ) {
 							$subqueryChildren[$fieldName] = [];

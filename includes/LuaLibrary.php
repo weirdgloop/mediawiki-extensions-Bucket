@@ -52,7 +52,6 @@ class LuaLibrary extends LibraryBase {
 			} catch ( MalformedTitleException ) {
 				// Just ignore it, an error will be logged later
 			}
-			$bucketPuts[ $bucketName ] = [];
 		}
 		$uuid = MediaWikiServices::getInstance()->getGlobalIdGenerator()->newUUIDv4();
 		$parserOutput->appendExtensionData( Bucket::EXTENSION_DATA_KEY, $uuid );

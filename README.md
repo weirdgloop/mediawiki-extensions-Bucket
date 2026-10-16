@@ -19,8 +19,12 @@ Bucket is still under active development, and the API and schema are unstable an
 ```sql
 CREATE USER 'bucket'@'<SERVER_HOSTNAME>' IDENTIFIED BY '<PASSWORD>';
 ```
-4. Ensure the configuration variables are set correctly (see table below)
-5. Run `php maintenance/run.php Bucket:SetupDBPermission` to setup required database permissions
+4. Grant the wiki's own database user (`$wgDBuser`) the `GRANT OPTION` on the wiki database, so Bucket can delegate access to the Bucket user, e.g
+```sql
+GRANT ALL PRIVILEGES ON `<WIKI_DATABASE>`.* TO '<WIKI_DB_USER>'@'<SERVER_HOSTNAME>' WITH GRANT OPTION;
+```
+5. Ensure the configuration variables are set correctly (see table below)
+6. Run `php maintenance/run.php Bucket:SetupDBPermission` to setup required database permissions
 
 ## Configuration
  | Variable | Description | Default

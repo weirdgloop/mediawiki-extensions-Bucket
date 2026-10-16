@@ -25,6 +25,16 @@ $namespaceNames['ja'] = [
 	9593 => 'Bucket・トーク',
 ];
 
+$namespaceNames['pt'] = [
+	9592 => 'Bucket',
+	9593 => 'Bucket_Discussão',
+];
+
+$namespaceNames['pt-br'] = [
+	9592 => 'Bucket',
+	9593 => 'Bucket_Discussão',
+];
+
 $namespaceNames['uk'] = [
 	9592 => 'Bucket',
 	9593 => 'Обговорення_Bucket',

@@ -3,14 +3,25 @@
 namespace MediaWiki\Extension\Bucket;
 
 use MediaWiki\Api\ApiBase;
-use MediaWiki\Extension\Scribunto\Scribunto;
+use MediaWiki\Api\ApiMain;
+use MediaWiki\Extension\Scribunto\EngineFactory;
 use MediaWiki\Extension\Scribunto\ScribuntoException;
-use MediaWiki\MediaWikiServices;
 use MediaWiki\Parser\Parser;
+use MediaWiki\Parser\ParserFactory;
 use MediaWiki\Parser\ParserOptions;
+use stdClass;
 use Wikimedia\ParamValidator\ParamValidator;
 
 class BucketApi extends ApiBase {
+
+	public function __construct(
+		ApiMain $mainModule,
+		string $moduleName,
+		private readonly EngineFactory $engineFactory,
+		private readonly ParserFactory $parserFactory,
+	) {
+		parent::__construct( $mainModule, $moduleName );
+	}
 
 	public function execute() {
 		$this->getMain()->setCacheMode( 'public' );
@@ -31,10 +42,10 @@ class BucketApi extends ApiBase {
 			return;
 		}
 
-		$parser = MediaWikiServices::getInstance()->getParser();
+		$parser = $this->parserFactory->create();
 		$options = new ParserOptions( $this->getUser() );
 		$parser->startExternalParse( $title, $options, Parser::OT_HTML, true );
-		$engine = Scribunto::getParserEngine( $parser );
+		$engine = $this->engineFactory->getEngineForParser( $parser );
 		try {
 			$result = $engine->runConsole( [
 				'title' => $title,
@@ -54,8 +65,8 @@ class BucketApi extends ApiBase {
 		$res = json_decode( $result['return'] );
 		if ( gettype( $res ) == 'array' ) {
 			foreach ( $res as $key => $value ) {
-				if ( is_array( $value ) && empty( $value ) ) {
-					$res[$key] = new \stdClass();
+				if ( $value === [] ) {
+					$res[$key] = new stdClass();
 				}
 			}
 		}

@@ -61,7 +61,11 @@
 	},
 	"HookHandlers": {
 		"main": {
-			"class": "MediaWiki\\Extension\\Bucket\\Hooks\\Handlers\\GeneralHandler"
+			"class": "MediaWiki\\Extension\\Bucket\\Hooks\\Handlers\\GeneralHandler",
+			"services": [
+				"MainConfig",
+				"RevisionLookup"
+			]
 		},
 		"schema": {
 			"class": "MediaWiki\\Extension\\Bucket\\Hooks\\Handlers\\SchemaHandler"
@@ -71,7 +75,13 @@
 		"bucket": "MediaWiki\\Extension\\Bucket\\BucketAction"
 	},
 	"APIModules": {
-		"bucket": "MediaWiki\\Extension\\Bucket\\BucketApi"
+		"bucket": {
+			"class": "MediaWiki\\Extension\\Bucket\\BucketApi",
+			"services": [
+				"Scribunto.EngineFactory",
+				"ParserFactory"
+			]
+		}
 	},
 	"MessagesDirs": {
 		"Bucket": [
