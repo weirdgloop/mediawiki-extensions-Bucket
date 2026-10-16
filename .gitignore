@@ -1,2 +1,5 @@
 /composer.lock
 /vendor/
+.eslintcache
+.stylelintcache
+node_modules

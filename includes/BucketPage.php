@@ -2,11 +2,11 @@
 
 namespace MediaWiki\Extension\Bucket;
 
-use Article;
 use MediaWiki\Html\TemplateParser;
 use MediaWiki\MediaWikiServices;
+use MediaWiki\Page\Article;
 use MediaWiki\SpecialPage\SpecialPage;
-use Mediawiki\Title\Title;
+use MediaWiki\Title\Title;
 use Wikimedia\Rdbms\DBQueryTimeoutError;
 
 class BucketPage extends Article {

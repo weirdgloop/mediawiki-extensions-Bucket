@@ -2,7 +2,6 @@
 
 namespace MediaWiki\Extension\Bucket\Hooks\Handlers;
 
-use ManualLogEntry;
 use MediaWiki\Config\Config;
 use MediaWiki\Content\Hook\ContentModelCanBeUsedOnHook;
 use MediaWiki\Content\JsonContent;
@@ -20,6 +19,7 @@ use MediaWiki\Hook\ParserClearStateHook;
 use MediaWiki\Hook\ParserLimitReportPrepareHook;
 use MediaWiki\Hook\SidebarBeforeOutputHook;
 use MediaWiki\Hook\TitleIsAlwaysKnownHook;
+use MediaWiki\Logging\ManualLogEntry;
 use MediaWiki\Page\Hook\ArticleFromTitleHook;
 use MediaWiki\Page\Hook\BeforeDisplayNoArticleTextHook;
 use MediaWiki\Page\Hook\PageDeleteCompleteHook;

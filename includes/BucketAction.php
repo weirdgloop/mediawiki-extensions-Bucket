@@ -2,12 +2,12 @@
 
 namespace MediaWiki\Extension\Bucket;
 
-use Action;
-use Article;
+use MediaWiki\Actions\Action;
 use MediaWiki\Context\IContextSource;
 use MediaWiki\Html\Html;
 use MediaWiki\Html\TemplateParser;
 use MediaWiki\MediaWikiServices;
+use MediaWiki\Page\Article;
 use MediaWiki\Title\TitleValue;
 
 class BucketAction extends Action {
