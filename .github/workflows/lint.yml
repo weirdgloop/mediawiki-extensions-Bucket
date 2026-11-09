@@ -6,5 +6,5 @@ jobs:
   lint:
     uses: weirdgloop/ci-workflows/.github/workflows/extension-lint.yml@main
     with:
-      php-version: 8.2
+      php-version: 8.3
       node-version: 24
