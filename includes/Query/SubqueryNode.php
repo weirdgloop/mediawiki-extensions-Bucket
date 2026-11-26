@@ -1,7 +1,8 @@
 <?php
 
-namespace MediaWiki\Extension\Bucket;
+namespace MediaWiki\Extension\Bucket\Query;
 
+use MediaWiki\Extension\Bucket\BucketDatabase;
 use Wikimedia\Rdbms\IDatabase;
 use Wikimedia\Rdbms\IExpression;
 use Wikimedia\Rdbms\RawSQLExpression;

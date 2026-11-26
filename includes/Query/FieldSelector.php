@@ -1,7 +1,11 @@
 <?php
 
-namespace MediaWiki\Extension\Bucket;
+namespace MediaWiki\Extension\Bucket\Query;
 
+use MediaWiki\Extension\Bucket\BucketDatabase;
+use MediaWiki\Extension\Bucket\BucketSchema;
+use MediaWiki\Extension\Bucket\BucketSchemaField;
+use MediaWiki\Extension\Bucket\QueryException;
 use Wikimedia\Rdbms\IDatabase;
 
 class FieldSelector extends Selector {

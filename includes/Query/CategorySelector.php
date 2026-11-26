@@ -1,7 +1,8 @@
 <?php
 
-namespace MediaWiki\Extension\Bucket;
+namespace MediaWiki\Extension\Bucket\Query;
 
+use MediaWiki\Extension\Bucket\QueryException;
 use Wikimedia\Rdbms\IDatabase;
 
 class CategorySelector extends Selector {

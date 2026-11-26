@@ -1,8 +1,12 @@
 <?php
 
-namespace MediaWiki\Extension\Bucket;
+namespace MediaWiki\Extension\Bucket\Query;
 
 use InvalidArgumentException;
+use MediaWiki\Extension\Bucket\BucketDatabase;
+use MediaWiki\Extension\Bucket\BucketException;
+use MediaWiki\Extension\Bucket\BucketSchema;
+use MediaWiki\Extension\Bucket\QueryException;
 use MediaWiki\Linker\LinksMigration;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Title\Title;
