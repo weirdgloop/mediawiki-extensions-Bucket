@@ -1,6 +1,6 @@
 <?php
 
-namespace MediaWiki\Extension\Bucket;
+namespace MediaWiki\Extension\Bucket\Schema;
 
 enum BucketValueType: string {
 	case Text = 'TEXT';

@@ -4,6 +4,9 @@ namespace MediaWiki\Extension\Bucket;
 
 use MediaWiki\Config\ConfigException;
 use MediaWiki\Extension\Bucket\Exception\SchemaException;
+use MediaWiki\Extension\Bucket\Schema\BucketSchema;
+use MediaWiki\Extension\Bucket\Schema\BucketSchemaField;
+use MediaWiki\Extension\Bucket\Schema\BucketValueType;
 use MediaWiki\MediaWikiServices;
 use Wikimedia\Rdbms\IDatabase;
 use Wikimedia\Rdbms\IMaintainableDatabase;
