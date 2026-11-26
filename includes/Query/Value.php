@@ -2,7 +2,7 @@
 
 namespace MediaWiki\Extension\Bucket\Query;
 
-use MediaWiki\Extension\Bucket\QueryException;
+use MediaWiki\Extension\Bucket\Exception\QueryException;
 
 class Value {
 	private mixed $value;

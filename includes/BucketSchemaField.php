@@ -3,6 +3,7 @@
 namespace MediaWiki\Extension\Bucket;
 
 use JsonSerializable;
+use MediaWiki\Extension\Bucket\Exception\BucketException;
 
 class BucketSchemaField implements JsonSerializable {
 	private string $fieldName;

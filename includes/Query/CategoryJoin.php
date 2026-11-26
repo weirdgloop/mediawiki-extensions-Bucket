@@ -2,7 +2,7 @@
 
 namespace MediaWiki\Extension\Bucket\Query;
 
-use MediaWiki\Extension\Bucket\QueryException;
+use MediaWiki\Extension\Bucket\Exception\QueryException;
 use MediaWiki\Title\Title;
 use Wikimedia\Rdbms\IDatabase;
 

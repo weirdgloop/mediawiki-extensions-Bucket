@@ -4,9 +4,9 @@ namespace MediaWiki\Extension\Bucket\Query;
 
 use InvalidArgumentException;
 use MediaWiki\Extension\Bucket\BucketDatabase;
-use MediaWiki\Extension\Bucket\BucketException;
 use MediaWiki\Extension\Bucket\BucketSchema;
-use MediaWiki\Extension\Bucket\QueryException;
+use MediaWiki\Extension\Bucket\Exception\BucketException;
+use MediaWiki\Extension\Bucket\Exception\QueryException;
 use MediaWiki\Linker\LinksMigration;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Title\Title;

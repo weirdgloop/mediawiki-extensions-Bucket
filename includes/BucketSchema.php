@@ -3,6 +3,7 @@
 namespace MediaWiki\Extension\Bucket;
 
 use JsonSerializable;
+use MediaWiki\Extension\Bucket\Exception\QueryException;
 use Wikimedia\Rdbms\IDatabase;
 
 /**

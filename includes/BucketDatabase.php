@@ -3,6 +3,7 @@
 namespace MediaWiki\Extension\Bucket;
 
 use MediaWiki\Config\ConfigException;
+use MediaWiki\Extension\Bucket\Exception\SchemaException;
 use MediaWiki\MediaWikiServices;
 use Wikimedia\Rdbms\IDatabase;
 use Wikimedia\Rdbms\IMaintainableDatabase;

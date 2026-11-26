@@ -2,6 +2,7 @@
 
 namespace MediaWiki\Extension\Bucket;
 
+use MediaWiki\Extension\Bucket\Exception\SchemaException;
 use MediaWiki\Extension\Bucket\Query\BucketQuery;
 use MediaWiki\Extension\Bucket\Query\FieldSelector;
 use MediaWiki\Logger\LoggerFactory;

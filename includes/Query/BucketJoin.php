@@ -3,7 +3,7 @@
 namespace MediaWiki\Extension\Bucket\Query;
 
 use MediaWiki\Extension\Bucket\BucketSchema;
-use MediaWiki\Extension\Bucket\QueryException;
+use MediaWiki\Extension\Bucket\Exception\QueryException;
 use Wikimedia\Rdbms\IDatabase;
 
 class BucketJoin extends Join {
