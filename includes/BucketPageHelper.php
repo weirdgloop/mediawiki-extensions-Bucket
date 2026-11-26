@@ -3,6 +3,7 @@
 namespace MediaWiki\Extension\Bucket;
 
 use MediaWiki\Api\ApiMain;
+use MediaWiki\Extension\Bucket\Exception\SchemaException;
 use MediaWiki\Html\Html;
 use MediaWiki\Html\TemplateParser;
 use MediaWiki\MediaWikiServices;

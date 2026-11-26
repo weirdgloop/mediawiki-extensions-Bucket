@@ -2,6 +2,7 @@
 
 namespace MediaWiki\Extension\Bucket;
 
+use MediaWiki\Extension\Bucket\Exception\SchemaException;
 use MediaWiki\Html\TemplateParser;
 use MediaWiki\SpecialPage\SpecialPage;
 use OOUI;

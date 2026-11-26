@@ -1,6 +1,6 @@
 <?php
 
-namespace MediaWiki\Extension\Bucket;
+namespace MediaWiki\Extension\Bucket\Query;
 
 use Wikimedia\Rdbms\IDatabase;
 use Wikimedia\Rdbms\IExpression;

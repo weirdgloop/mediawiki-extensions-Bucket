@@ -1,6 +1,6 @@
 <?php
 
-namespace MediaWiki\Extension\Bucket;
+namespace MediaWiki\Extension\Bucket\Query;
 
 abstract class GroupNode extends QueryNode {
 	protected array $children;

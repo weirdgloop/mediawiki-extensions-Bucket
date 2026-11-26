@@ -2,6 +2,9 @@
 
 namespace MediaWiki\Extension\Bucket;
 
+use MediaWiki\Extension\Bucket\Exception\BucketException;
+use MediaWiki\Extension\Bucket\Exception\SchemaException;
+use MediaWiki\Extension\Bucket\Schema\BucketSchema;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Message\Message;
 

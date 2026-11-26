@@ -1,8 +1,10 @@
 <?php
 
-namespace MediaWiki\Extension\Bucket;
+namespace MediaWiki\Extension\Bucket\Schema;
 
 use JsonSerializable;
+use MediaWiki\Extension\Bucket\BucketDatabase;
+use MediaWiki\Extension\Bucket\Exception\QueryException;
 use Wikimedia\Rdbms\IDatabase;
 
 /**

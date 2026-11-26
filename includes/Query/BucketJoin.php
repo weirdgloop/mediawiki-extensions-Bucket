@@ -1,7 +1,9 @@
 <?php
 
-namespace MediaWiki\Extension\Bucket;
+namespace MediaWiki\Extension\Bucket\Query;
 
+use MediaWiki\Extension\Bucket\Exception\QueryException;
+use MediaWiki\Extension\Bucket\Schema\BucketSchema;
 use Wikimedia\Rdbms\IDatabase;
 
 class BucketJoin extends Join {

@@ -1,6 +1,6 @@
 <?php
 
-namespace MediaWiki\Extension\Bucket;
+namespace MediaWiki\Extension\Bucket\Exception;
 
 use LogicException;
 use MediaWiki\Message\Message;

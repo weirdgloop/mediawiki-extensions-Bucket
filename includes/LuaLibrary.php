@@ -2,6 +2,7 @@
 
 namespace MediaWiki\Extension\Bucket;
 
+use MediaWiki\Extension\Bucket\Exception\BucketException;
 use MediaWiki\Extension\Scribunto\Engines\LuaCommon\LibraryBase;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Title\MalformedTitleException;

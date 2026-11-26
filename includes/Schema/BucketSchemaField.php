@@ -1,8 +1,11 @@
 <?php
 
-namespace MediaWiki\Extension\Bucket;
+namespace MediaWiki\Extension\Bucket\Schema;
 
 use JsonSerializable;
+use MediaWiki\Extension\Bucket\Bucket;
+use MediaWiki\Extension\Bucket\DatabaseValueType;
+use MediaWiki\Extension\Bucket\Exception\BucketException;
 
 class BucketSchemaField implements JsonSerializable {
 	private string $fieldName;

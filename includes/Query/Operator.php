@@ -1,6 +1,8 @@
 <?php
 
-namespace MediaWiki\Extension\Bucket;
+namespace MediaWiki\Extension\Bucket\Query;
+
+use MediaWiki\Extension\Bucket\Exception\QueryException;
 
 class Operator {
 	private const WHERE_OPS = [
